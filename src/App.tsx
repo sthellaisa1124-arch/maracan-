@@ -32,13 +32,20 @@ function App() {
   }, []);
 
   async function checkAdmin(userId: string) {
-    const { data } = await supabase
+    console.log("Checking admin for user:", userId);
+    const { data, error } = await supabase
       .from('profiles')
       .select('is_admin')
       .eq('id', userId)
       .single();
     
-    if (data?.is_admin) setIsAdmin(true);
+    if (error) console.error("Admin check error:", error);
+    console.log("Admin data received:", data);
+    
+    if (data?.is_admin) {
+      console.log("User is ADMIN!");
+      setIsAdmin(true);
+    }
   }
 
   if (loading) {

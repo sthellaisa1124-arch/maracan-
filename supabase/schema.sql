@@ -37,7 +37,7 @@ CREATE TABLE posts (
   content TEXT,
   media_url TEXT,
   media_type TEXT CHECK (media_type IN ('image', 'video')),
-  author_id UUID REFERENCES auth.users NOT NULL,
+  author_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

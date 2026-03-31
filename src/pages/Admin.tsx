@@ -56,8 +56,6 @@ export function Admin() {
 
   return (
     <div className="admin-page">
-      <h2 className="section-title"><ShieldCheck size={32} /> Painel do Dono</h2>
-
       <div className="admin-grid">
         {/* Criar Post */}
         <section className="card admin-card">
