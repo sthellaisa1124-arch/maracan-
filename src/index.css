@@ -42,13 +42,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at top left, var(--primary-color), transparent 20%),
-              radial-gradient(circle at bottom right, var(--accent-color), transparent 20%);
+  background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.7)),
+              url('/assets/iai_cria_background_rio.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   padding: 1rem;
 }
 
 .auth-card {
-  background: var(--card-bg);
+  background: rgba(28, 25, 23, 0.85);
+  backdrop-filter: blur(12px);
   padding: 3rem;
   border-radius: 2rem;
   width: 100%;
