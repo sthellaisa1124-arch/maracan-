@@ -34,32 +34,48 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      <header>
-        <div className="logo">IAI CRIA 🌴</div>
-        <div className="user-nav">
-          <span className="welcome-msg">Fala, {session.user.user_metadata.username || 'Cria'}! ✌️</span>
-          <button onClick={() => supabase.auth.signOut()} className="signout-btn">Sair fora</button>
+    <div className="dashboard-layout">
+      {/* Sidebar Lateral */}
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <div className="logo small">IAI CRIA 🌴</div>
         </div>
-      </header>
+        
+        <nav className="sidebar-nav">
+          <button 
+            className={`nav-item ${activeTab === 'blog' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('blog')}
+          >
+            <span className="icon">📰</span> Notícias do Rio
+          </button>
+          <button 
+            className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`} 
+            onClick={() => setActiveTab('chat')}
+          >
+            <span className="icon">💬</span> Chat Carioca
+          </button>
+        </nav>
 
-      <nav className="main-nav">
-        <button 
-          className={activeTab === 'blog' ? 'active' : ''} 
-          onClick={() => setActiveTab('blog')}
-        >
-          Notícias do Rio
-        </button>
-        <button 
-          className={activeTab === 'chat' ? 'active' : ''} 
-          onClick={() => setActiveTab('chat')}
-        >
-          Chat com a IA
-        </button>
-      </nav>
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <p>Fala, <strong>{session.user.user_metadata.username || 'Cria'}</strong>!</p>
+            <button onClick={() => supabase.auth.signOut()} className="btn-logout">
+              Sair fora
+            </button>
+          </div>
+        </div>
+      </aside>
 
-      <main className="content-area">
-        {activeTab === 'blog' ? <Blog /> : <Chat />}
+      {/* Área de Conteúdo */}
+      <main className="main-content">
+        <header className="mobile-header">
+          <div className="logo small">IAI CRIA 🌴</div>
+          <button className="menu-toggle">☰</button>
+        </header>
+
+        <div className="content-wrapper">
+          {activeTab === 'blog' ? <Blog /> : <Chat />}
+        </div>
       </main>
     </div>
   );
