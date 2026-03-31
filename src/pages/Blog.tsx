@@ -10,6 +10,7 @@ interface Post {
   profiles: {
     username: string;
     first_name: string;
+    is_admin: boolean;
   };
 }
 
@@ -20,7 +21,7 @@ export function Blog() {
     async function fetchPosts() {
       const { data } = await supabase
         .from('posts')
-        .select('*, profiles(username, first_name)')
+        .select('*, profiles(username, first_name, is_admin)')
         .order('created_at', { ascending: false });
       
       if (data) setPosts(data as any);
@@ -40,7 +41,9 @@ export function Blog() {
           posts.map(post => (
             <div key={post.id} className="card post-card">
               <div className="post-header">
-                <span className="author">@{post.profiles.username}</span>
+                <span className={`author ${post.profiles.is_admin ? 'admin-badge' : ''}`}>
+                  {post.profiles.is_admin ? 'OFICIAL: IAI CRIA 🤖' : `@${post.profiles.username}`}
+                </span>
                 <span className="date">{new Date(post.created_at).toLocaleDateString()}</span>
               </div>
               <p className="post-content">{post.content}</p>

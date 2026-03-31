@@ -4,6 +4,7 @@ CREATE TABLE profiles (
   first_name TEXT,
   last_name TEXT,
   username TEXT UNIQUE,
+  is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
