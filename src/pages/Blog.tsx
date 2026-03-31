@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { Newspaper, Calendar, User, Image as ImageIcon, PlayCircle } from 'lucide-react';
 
 interface Post {
   id: string;
@@ -31,24 +32,36 @@ export function Blog() {
 
   return (
     <div className="blog-container">
-      <h2 className="section-title">Notícias do Rio 🌴</h2>
+      <h2 className="section-title"><Newspaper size={32} /> Notícias do Rio</h2>
       <div className="posts-feed">
         {posts.length === 0 ? (
           <div className="card empty-state">
+            <ImageIcon size={48} className="icon-glow" />
             <p>Nada por aqui ainda, cria. O site tá mais vazio que a Linha Amarela domingo de manhã! 😂</p>
           </div>
         ) : (
-          posts.map(post => (
+          posts.map((post: Post) => (
             <div key={post.id} className="card post-card">
               <div className="post-header">
-                <span className={`author ${post.profiles.is_admin ? 'admin-badge' : ''}`}>
-                  {post.profiles.is_admin ? 'OFICIAL: IAI CRIA 🤖' : `@${post.profiles.username}`}
-                </span>
-                <span className="date">{new Date(post.created_at).toLocaleDateString()}</span>
+                <div className="author-info">
+                  <span className={`author ${post.profiles.is_admin ? 'admin-badge' : ''}`}>
+                    {post.profiles.is_admin ? 'OFICIAL: IAI CRIA 🤖' : <><User size={14} /> @{post.profiles.username}</>}
+                  </span>
+                </div>
+                <span className="date"><Calendar size={14} /> {new Date(post.created_at).toLocaleDateString()}</span>
               </div>
               <p className="post-content">{post.content}</p>
-              {post.media_url && post.media_type === 'image' && (
-                <img src={post.media_url} alt="Post" className="post-media" />
+              {post.media_url && (
+                <div className="post-media-container">
+                  {post.media_type === 'image' ? (
+                    <img src={post.media_url} alt="Post" className="post-media" />
+                  ) : (
+                    <div className="video-placeholder">
+                      <PlayCircle size={48} />
+                      <p>Vídeo postado - Clique para ver</p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           ))

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Send, User, Bot, Sparkles } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -13,7 +14,6 @@ export function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Scroll to bottom on new message
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -27,7 +27,6 @@ export function Chat() {
 
     const lowerInput = input.toLowerCase();
     
-    // 🌴 Dicionário de Gírias e Respostas Prontas
     const slangResponses: Record<string, string> = {
       "bom dia": "Bom dia é o cacete, cria! O sol tá rachando e tu ainda nessa? Acorda pra vida! ☀️",
       "boa tarde": "Boa tarde, parceiro! Já mandou aquele mate com biscoito Globo hoje? 🥤",
@@ -42,7 +41,6 @@ export function Chat() {
       "fome": "Fome? Vai lá no TT Burger ou manda aquele podrão da esquina que é sucesso! 🍔"
     };
 
-    // Procura por palavras-chave
     let response = "";
     for (const key in slangResponses) {
       if (lowerInput.includes(key)) {
@@ -51,7 +49,6 @@ export function Chat() {
       }
     }
 
-    // Delay para parecer que está pensando (marrento)
     setTimeout(() => {
       if (!response) {
         response = "Essa aí tu me pegou, cria... não tenho palavra pronta pra isso não. Mas jaja a gente coloca uma Key da OpenAI aqui pra eu ficar mais inteligente que o Romário! ⚽️🧠";
@@ -63,13 +60,31 @@ export function Chat() {
 
   return (
     <div className="chat-page-container">
+      <h2 className="section-title"><MessageSquare size={32} /> Chat Carioca</h2>
+      
       <div className="chat-window">
+        {messages.length === 0 && (
+          <div className="card empty-chat">
+            <Sparkles className="icon-glow" size={48} />
+            <h3>Manda o papo reto, cria!</h3>
+            <p>Tô aqui pra trocar aquela ideia ou tirar tuas dúvidas sobre o RJ.</p>
+          </div>
+        )}
         {messages.map(msg => (
           <div key={msg.id} className={`chat-bubble ${msg.role}`}>
+            <div className="bubble-icon">
+              {msg.role === 'ai' ? <Bot size={16} /> : <User size={16} />}
+            </div>
             {msg.content}
           </div>
         ))}
-        {loading && <div className="chat-bubble ai loading">Digitando...</div>}
+        {loading && (
+          <div className="chat-bubble ai loading">
+            <span className="dot"></span>
+            <span className="dot"></span>
+            <span className="dot"></span>
+          </div>
+        )}
         <div ref={scrollRef} />
       </div>
 
@@ -81,8 +96,12 @@ export function Chat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
         />
-        <button onClick={sendMessage}>Enviar</button>
+        <button onClick={sendMessage}>
+          <Send size={20} />
+        </button>
       </div>
     </div>
   );
 }
+
+import { MessageSquare } from 'lucide-react';
