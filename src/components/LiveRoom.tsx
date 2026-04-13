@@ -118,12 +118,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   async function handleInviteOpponent(opponent: any) {
     setIsBattleModalOpen(false);
     
+    const { data: oppLive } = await supabase.from('live_sessions').select('id').eq('host_id', opponent.host_id).eq('is_live', true).maybeSingle();
+
     const endTime = Date.now() + 180000; // 3 minutos
     // Inicia a batalha imediatamente
     const startPayload = {
        opponentId: opponent.host_id,
        opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
        agora_channel: opponent.agora_channel,
+       opponentRoomId: oppLive?.id,
        endTime: endTime,
        score_a: 0,
        score_b: 0
@@ -159,13 +162,14 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         const eTime = tTime + 180000;
         try {
            const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
-           const { data: oppLive } = await supabase.from('live_sessions').select('agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
+           const { data: oppLive } = await supabase.from('live_sessions').select('id, agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
            
            if (oppProfile && oppLive) {
               setActiveBattle({
                 opponentId: opponentId,
                 opponentProfile: oppProfile,
                 agora_channel: oppLive.agora_channel,
+                opponentRoomId: oppLive.id,
                 endTime: eTime,
                 score_a: 0,
                 score_b: 0
@@ -306,11 +310,43 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   // Timer da Batalha (Global Sync)
   useEffect(() => {
     if (!activeBattle?.endTime) return;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const remaining = Math.max(0, Math.floor((activeBattle.endTime - Date.now()) / 1000));
       setBattleTimeLeft(remaining);
       if (remaining === 0) {
         clearInterval(interval);
+
+        // Apenas o host A (dono da sala) salva o resultado — evita duplicatas
+        if (role === 'host') {
+          const scoreA = activeBattle.score_a ?? 0;
+          const scoreB = activeBattle.score_b ?? 0;
+          const winnerId = scoreA >= scoreB ? session.user.id : (activeBattle.opponentId ?? session.user.id);
+
+          // Salvar resultado final na tabela live_battles
+          await supabase.from('live_battles').insert({
+            host_a_id: session.user.id,
+            host_b_id: activeBattle.opponentId,
+            status: 'finished',
+            score_a: scoreA,
+            score_b: scoreB,
+            final_score_a: scoreA,
+            final_score_b: scoreB,
+            winner_id: winnerId,
+            agora_channel_a: room.agora_channel,
+            agora_channel_b: activeBattle.agora_channel,
+            started_at: new Date(activeBattle.endTime - 180000).toISOString(),
+            ends_at: new Date(activeBattle.endTime).toISOString(),
+          }).then(({ error }) => {
+            if (error) console.warn('Erro ao salvar batalha:', error.message);
+          });
+
+          // Notificar toda a audiência que a batalha terminou
+          await supabase.channel(`live_chat:${room.id}`).send({
+            type: 'broadcast',
+            event: 'battle_ended',
+            payload: { score_a: scoreA, score_b: scoreB, winner_id: winnerId }
+          });
+        }
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -657,16 +693,27 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
          }
       })
       .on('broadcast', { event: 'score_update' }, ({ payload }) => {
-         // Sincroniza o placar para TODOS (host B, audiência da sala A e B)
+         // Se o payload vier da MINHA sala, já tratamos (score_a).
+         // Mas se o payload vier da sala do OPONENTE, atualizamos nosso score_b (que é o score_a dele lá)
          setActiveBattle((prevBattle: any) => {
            if (!prevBattle) return prevBattle;
-           return { ...prevBattle, score_a: payload.score_a, score_b: payload.score_b };
+           if (payload.sender_room_id && payload.sender_room_id !== room.id) {
+             return { ...prevBattle, score_b: payload.score_a };
+           } else {
+             return { ...prevBattle, score_a: payload.score_a };
+           }
          });
       })
-      .on('broadcast', { event: 'battle_ended' }, () => {
+      .on('broadcast', { event: 'battle_ended' }, ({ payload }) => {
          if (role === 'audience') {
-            setActiveBattle(null);
-            setBattleTimeLeft(0);
+            // Atualiza placar final antes de limpar
+            if (payload?.score_a !== undefined) {
+              setActiveBattle((prev: any) => prev ? { ...prev, score_a: payload.score_a, score_b: payload.score_b } : prev);
+            }
+            setTimeout(() => {
+              setActiveBattle(null);
+              setBattleTimeLeft(0);
+            }, 5000); // Aguarda 5s para audiência ver a tela de resultado
          }
       })
       .on('broadcast', { event: 'goal_update' }, ({ payload }) => {
@@ -805,12 +852,25 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       if (!prevBattle) return prevBattle;
       const newScoreA = prevBattle.score_a + gift.price;
       const updated = { ...prevBattle, score_a: newScoreA };
-      // Broadcast score para oponente e audiência
+      
+      // Criar payload de cross-scoring
+      const scorePayload = { roomId: room.id, score_a: newScoreA, score_b: prevBattle.score_b, sender_room_id: room.id };
+      
+      // 1. Broadcast na sala ATUAL
       supabase.channel(`live_chat:${room.id}`).send({
         type: 'broadcast',
         event: 'score_update',
-        payload: { roomId: room.id, score_a: newScoreA, score_b: prevBattle.score_b }
+        payload: scorePayload
       }).catch(() => {});
+      
+      // 2. Broadcast CRUZADO para a sala do oponente (para ele ver nosso ponto subindo lá)
+      if (prevBattle.opponentRoomId) {
+        supabase.channel(`live_chat:${prevBattle.opponentRoomId}`).send({
+           type: 'broadcast',
+           event: 'score_update',
+           payload: scorePayload
+        }).catch(() => {});
+      }
       return updated;
     });
 
