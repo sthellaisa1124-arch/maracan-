@@ -120,27 +120,93 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     
     const { data: oppLive } = await supabase.from('live_sessions').select('id').eq('host_id', opponent.host_id).eq('is_live', true).maybeSingle();
 
-    const endTime = Date.now() + 180000; // 3 minutos
-    // Inicia a batalha imediatamente
     const startPayload = {
        opponentId: opponent.host_id,
        opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
        agora_channel: opponent.agora_channel,
        opponentRoomId: oppLive?.id,
-       endTime: endTime,
+       endTime: null,
        score_a: 0,
        score_b: 0
     };
     
     setActiveBattle(startPayload);
-    setBattleTimeLeft(180);
+    setBattleTimeLeft(0);
     
-    // Sincroniza a audiência e o oponente
+    // Sincroniza a audiência local (apenas câmera dividida, sem barra)
     await supabase.channel(`live_chat:${room.id}`).send({
       type: 'broadcast',
-      event: 'battle_started',
+      event: 'match_connected',
       payload: startPayload
-    });
+    }).catch(() => {});
+
+    // Sincroniza a sala do oponente! Fala pra ele ligar a câmera dividida lá também.
+    if (oppLive?.id) {
+       await supabase.channel(`live_chat:${oppLive.id}`).send({
+          type: 'broadcast',
+          event: 'match_connected',
+          payload: {
+            opponentId: room.host_id,
+            opponentProfile: room.host_profile || session.user.user_metadata,
+            agora_channel: room.agora_channel,
+            opponentRoomId: room.id,
+            endTime: null,
+            score_a: 0,
+            score_b: 0
+          }
+       }).catch(() => {});
+    }
+  }
+
+  async function handleDisconnectMatch() {
+     // Enviar desconexão local
+     await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'match_disconnected', payload: {} });
+     
+     // Enviar desconexão para o oponente
+     if (activeBattle?.opponentRoomId) {
+        await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'match_disconnected', payload: {} });
+     }
+     
+     setActiveBattle(null);
+     setBattleTimeLeft(0);
+     setBattleInvite(null);
+     setBattleInviteStatus(null);
+  }
+
+  async function handleRequestBattleStart() {
+     if (!activeBattle?.opponentRoomId) return;
+     setBattleInviteStatus('pending');
+     
+     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({
+        type: 'broadcast',
+        event: 'battle_invite_request',
+        payload: { from: room.host_id, profile: room.host_profile || session.user.user_metadata }
+     });
+  }
+
+  async function handleAcceptBattle() {
+     if (!activeBattle?.opponentRoomId) return;
+     const eTime = Date.now() + 180000;
+     
+     const payload = { endTime: eTime };
+     
+     // Atualiza a própria sala
+     await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_started', payload });
+     
+     // Atualiza sala do oponente
+     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_started', payload });
+     
+     setBattleInvite(null);
+  }
+
+  async function handleRejectBattle() {
+     if (!activeBattle?.opponentRoomId) return;
+     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({
+        type: 'broadcast',
+        event: 'battle_invite_rejected',
+        payload: {}
+     });
+     setBattleInvite(null);
   }
 
   // SINCRONIZAR AUDIÊNCIA (ENTRADAS TARDIAS)
@@ -158,8 +224,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
       if (data && !error) {
         const opponentId = data.host_id === room.host_id ? data.opponent_id : data.host_id;
-        const tTime = new Date(data.created_at).getTime();
-        const eTime = tTime + 180000;
         try {
            const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
            const { data: oppLive } = await supabase.from('live_sessions').select('id, agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
@@ -170,11 +234,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                 opponentProfile: oppProfile,
                 agora_channel: oppLive.agora_channel,
                 opponentRoomId: oppLive.id,
-                endTime: eTime,
+                endTime: null, // Aquecimento! Sem relógio ainda
                 score_a: 0,
                 score_b: 0
               });
-              setBattleTimeLeft(Math.max(0, Math.floor((eTime - Date.now()) / 1000)));
+              setBattleTimeLeft(0);
+
+              // Avisa a audiência para abrir câmera dividida localmente
+              await supabase.channel(`live_chat:${room.id}`).send({
+                type: 'broadcast',
+                event: 'match_connected',
+                payload: {
+                  opponentId, opponentProfile: oppProfile, agora_channel: oppLive.agora_channel, opponentRoomId: oppLive.id, endTime: null, score_a: 0, score_b: 0
+                }
+              }).catch(() => {});
            }
         } catch (e) {}
       }
@@ -240,6 +313,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const [goalTarget, setGoalTarget] = useState(room.goal_target || 0);
   const [goalCurrent, setGoalCurrent] = useState(room.goal_current || 0);
   const [goalGiftId, setGoalGiftId] = useState<string | null>(room.goal_gift_id || null);
+
+  // Estados de Aquecimento da Batalha (Confronto)
+  const [battleInvite, setBattleInvite] = useState<{from: string, profile: any} | null>(null);
+  const [battleInviteStatus, setBattleInviteStatus] = useState<'pending' | null>(null);
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false);
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
 
@@ -682,14 +759,39 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
              .then(() => {});
         }
       })
-      .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
+      .on('broadcast', { event: 'match_connected' }, ({ payload }) => {
          if (role === 'audience') {
-            setActiveBattle(payload);
-            if (payload.endTime) {
-              setBattleTimeLeft(Math.max(0, Math.floor((payload.endTime - Date.now()) / 1000)));
-            } else {
-              setBattleTimeLeft(180);
-            }
+            setActiveBattle({ ...payload, endTime: null });
+            setBattleTimeLeft(0);
+         }
+      })
+      .on('broadcast', { event: 'match_disconnected' }, () => {
+         setActiveBattle(null);
+         setBattleTimeLeft(0);
+         setBattleInvite(null);
+         setBattleInviteStatus(null);
+      })
+      .on('broadcast', { event: 'battle_invite_request' }, ({ payload }) => {
+         if (role === 'host') {
+            setBattleInvite(payload);
+         }
+      })
+      .on('broadcast', { event: 'battle_invite_rejected' }, () => {
+         if (role === 'host') {
+            setBattleInviteStatus(null);
+            alert('O oponente recusou o convite para a batalha.');
+         }
+      })
+      .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
+         // Agora atualiza tanto host quanto audiência com o relógio
+         setActiveBattle((prev: any) => prev ? { ...prev, endTime: payload.endTime } : payload);
+         if (payload.endTime) {
+            setBattleTimeLeft(Math.max(0, Math.floor((payload.endTime - Date.now()) / 1000)));
+         }
+         // Limpa os estados de convite
+         if (role === 'host') {
+            setBattleInviteStatus(null);
+            setBattleInvite(null);
          }
       })
       .on('broadcast', { event: 'score_update' }, ({ payload }) => {
@@ -847,9 +949,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       payload: giftData
     });
 
-    // Se estiver em batalha, transmitir atualização de pontos para TODOS
+    // Se estiver em batalha (e a batalha já tiver começado = endTime presente)
     setActiveBattle((prevBattle: any) => {
-      if (!prevBattle) return prevBattle;
+      if (!prevBattle || !prevBattle.endTime) return prevBattle;
       const newScoreA = prevBattle.score_a + gift.price;
       const updated = { ...prevBattle, score_a: newScoreA };
       
@@ -1172,6 +1274,61 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           transition: 'all 0.3s ease-out'
         }}
       >
+        {activeBattle && !activeBattle.endTime && role === 'host' && (
+          <div style={{
+            position: 'absolute',
+            bottom: '22%', // Fica acima da barra de controles do host
+            left: 0, right: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '12px',
+            zIndex: 10000
+          }}>
+            <button 
+               onClick={handleDisconnectMatch}
+               style={{
+                 background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                 borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                 display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
+               }}>
+               ❌ Sair
+            </button>
+            <button
+               onClick={handleRequestBattleStart}
+               disabled={battleInviteStatus === 'pending'}
+               style={{
+                  background: battleInviteStatus === 'pending' ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #ef4444, #f97316)',
+                  border: 'none', borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 900, 
+                  fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: battleInviteStatus ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 15px rgba(239,68,68,0.4)'
+               }}>
+               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Batalha'}
+            </button>
+          </div>
+        )}
+
+        {/* Modal de Convite Recebido (Sobre a câmera do host B) */}
+        {battleInvite && role === 'host' && (
+           <div style={{
+             position: 'absolute', inset: 0, zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)'
+           }}>
+             <div style={{
+                background: 'rgba(15,15,20,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
+                padding: '1.5rem', textAlign: 'center', maxWidth: '300px',
+                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+             }}>
+                <img src={battleInvite.profile?.avatar_url || 'https://ui-avatars.com/api/?name=Oponente'} style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: '1rem', objectFit: 'cover' }} />
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Oponente quer Iniciar Batalha!</h3>
+                <p style={{ margin: '0.5rem 0 1.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Se você não quer batalhar, pode apenas conversar ou sair.</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                   <button onClick={handleRejectBattle} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontWeight: 700 }}>Recusar</button>
+                   <button onClick={handleAcceptBattle} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', fontWeight: 800 }}>Aceitar</button>
+                </div>
+             </div>
+           </div>
+        )}
+
         {/* Vídeo do Host da sala (Seja eu ou o criador que estou assistindo) */}
         {role === 'host' ? (
           <div ref={videoContainerRef} className="live-video-element" style={{ width: activeBattle ? '50%' : '100%', height: '100%', transition: 'width 0.3s' }} />
@@ -1222,7 +1379,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         onDoubleClick={role === 'audience' ? handleDoubleTap : undefined}
       >
 
-        {activeBattle && (
+        {activeBattle && activeBattle.endTime && (
           <>
             <BattleScoreBar 
               scoreA={activeBattle.score_a} 
