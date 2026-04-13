@@ -994,9 +994,14 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         {activeBattle && (
            <div id={`remote-video-opponent`} style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                 <div className="text-center">
-                    <img src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} className="w-16 h-16 rounded-full mx-auto mb-2 opacity-50" />
-                    <div className="animate-pulse text-white/50 text-xs">Conectando oponente...</div>
+                 <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <img 
+                      src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} 
+                      style={{ width: '64px', height: '64px', borderRadius: '50%', marginBottom: '8px', opacity: 0.5, objectFit: 'cover' }} 
+                    />
+                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+                      Conectando oponente...
+                    </div>
                  </div>
               </div>
               {/* Onde a track de vídeo do oponente seria ejetada no futuro */}
