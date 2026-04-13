@@ -148,6 +148,7 @@ interface GiftAnimationOverlayProps {
   recipientName: string;
   senderName?: string; // quem enviou o presente
   onComplete: () => void;
+  isBattle?: boolean; // quando true, usa apenas card compacto (não toma tela cheia)
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -476,11 +477,15 @@ function SimpleFloatingOverlay({
     <div
       style={{
         position: 'fixed',
-        inset: 0,
+        // Em batalha, posiciona no painel inferior (55% para baixo)
+        top: isBattle ? '55%' : '0',
+        left: 0,
+        right: 0,
+        bottom: 0,
         zIndex: 2000000000,
         pointerEvents: 'none',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: isBattle ? 'flex-start' : 'center',
         justifyContent: 'center',
       }}
     >
@@ -651,16 +656,11 @@ function SimpleFloatingOverlay({
 // COMPONENTE PRINCIPAL — decide qual modo usar
 // ═════════════════════════════════════════════════════════════
 export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
-  const { gift } = props;
-
-  /**
-   * 1. Se o presente tem `animationVideo` → VideoOverlay (tela cheia com vídeo)
-   * 2. Se o vídeo falhar ao carregar → SimpleFloatingOverlay (card flutuante)
-   * 3. Se não tem `animationVideo` → SimpleFloatingOverlay diretamente
-   */
+  const { gift, isBattle } = props;
   const [videoFailed, setVideoFailed] = useState(false);
 
-  const hasVideo = !!gift.animationVideo && !videoFailed;
+  // Durante batalha: nunca tomar tela toda, sempre usar card compacto
+  const hasVideo = !!gift.animationVideo && !videoFailed && !isBattle;
 
   if (hasVideo) {
     return (
@@ -671,7 +671,7 @@ export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
     );
   }
 
-  return <SimpleFloatingOverlay key="simple-overlay" {...props} />;
+  return <SimpleFloatingOverlay key="simple-overlay" {...props} isBattle={isBattle} />;
 }
 
 // ─────────────────────────────────────────────────────────────

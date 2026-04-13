@@ -45,6 +45,9 @@ const AMBIENTE_PRESETS = {
 
 const APP_ID = import.meta.env.VITE_AGORA_APP_ID;
 
+// Suprimir logs verbose do SDK Agora (inclui 404 /nobooster)
+try { AgoraRTC.setLogLevel(4); } catch(_) {}
+
 interface LiveRoomProps {
   session: any;
   role: 'host' | 'audience';
@@ -599,12 +602,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
            setGoalCurrent((prev: number) => prev + (goalGiftId ? 1 : payload.gift.price));
         }
 
-        // Se estiver num confronto, conta pontos (Simplificado para todos os presentes irem pro dono da live logado: no real teria userId target)
-        setActiveBattle(prevBattle => {
-           if (!prevBattle) return prevBattle;
-           // O dono desta sala recebeu
-           return { ...prevBattle, score_a: prevBattle.score_a + payload.gift.price };
-        });
+        // Atualizar pontos do confronto — o receptor deste broadcast é sempre audiência
+        // Os pontos corretos vêm pelo score_update do host
 
         // Se for o Host, atualizamos o banco para persistência
         if (role === 'host') {
@@ -650,8 +649,19 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
          if (role === 'audience') {
             setActiveBattle(payload);
-            setBattleTimeLeft(180);
+            if (payload.endTime) {
+              setBattleTimeLeft(Math.max(0, Math.floor((payload.endTime - Date.now()) / 1000)));
+            } else {
+              setBattleTimeLeft(180);
+            }
          }
+      })
+      .on('broadcast', { event: 'score_update' }, ({ payload }) => {
+         // Sincroniza o placar para TODOS (host B, audiência da sala A e B)
+         setActiveBattle((prevBattle: any) => {
+           if (!prevBattle) return prevBattle;
+           return { ...prevBattle, score_a: payload.score_a, score_b: payload.score_b };
+         });
       })
       .on('broadcast', { event: 'battle_ended' }, () => {
          if (role === 'audience') {
@@ -788,6 +798,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       type: 'broadcast',
       event: 'gift',
       payload: giftData
+    });
+
+    // Se estiver em batalha, transmitir atualização de pontos para TODOS
+    setActiveBattle((prevBattle: any) => {
+      if (!prevBattle) return prevBattle;
+      const newScoreA = prevBattle.score_a + gift.price;
+      const updated = { ...prevBattle, score_a: newScoreA };
+      // Broadcast score para oponente e audiência
+      supabase.channel(`live_chat:${room.id}`).send({
+        type: 'broadcast',
+        event: 'score_update',
+        payload: { roomId: room.id, score_a: newScoreA, score_b: prevBattle.score_b }
+      }).catch(() => {});
+      return updated;
     });
 
     // Mostrar para si mesmo também na fila e somar a moral
@@ -1742,6 +1766,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           senderName={activeGift.username}
           recipientName={room.host_profile?.username || room.title || 'host'}
           onComplete={() => setActiveGift(null)}
+          isBattle={!!activeBattle}
         />
       )}
 
