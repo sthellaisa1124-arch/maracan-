@@ -28,6 +28,12 @@ export function Auth() {
         setLoading(false);
         return;
       }
+
+      if (!/^[a-z0-9_.-]+$/.test(username.toLowerCase())) {
+        setError("Papo reto: o nome de usuário não pode ter emojis, espaços ou caracteres especiais! Só letras, números, ponto e underline.");
+        setLoading(false);
+        return;
+      }
       
       const { error: signUpError } = await supabase.auth.signUp({
         email,
@@ -71,8 +77,8 @@ export function Auth() {
       )}
       
       <div className="auth-card">
-        <h2 className="logo-text">IAI CRIA</h2>
-        <p className="subtitle">{isLogin ? 'Bota sua conta aí e entra logo!' : 'Faz o cadastro aí rapidinho, sem enrolação!'}</p>
+        <h2 className="velar-logo" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>VELAR</h2>
+        <p className="subtitle">{isLogin ? 'Bota sua conta aí e entra logo!' : 'Cria seu perfil agora e escolhe seu nome de guerra!'}</p>
 
         <form onSubmit={handleAuth}>
           {!isLogin && (
@@ -95,11 +101,12 @@ export function Auth() {
               </div>
               <input 
                 type="text" 
-                placeholder="Nome de Usuário (@...)" 
+                placeholder="Nome de Usuário (@exemplo)" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required 
               />
+              <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '-0.5rem', marginBottom: '0.5rem'}}>Esse será seu nome oficial nos comentários do cria. 🔥</p>
             </>
           )}
           

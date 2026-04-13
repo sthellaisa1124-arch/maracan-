@@ -1,0 +1,415 @@
+import { useState } from 'react';
+import { X, Video, ShieldAlert, Loader2, Coins } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { GIFT_CATALOG } from '../lib/gifts';
+
+interface SetupLiveModalProps {
+  session: any;
+  onClose: () => void;
+  onStartLive: (liveData: any) => void;
+}
+
+export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModalProps) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [is18Plus, setIs18Plus] = useState(false);
+  const [selectedVibe, setSelectedVibe] = useState('🔥 Papo Brabo');
+  const [goalType, setGoalType] = useState<'gifts' | 'followers'>('gifts');
+  const [goalTitle, setGoalTitle] = useState('');
+  const [goalTarget, setGoalTarget] = useState<number | ''>('');
+  const [goalGiftId, setGoalGiftId] = useState<string | null>(null);
+  const [isGiftPickerOpen, setIsGiftPickerOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleStart() {
+    if (!title.trim() || !session?.user?.id) return;
+    setLoading(true);
+    onClose(); // FECHAR IMEDIATAMENTE PARA NÃO OBSTRUIR A TELA
+
+    const fullDescription = `${selectedVibe ? `[${selectedVibe}] ` : ''}${goalTarget ? `[Meta: ${goalTitle || (goalType === 'gifts' ? 'Presentes' : 'Seguidores')} (${goalTarget})] ` : ''}${description.trim()}`;
+
+    try {
+      const channelName = `live_${session.user.id}_${Date.now()}`;
+      const { data, error } = await supabase
+        .from('live_sessions')
+        .insert([{
+          host_id: session.user.id,
+          title: title.trim(),
+          description: fullDescription,
+          is_18plus: is18Plus,
+          agora_channel: channelName,
+          is_live: false, 
+          viewer_count: 0,
+          started_at: new Date().toISOString(),
+          goal_type: goalType,
+          goal_title: goalTitle.trim() || (goalType === 'gifts' ? (goalGiftId ? `Meta: ${GIFT_CATALOG.find(g => g.id === goalGiftId)?.name}` : 'Meta de Presentes') : 'Meta de Seguidores'),
+          goal_target: Number(goalTarget) || 0,
+          goal_current: 0,
+          goal_gift_id: goalGiftId
+        }])
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        onStartLive(data);
+        
+        // Notificações serão disparadas no LiveRoom após o 'Go Live'
+      }
+      
+    } catch (err: any) {
+      console.error("Erro ao iniciar Live:", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="setup-live-vellar-overlay">
+      <style>{`
+        .setup-live-vellar-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.9); 
+          backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+          display: flex; align-items: flex-end; justify-content: center; z-index: 100000;
+          animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .vellar-modal-content {
+          width: 100%; max-width: 500px; background: #0a0a0a;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          border-radius: 40px 40px 0 0; padding: 1.5rem; padding-bottom: 2.5rem;
+          box-shadow: 0 -20px 50px rgba(0,0,0,0.5);
+          position: relative; animation: modalSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          max-height: 92vh; overflow-y: auto; scrollbar-width: none;
+        }
+        .vellar-modal-content::-webkit-scrollbar { display: none; }
+        .vellar-modal-header {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 1.2rem;
+        }
+        .header-main { display: flex; align-items: center; gap: 14px; }
+        .icon-box { 
+          background: linear-gradient(135deg, #d4af37 0%, #8a6d3b 100%);
+          width: 44px; height: 44px; border-radius: 14px;
+          display: flex; align-items: center; justify-content: center;
+          box-shadow: 0 8px 15px rgba(212,175,55,0.25);
+        }
+        .modal-title-text h3 { margin: 0; font-family: 'Outfit'; font-weight: 900; color: #fff; font-size: 1.25rem; letter-spacing: -0.5px; }
+        .modal-title-text p { margin: 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+        .close-circle {
+          background: rgba(255,255,255,0.05); border: none; color: #fff;
+          width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.3s;
+        }
+        .close-circle:hover { background: rgba(255,255,255,0.1); transform: rotate(90deg); }
+
+        .vellar-form { display: flex; flex-direction: column; gap: 1.5rem; }
+        
+        .vellar-input-wrap { position: relative; }
+        .vellar-input-wrap label { 
+          display: block; font-size: 0.6rem; font-weight: 900; color: #d4af37;
+          margin-bottom: 10px; letter-spacing: 2px; opacity: 0.6;
+        }
+        .vellar-field {
+          width: 100%; background: transparent; border: none;
+          border-bottom: 1px solid rgba(255,255,255,0.1);
+          padding: 8px 0; color: #fff; font-size: 1.05rem; font-weight: 500;
+          transition: all 0.4s;
+        }
+        .vellar-field:focus {
+          outline: none; border-bottom-color: #d4af37;
+          background: linear-gradient(transparent 80%, rgba(212,175,55,0.03));
+        }
+
+        /* Estilo YouTube Description Box - Reforçado */
+        .yt-desc-box {
+          background: #161616; border: 1.5px solid rgba(255,255,255,0.06);
+          border-radius: 16px; padding: 1rem; transition: all 0.3s;
+        }
+        .yt-desc-box:focus-within {
+          background: #1a1a1a; border-color: #d4af37;
+          box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+        }
+        .yt-textarea {
+          width: 100%; background: transparent; border: none; outline: none;
+          color: #fff; font-size: 0.95rem; font-family: inherit; line-height: 1.4;
+          min-height: 90px;
+        }
+
+        /* Tags de Status */
+        .vibe-selector { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .vibe-selector::-webkit-scrollbar { display: none; }
+        .vibe-tag {
+          padding: 8px 16px; border-radius: 20px; background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.05); color: rgba(255,255,255,0.6);
+          font-size: 0.75rem; font-weight: 700; white-space: nowrap; cursor: pointer;
+          transition: all 0.2s;
+        }
+        .vibe-tag.active {
+          background: rgba(212,175,55,0.1); border-color: #d4af37; color: #fff;
+          box-shadow: 0 4px 12px rgba(212,175,55,0.15);
+        }
+
+        .toggle-card {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 1.5rem; background: rgba(255,255,255,0.03);
+          border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);
+          cursor: pointer; transition: all 0.3s;
+        }
+        .toggle-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+        .toggle-text { display: flex; align-items: center; gap: 16px; }
+        .toggle-label-main { display: block; color: #fff; font-weight: 800; font-size: 1rem; }
+        .toggle-label-sub { display: block; color: rgba(255,255,255,0.4); font-size: 0.75rem; margin-top: 2px; }
+
+        .vellar-switch {
+          width: 52px; height: 28px; background: rgba(255,255,255,0.1);
+          border-radius: 20px; position: relative; transition: all 0.4s;
+        }
+        .vellar-switch.active { background: #ef4444; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+        .switch-knob {
+          position: absolute; top: 4px; left: 4px; width: 20px; height: 20px;
+          background: #fff; border-radius: 50%; transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .vellar-switch.active .switch-knob { left: 28px; }
+
+        .vellar-launch-btn {
+          width: 100%; height: 64px; border-radius: 20px; border: none;
+          background: #d4af37; color: #000; font-family: 'Outfit';
+          font-weight: 900; font-size: 1.25rem; cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 12px;
+          box-shadow: 0 15px 35px rgba(212,175,55,0.3);
+          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .vellar-launch-btn:disabled { 
+          background: #222; color: #555; box-shadow: none; cursor: not-allowed;
+        }
+        .vellar-launch-btn:not(:disabled):hover {
+          transform: translateY(-5px); filter: brightness(1.1);
+        }
+        .vellar-launch-btn:active { transform: translateY(0); }
+
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      `}</style>
+
+      <div className="vellar-modal-content">
+        <header className="vellar-modal-header">
+          <div className="header-main">
+            <div className="icon-box">
+              <Video size={24} color="#000" />
+            </div>
+            <div className="modal-title-text">
+              <h3>Nova Live</h3>
+              <p>Ambiente de Elite</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="close-circle"><X size={24} /></button>
+        </header>
+
+        <div className="vellar-form">
+          <div className="vellar-input-wrap">
+            <label>TÍTULO DA LIVE</label>
+            <input 
+              type="text" 
+              maxLength={40}
+              placeholder="Sobre o que vamos falar?"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="vellar-field"
+              autoFocus
+            />
+          </div>
+
+          <div className="vellar-input-wrap">
+            <label>META DA LIVE (DETALHADA)</label>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
+              <button 
+                onClick={() => setGoalType('gifts')}
+                type="button"
+                className={`vibe-tag ${goalType === 'gifts' ? 'active' : ''}`}
+                style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem', textAlign: 'center' }}
+              >
+                🎁 PRESENTES
+              </button>
+              <button 
+                onClick={() => setGoalType('followers')}
+                type="button"
+                className={`vibe-tag ${goalType === 'followers' ? 'active' : ''}`}
+                style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem', textAlign: 'center' }}
+              >
+                👤 SEGUIDORES
+              </button>
+            </div>
+            
+            {goalType === 'gifts' && (
+              <div 
+                onClick={() => setIsGiftPickerOpen(true)}
+                className="vellar-field"
+                style={{ 
+                   marginBottom: '1rem', 
+                   display: 'flex', 
+                   alignItems: 'center', 
+                   gap: '12px', 
+                   padding: '12px', 
+                   background: 'rgba(255,255,255,0.03)',
+                   borderRadius: '16px',
+                   cursor: 'pointer',
+                   border: '1px dashed rgba(212,175,55,0.3)'
+                }}
+              >
+                 {goalGiftId ? (
+                   <>
+                     <div style={{ width: '40px', height: '40px', background: 'rgba(0,0,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {GIFT_CATALOG.find(g => g.id === goalGiftId)?.image ? (
+                           <img src={GIFT_CATALOG.find(g => g.id === goalGiftId)?.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        ) : (
+                           <span style={{ fontSize: '1.5rem' }}>{GIFT_CATALOG.find(g => g.id === goalGiftId)?.symbol}</span>
+                        )}
+                     </div>
+                     <div>
+                       <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{GIFT_CATALOG.find(g => g.id === goalGiftId)?.name}</div>
+                       <div style={{ fontSize: '0.7rem', color: '#fbbf24' }}>🪙 {GIFT_CATALOG.find(g => g.id === goalGiftId)?.price} cada</div>
+                     </div>
+                   </>
+                 ) : (
+                   <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>✨ Escolha o presente da meta...</span>
+                 )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <input 
+                type="text" 
+                placeholder="Título da Meta (ex: Para o Setup!)"
+                value={goalTitle}
+                onChange={e => setGoalTitle(e.target.value)}
+                className="vellar-field"
+                style={{ fontSize: '0.9rem' }}
+              />
+              <input 
+                type="number" 
+                placeholder={goalGiftId ? "Quantidade (ex: 10)" : "Objetivo (ex: 5000)"}
+                value={goalTarget}
+                onChange={e => setGoalTarget(e.target.value === '' ? '' : Number(e.target.value))}
+                className="vellar-field"
+                style={{ fontSize: '0.9rem' }}
+              />
+            </div>
+          </div>
+
+          {/* GIFT PICKER OVERLAY */}
+          {isGiftPickerOpen && (
+            <div 
+              style={{ position: 'fixed', inset: 0, zIndex: 1000005, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', animation: 'fadeIn 0.3s' }}
+              onClick={() => setIsGiftPickerOpen(false)}
+            >
+               <div 
+                 style={{ marginTop: 'auto', background: '#0a0a0a', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '40px 40px 0 0', padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}
+                 onClick={e => e.stopPropagation()}
+               >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h3 style={{ margin: 0, color: '#fbbf24' }}>Escolher Presente 🎁</h3>
+                    <button onClick={() => setIsGiftPickerOpen(false)} style={{ background: '#222', border: 'none', color: '#fff', borderRadius: '50%', width: '32px', height: '32px' }}>✕</button>
+                  </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                    {GIFT_CATALOG.map(gift => (
+                      <div 
+                        key={gift.id}
+                        onClick={() => { setGoalGiftId(gift.id); setIsGiftPickerOpen(false); }}
+                        style={{ 
+                          background: goalGiftId === gift.id ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)', 
+                          border: goalGiftId === gift.id ? '1px solid #d4af37' : '1px solid rgba(255,255,255,0.05)',
+                          borderRadius: '16px', padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer'
+                        }}
+                      >
+                        <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                           {gift.image ? (
+                              <img src={gift.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                           ) : (
+                              <span style={{ fontSize: '2rem' }}>{gift.symbol}</span>
+                           )}
+                        </div>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fff', textAlign: 'center' }}>{gift.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#fbbf24', fontSize: '0.65rem', fontWeight: 800 }}>
+                           <Coins size={10} /> {gift.price}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+               </div>
+            </div>
+          )}
+
+          <div className="vellar-input-wrap">
+            <label>VIBE DA TRANSMISSÃO</label>
+            <div className="vibe-selector">
+              {['🔥 Papo Brabo', '🤳 Vida Real', '🎬 Bastidores', '✨ Beauty', '🗣️ Resenha'].map(vibe => (
+                <div 
+                  key={vibe} 
+                  className={`vibe-tag ${selectedVibe === vibe ? 'active' : ''}`}
+                  onClick={() => setSelectedVibe(vibe)}
+                >
+                  {vibe}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="vellar-input-wrap">
+            <label>DESCRIÇÃO</label>
+            <div className="yt-desc-box">
+              <textarea 
+                placeholder="Conte para o seu público o que vai rolar..."
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                className="yt-textarea"
+                style={{ minHeight: '80px', resize: 'none' }}
+              />
+            </div>
+          </div>
+
+          <div className="toggle-card" onClick={() => setIs18Plus(!is18Plus)}>
+            <div className="toggle-text">
+              <div style={{ color: is18Plus ? '#ef4444' : 'rgba(255,255,255,0.4)', transition: 'all 0.3s' }}>
+                <ShieldAlert size={28} />
+              </div>
+              <div>
+                <span className="toggle-label-main">Conteúdo de Elite +18</span>
+                <span className="toggle-label-sub">Restrito a maiores de idade</span>
+              </div>
+            </div>
+            <div className={`vellar-switch ${is18Plus ? 'active' : ''}`}>
+              <div className="switch-knob" />
+            </div>
+          </div>
+
+          <div style={{ marginTop: '1rem' }}>
+            <button 
+              className="vellar-launch-btn"
+              onClick={handleStart}
+              disabled={loading || !title.trim()}
+            >
+              {loading ? (
+                <Loader2 size={32} className="animate-spin" />
+              ) : (
+                <>
+                  <Video size={24} fill="currentColor" />
+                  <span>ABRIR PRÉVIA DA LIVE</span>
+                </>
+              )}
+            </button>
+            <p style={{ 
+              textAlign: 'center', fontSize: '0.6rem', color: 'rgba(255,255,255,0.2)', 
+              marginTop: '1.5rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' 
+            }}>
+              Respeite as diretrizes da comunidade Vellar
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
