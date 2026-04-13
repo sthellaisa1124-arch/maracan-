@@ -109,12 +109,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     if (activeBattle && battleTimeLeft > 0) {
       const timer = setTimeout(() => setBattleTimeLeft(prev => prev - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (activeBattle && battleTimeLeft === 0) {
-      // Fim da Batalha
-      const win = activeBattle.score_a > activeBattle.score_b;
-      const isDraw = activeBattle.score_a === activeBattle.score_b;
-      // Broadcast simple event or just close
-      setTimeout(() => setActiveBattle(null), 5000); // Mostra o resultado por 5s e fecha
     }
   }, [activeBattle, battleTimeLeft]);
 
@@ -1017,13 +1011,66 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       >
 
         {activeBattle && (
-          <BattleScoreBar 
-            scoreA={activeBattle.score_a} 
-            scoreB={activeBattle.score_b}
-            timeRemainingSec={battleTimeLeft}
-            hostAvatar={room.host_profile?.avatar_url}
-            opponentAvatar={activeBattle.opponentProfile?.avatar_url}
-          />
+          <>
+            <BattleScoreBar 
+              scoreA={activeBattle.score_a} 
+              scoreB={activeBattle.score_b}
+              timeRemainingSec={battleTimeLeft}
+              hostAvatar={room.host_profile?.avatar_url}
+              opponentAvatar={activeBattle.opponentProfile?.avatar_url}
+            />
+
+            {/* OVERLAY FINALE DE BATALHA */}
+            {battleTimeLeft === 0 && (
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 100000,
+                background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                animation: 'fadeIn 0.5s ease', textAlign: 'center', padding: '2rem'
+              }}>
+                <div style={{ fontSize: '5rem', marginBottom: '1rem', animation: 'bounce 1s infinite' }}>
+                  {activeBattle.score_a > activeBattle.score_b ? '👑' : activeBattle.score_a < activeBattle.score_b ? '💀' : '🤝'}
+                </div>
+                <h2 style={{
+                  color: '#fff', fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem',
+                  background: activeBattle.score_a > activeBattle.score_b ? 'linear-gradient(to right, #facc15, #f59e0b)' : 'linear-gradient(to right, #ef4444, #dc2626)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                }}>
+                  {activeBattle.score_a > activeBattle.score_b ? 'VITÓRIA É SUA!' : activeBattle.score_a < activeBattle.score_b ? 'VOCÊ FOI DERROTADO' : 'EMPATE!'}
+                </h2>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', marginBottom: '3rem' }}>
+                  A pista pegou fogo! {activeBattle.score_a} vs {activeBattle.score_b} pontos.
+                </p>
+
+                <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px', flexDirection: 'column' }}>
+                  <button 
+                    onClick={() => {
+                      setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
+                      setBattleTimeLeft(180);
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                      color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1.1rem',
+                      cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    🔁 PEDIR REVANCHE
+                  </button>
+                  <button 
+                    onClick={() => setActiveBattle(null)}
+                    style={{
+                      background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                      color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
+                      cursor: 'pointer', transition: 'all 0.2s',
+                    }}
+                  >
+                    ✖ FECHAR
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* --- BANNER DE ENTRADA ELITE (FILA) --- */}
