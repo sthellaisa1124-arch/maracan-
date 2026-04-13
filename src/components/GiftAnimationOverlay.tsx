@@ -452,6 +452,7 @@ function SimpleFloatingOverlay({
   recipientName,
   senderName,
   onComplete,
+  isBattle,
 }: GiftAnimationOverlayProps) {
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter');
   const [mounted, setMounted] = useState(true);
