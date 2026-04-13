@@ -429,7 +429,7 @@ function CssOverlay({
           </div>
         </div>
 
-
+      </div>
 
       <div className="gao-progress-bar">
         <div
