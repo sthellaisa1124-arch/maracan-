@@ -518,6 +518,7 @@ export function Avista({
                     {activeLiveId === live.id ? (
                         <LiveRoom 
                            session={session}
+                           userProfile={null}
                            role="audience"
                            room={live}
                            inline={true}

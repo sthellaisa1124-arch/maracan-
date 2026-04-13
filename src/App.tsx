@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { supabase } from './lib/supabase';
 import { Auth } from './pages/Auth';
 import { Chat } from './pages/Chat';
@@ -313,7 +312,7 @@ function App() {
           </div>
 
           {/* ── MOBILE NAV — fora do dashboard para position:fixed funcionar ── */}
-          {activeTab !== 'avista' && (
+          {(activeTab !== 'avista' && !activeLiveRoom) && (
             <nav className="mobile-nav-elite">
               <button className={activeTab === 'community' ? 'active' : ''} onClick={() => handleTabChange('community')}>
                 <Home size={24} />
@@ -336,7 +335,7 @@ function App() {
           )}
 
           {/* ── MENU FAB — fora do dashboard ── */}
-          {showFabMenu && (
+          {(showFabMenu && !activeLiveRoom) && (
             <div className="fab-container-urban active">
               <div className="fab-menu-options animate-fade-up">
                 <button className="fab-menu-item" onClick={() => { setIsPostModalOpen(true); setShowFabMenu(false); }}>
@@ -355,16 +354,15 @@ function App() {
         </>
       )}
 
-      {/* ── LIVE ROOM (Portal no body) ── */}
-      {session && activeLiveRoom && createPortal(
+      {/* ── LIVE ROOM (auto-portala para o body internamente) ── */}
+      {session && activeLiveRoom && (
         <LiveRoom
           session={session}
           userProfile={userProfile}
-          role="host"
+          role={activeLiveRoom.host_id === session.user.id ? 'host' : 'audience'}
           room={activeLiveRoom}
           onClose={() => setActiveLiveRoom(null)}
-        />,
-        document.body
+        />
       )}
     </>
   );

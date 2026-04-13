@@ -146,6 +146,7 @@ function createParticles(colors: string[], count = 80): Particle[] {
 interface GiftAnimationOverlayProps {
   gift: Gift;
   recipientName: string;
+  senderName?: string; // quem enviou o presente
   onComplete: () => void;
 }
 
@@ -443,24 +444,228 @@ function CssOverlay({
 }
 
 // ═════════════════════════════════════════════════════════════
+// SUB-COMPONENTE: Card flutuante (presentes SEM vídeo)
+// Aparece centralizado, sem fundo de tela cheia, glassmorphism
+// ═════════════════════════════════════════════════════════════
+function SimpleFloatingOverlay({
+  gift,
+  recipientName,
+  senderName,
+  onComplete,
+}: GiftAnimationOverlayProps) {
+  const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter');
+  const [mounted, setMounted] = useState(true);
+  const DURATION = 4000;
+
+  const finish = useCallback(() => {
+    setPhase('exit');
+    setTimeout(() => { setMounted(false); onComplete(); }, 450);
+  }, [onComplete]);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase('hold'), 500);
+    const t2 = setTimeout(finish, DURATION);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [finish]);
+
+  if (!mounted) return null;
+
+  const c = gift.color;
+  const SPARKLES = ['✦', '✧', '⋆', '·', '✦', '✧'];
+
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000000000,
+        pointerEvents: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <style>{`
+        @keyframes sfoIn {
+          0%   { opacity: 0; transform: scale(0.6) translateY(40px); }
+          60%  { opacity: 1; transform: scale(1.06) translateY(-6px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes sfoOut {
+          to { opacity: 0; transform: scale(0.82) translateY(-22px); }
+        }
+        @keyframes sfoPop {
+          0%   { transform: scale(0) rotate(-15deg); }
+          65%  { transform: scale(1.28) rotate(4deg); }
+          100% { transform: scale(1) rotate(0deg); }
+        }
+        @keyframes sfoBar {
+          from { width: 100%; }
+          to   { width: 0%; }
+        }
+        @keyframes sfoBlink {
+          0%, 100% { opacity: 0.2; }
+          50%      { opacity: 0.6; }
+        }
+        @keyframes sfoFloat {
+          0%   { transform: translate(0, 0) scale(1);  opacity: 0.8; }
+          100% { transform: translate(var(--ftx), var(--fty)) scale(0); opacity: 0; }
+        }
+        .sfo-wrap {
+          pointer-events: auto;
+          cursor: pointer;
+          animation: sfoIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        .sfo-wrap.sfo-exiting {
+          animation: sfoOut 0.45s ease forwards;
+        }
+        .sfo-inner {
+          background: rgba(0, 0, 0, 0.50);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border-radius: 28px;
+          padding: 2.2rem 2.8rem 1.6rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.35rem;
+          min-width: 260px;
+          max-width: 320px;
+          text-align: center;
+          position: relative;
+          overflow: hidden;
+          font-family: 'Outfit', sans-serif;
+        }
+        .sfo-emoji-wrap {
+          line-height: 1;
+          margin-bottom: 0.5rem;
+          animation: sfoPop 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.18s both;
+        }
+        .sfo-spark {
+          position: absolute;
+          pointer-events: none;
+          animation: sfoFloat var(--fdur) ease-out infinite;
+          animation-delay: var(--fdel);
+        }
+        .sfo-bar {
+          position: absolute;
+          bottom: 0; left: 0; right: 0;
+          height: 3px;
+          background: rgba(255, 255, 255, 0.06);
+          border-radius: 0 0 28px 28px;
+          overflow: hidden;
+        }
+        .sfo-bar-fill {
+          height: 100%;
+          animation: sfoBar ${DURATION}ms linear forwards;
+        }
+        .sfo-hint {
+          font-size: 0.62rem;
+          letter-spacing: 1.2px;
+          text-transform: uppercase;
+          margin-top: 0.6rem;
+          animation: sfoBlink 2s infinite;
+          color: rgba(255,255,255,0.22);
+        }
+      `}</style>
+
+      <div
+        className={`sfo-wrap${phase === 'exit' ? ' sfo-exiting' : ''}`}
+        onClick={finish}
+      >
+        <div
+          className="sfo-inner"
+          style={{
+            border: `1.5px solid ${c}44`,
+            boxShadow: `0 20px 60px ${gift.glow}44, 0 0 0 1px ${c}18, inset 0 0 40px ${c}08`,
+          }}
+        >
+          {/* Sparkles flutuantes */}
+          {SPARKLES.map((s, i) => (
+            <span
+              key={i}
+              className="sfo-spark"
+              style={{
+                top: `${8 + (i * 14) % 80}%`,
+                left: `${6 + (i * 17) % 86}%`,
+                fontSize: `${0.55 + (i % 3) * 0.25}rem`,
+                color: c,
+                opacity: 0.7,
+                '--fdur': `${1.6 + i * 0.22}s`,
+                '--fdel': `${i * 0.28}s`,
+                '--ftx': `${(i % 2 === 0 ? -1 : 1) * (8 + i * 4)}px`,
+                '--fty': `-${38 + i * 7}px`,
+              } as React.CSSProperties}
+            >
+              {s}
+            </span>
+          ))}
+
+          {/* Emoji */}
+          <div className="sfo-emoji-wrap">
+            <span
+              style={{
+                fontSize: '4.5rem',
+                display: 'block',
+                filter: `drop-shadow(0 0 28px ${gift.glow}) drop-shadow(0 0 12px ${gift.glow})`,
+              }}
+            >
+              {gift.symbol}
+            </span>
+          </div>
+
+          {/* Nome do presente */}
+          <div style={{ fontSize: '1.35rem', fontWeight: 900, color: '#fff', lineHeight: 1.1 }}>
+            {gift.name}
+          </div>
+
+          {/* Remetente → Destinatário */}
+          <div style={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.45)', lineHeight: 1.4 }}>
+            {senderName ? (
+              <>
+                <strong style={{ color: c, fontWeight: 800 }}>@{senderName}</strong>
+                {' '}presenteou{' '}
+                <strong style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 800 }}>@{recipientName}</strong>
+              </>
+            ) : (
+              <>para <strong style={{ color: c, fontWeight: 800 }}>@{recipientName}</strong></>
+            )}
+          </div>
+
+          {/* Preço */}
+          <div style={{ fontSize: '0.95rem', fontWeight: 900, color: c, marginTop: '0.15rem' }}>
+            🪙 {gift.price.toLocaleString('pt-BR')} Moral
+          </div>
+
+          {/* Dica tap */}
+          <div className="sfo-hint">toque para fechar</div>
+
+          {/* Barra de progresso */}
+          <div className="sfo-bar">
+            <div className="sfo-bar-fill" style={{ background: c }} />
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
 // COMPONENTE PRINCIPAL — decide qual modo usar
 // ═════════════════════════════════════════════════════════════
 export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
   const { gift } = props;
 
   /**
-   * Lógica de decisão:
-   * 1. Se o presente tem `animationVideo` → tenta VideoOverlay
-   * 2. Se o vídeo falhar ao carregar → VideoOverlay retorna null
-   *    e React renderizará o CssOverlay (via `videoFailed` state)
-   * 3. Se não tem `animationVideo` → vai direto para CssOverlay
+   * 1. Se o presente tem `animationVideo` → VideoOverlay (tela cheia com vídeo)
+   * 2. Se o vídeo falhar ao carregar → SimpleFloatingOverlay (card flutuante)
+   * 3. Se não tem `animationVideo` → SimpleFloatingOverlay diretamente
    */
   const [videoFailed, setVideoFailed] = useState(false);
 
   const hasVideo = !!gift.animationVideo && !videoFailed;
 
-  // Se vídeo falhou, queremos remontar o CssOverlay com estado limpo
-  // Usamos key para forçar remontagem
   if (hasVideo) {
     return (
       <VideoOverlayWithFallback
@@ -470,7 +675,7 @@ export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
     );
   }
 
-  return <CssOverlay key="css-overlay" {...props} />;
+  return <SimpleFloatingOverlay key="simple-overlay" {...props} />;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -479,6 +684,7 @@ export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
 function VideoOverlayWithFallback({
   gift,
   recipientName,
+  senderName,
   onComplete,
   onVideoError,
 }: GiftAnimationOverlayProps & { onVideoError: () => void }) {
@@ -594,7 +800,11 @@ function VideoOverlayWithFallback({
           {gift.name}
         </div>
         <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', margin: '0.3rem 0' }}>
-          enviado para <strong style={{ color: gift.color }}>@{recipientName}</strong>
+          {senderName ? (
+            <><strong style={{ color: gift.color }}>@{senderName}</strong>{' '}presenteou{' '}<strong>@{recipientName}</strong></>
+          ) : (
+            <>enviado para <strong style={{ color: gift.color }}>@{recipientName}</strong></>
+          )}
         </div>
         <div style={{ fontSize: '1rem', fontWeight: 900, color: gift.color }}>
           🪙 {gift.price.toLocaleString('pt-BR')} Moral

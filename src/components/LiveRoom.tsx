@@ -93,11 +93,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const [activeBeautyPreset, setActiveBeautyPreset] = useState<keyof typeof BEAUTY_PRESETS>('original');
   const [activeVibePreset, setActiveVibePreset] = useState<keyof typeof VIBE_PRESETS>('original');
   const [activeAmbientePreset, setActiveAmbientePreset] = useState<keyof typeof AMBIENTE_PRESETS>('original');
-  const [activeEffectTab, setActiveEffectTab] = useState<'beleza' | 'vibe' | 'ambiente'>('beleza');
+  const [activeEffectTab, setActiveEffectTab] = useState<'vibe' | 'ambiente'>('vibe');
   const [isBeautyMenuOpen, setIsBeautyMenuOpen] = useState(false);
   
   // INTERATIVIDADE DE ELITE (FILA DE ENTRADA)
-  const [hearts, setHearts] = useState<{ id: number, color: string }[]>([]);
+  const [hearts, setHearts] = useState<{ id: number, color: string, x: number, y: number }[]>([]);
   const [entranceQueue, setEntranceQueue] = useState<any[]>([]);
   const [activeEntrance, setActiveEntrance] = useState<any | null>(null);
   const [quickEntrances, setQuickEntrances] = useState<{id: string, username: string}[]>([]);
@@ -164,85 +164,45 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   }, [room.host_id, session?.user?.id]);
 
 
-
   // MOTOR DA FILA DE ENTRADA ELITE
   useEffect(() => {
     if (!activeEntrance && entranceQueue.length > 0) {
       const nextOne = entranceQueue[0];
       setEntranceQueue(prev => prev.slice(1));
       setActiveEntrance(nextOne);
-      
-      // Mostrar por 6 segundos e depois liberar para o próximo
       const timer = setTimeout(() => {
         setActiveEntrance(null);
-      }, 6500);
-      
+      }, 4000); // 4s e some
       return () => clearTimeout(timer);
     }
   }, [activeEntrance, entranceQueue]);
 
-  async function checkFollowStatus() {
-    if (role !== 'audience' || !session?.user?.id) return;
-    try {
-      const { data } = await supabase
-        .from('follows')
-        .select('id')
-        .eq('follower_id', session.user.id)
-        .eq('following_id', room.host_id)
-        .maybeSingle();
-      
-      if (data) setIsFollowing(true);
-    } catch (e) {
-      console.error("Erro ao checar seguimento:", e);
-    }
-  }
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat]);
-
-  // LÓGICA DE COLETA DE DADOS PARA O PAINEL PROFISSIONAL
-  useEffect(() => {
-    if (role !== 'host') return;
-    
-    // Ponto inicial imediato
-    const recordStats = () => {
-      setStatsHistory(prev => {
-        const now = new Date();
-        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
-        const newPoint = {
-          time: timeStr,
-          viewers: sessionViewers,
-          likes: totalLikes,
-          engagement: Math.floor(Math.random() * 20) + 5 // Simulação de engajamento baseada em atividade
-        };
-        // Manter últimos 20 pontos para não sobrecarregar
-        const updated = [...prev, newPoint].slice(-20);
-        return updated;
-      });
-    };
-
-    recordStats(); // Primeiro registro
-    const interval = setInterval(recordStats, 20000); // A cada 20 segundos
-    
-    return () => clearInterval(interval);
-  }, [sessionViewers, totalLikes, role]);
-
-  // Motor da fila de presentes
+  // MOTOR DA FILA DE PRESENTES (anima um por vez)
   useEffect(() => {
     if (!activeGift && giftQueue.length > 0) {
-      const nextGift = giftQueue[0];
-      setActiveGift(nextGift);
+      const next = giftQueue[0];
       setGiftQueue(prev => prev.slice(1));
+      setActiveGift(next);
     }
   }, [activeGift, giftQueue]);
 
+  // GARANTIR QUE A TRACK DE VÍDEO RODE MESMO DEPOIS DE MONTAR TARDE
+  useEffect(() => {
+    if (role === 'audience') {
+      const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
+      if (hostUser?.videoTrack) {
+        const el = document.getElementById(`remote-video-${room.host_id}`);
+        if (el && el.childElementCount === 0) {
+          hostUser.videoTrack.play(el);
+        }
+      }
+    }
+  }, [remoteUsers, role, room.host_id]);
 
   async function initAgora() {
     const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
     agoraClientRef.current = agoraClient;
 
-    // EVENTOS
     agoraClient.on('user-published', async (user, mediaType) => {
       await agoraClient.subscribe(user, mediaType);
       
@@ -250,10 +210,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         const remoteUser = user;
         setRemoteUsers(prev => [...prev.filter(u => u.uid !== user.uid), remoteUser]);
         
-        // Se formos audiência e este for o Host, forçamos o Play imediatamente
         if (role === 'audience' && String(user.uid) === String(room.host_id)) {
           setTimeout(() => {
-            const el = document.getElementById(`remote-video-${user.uid}`);
+            const el = document.getElementById(`remote-video-${room.host_id}`);
             if (el) user.videoTrack?.play(el);
           }, 500);
         }
@@ -275,8 +234,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         const audio = await AgoraRTC.createMicrophoneAudioTrack();
         const video = await AgoraRTC.createCameraVideoTrack({
           facingMode: 'user', 
-          encoderConfig: '720p_1', // Bitrate otimizado para evitar travamentos
-          optimizationMode: 'motion' // Priorizar fluidez do movimento
+          encoderConfig: '720p_1',
+          optimizationMode: 'motion'
         });
         
         setLocalAudioTrack(audio);
@@ -284,35 +243,27 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         localAudioRef.current = audio;
         localVideoRef.current = video;
         
-        // CONFIGURAR EXTENSÃO DE BELEZA (ELITE)
         try {
           const extension = new BeautyExtension();
           AgoraRTC.registerExtensions([extension]);
           const processor = extension.createProcessor();
           beautyProcessorRef.current = processor;
           
-          // CONFIGURAR FUNDO VIRTUAL (OPÇÃO B)
           const vbgExtension = new VirtualBackgroundExtension();
           AgoraRTC.registerExtensions([vbgExtension]);
           const vbgProcessor = vbgExtension.createProcessor();
           vbgProcessorRef.current = vbgProcessor;
           
-          // Carregar Engine de IA WebAssembly Remoto para Fundo Virtual
           vbgProcessor.init("https://cdn.jsdelivr.net/npm/agora-extension-virtual-background@2.1.0/wasms/").catch((e: any) => console.log('Wasm VBG (Ignorável):', e));
           
-          // Pipeline de Elite: Vídeo -> Beleza -> Fundo Virtual -> Mundo
           video.pipe(processor).pipe(vbgProcessor).pipe(video.processorDestination);
           
-          // Prévia ativada
           if (videoContainerRef.current) {
             video.play(videoContainerRef.current, { mirror: true });
           }
         } catch (beautyErr) {
           console.error("Erro ao carregar extensões de vídeo:", beautyErr);
         }
-        
-        // SÓ PUBLICA SE JÁ ESTIVER EM LIVE (RECONEXÃO) OU SE FOR AUDIÊNCIA (NUNCA PUBLICA)
-        // O Host agora tem o botão "INICIAR LIVE" para disparar o publish
       }
     } catch (err: any) {
       console.error('Erro Agora:', err);
@@ -745,16 +696,46 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     setIsGoalPickerOpen(false);
   }
 
-  async function handleSendLike() {
+  const lastTapRef = useRef<number>(0);
+
+  function handleDoubleTap(e: React.TouchEvent | React.MouseEvent) {
+    const now = Date.now();
+    const delta = now - lastTapRef.current;
+    if (delta < 350 && delta > 0) {
+      // Duplo toque detectado!
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      let clientX: number, clientY: number;
+      if ('touches' in e && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else if ('clientX' in e) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      } else {
+        clientX = rect.width / 2;
+        clientY = rect.height / 2;
+      }
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      handleSendLike(x, y);
+    }
+    lastTapRef.current = now;
+  }
+
+  async function handleSendLike(tapX = 50, tapY = 50) {
     const newLikes = totalLikes + 1;
     setTotalLikes(newLikes);
     setSessionLikes(prev => prev + 1);
     
-    // Disparar corações locais
-    const colors = ['#ff4b2b', '#ff416c', '#6c2bff', '#fbbf24'];
-    const newHeart = { id: Date.now(), color: colors[Math.floor(Math.random() * colors.length)] };
-    setHearts(prev => [...prev, newHeart]);
-    setTimeout(() => setHearts(prev => prev.filter(h => h.id !== newHeart.id)), 1500);
+    // Disparar corações na posição do toque
+    const colors = ['#ff4b2b', '#ff416c', '#fc2e6e', '#ff69b4', '#ff1493'];
+    // Aparecem 3 corações em leque no ponto do toque
+    for (let i = 0; i < 3; i++) {
+      const spreadX = tapX + (Math.random() - 0.5) * 30;
+      const newHeart = { id: Date.now() + i, color: colors[Math.floor(Math.random() * colors.length)], x: spreadX, y: tapY };
+      setHearts(prev => [...prev, newHeart]);
+      setTimeout(() => setHearts(prev => prev.filter(h => h.id !== newHeart.id)), 1400);
+    }
 
     await supabase.channel(`live_chat:${room.id}`).send({
       type: 'broadcast',
@@ -764,6 +745,21 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         totalCount: newLikes
       }
     });
+  }
+  async function checkFollowStatus() {
+    if (role !== 'audience' || !session?.user?.id || !room?.host_id) return;
+    try {
+      const { data } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('follower_id', session.user.id)
+        .eq('following_id', room.host_id)
+        .maybeSingle();
+      
+      setIsFollowing(!!data);
+    } catch (e) {
+      console.error("Erro ao verificar follow:", e);
+    }
   }
 
   async function handleFollowHost() {
@@ -917,18 +913,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const content = (
     <div 
       className={`live-room-container ${inline ? 'is-inline' : ''}`}
-      style={{ 
-        position: 'fixed', 
-        inset: 0, 
-        zIndex: 5000, 
-        backgroundColor: '#000000', 
-        display: 'flex',
-        flexDirection: 'column',
-        visibility: 'visible',
-        opacity: 1
+      style={inline ? {
+        position: 'absolute', inset: 0, backgroundColor: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+      } : { 
+        position: 'fixed', inset: 0, zIndex: 5000, backgroundColor: '#000000', display: 'flex', flexDirection: 'column', visibility: 'visible', opacity: 1
       }}
     >
-      <div className="live-video-layer" style={{ zIndex: 1 }}>
+      <div 
+        className="live-video-layer" 
+        style={{ zIndex: 1, position: 'absolute', inset: 0 }}
+      >
         {role === 'host' ? (
           <div ref={videoContainerRef} className="live-video-element" />
         ) : (
@@ -954,7 +948,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         )}
       </div>
 
-      <div className="live-overlay">
+      <div 
+        className="live-overlay"
+        onTouchEnd={role === 'audience' ? handleDoubleTap : undefined}
+        onDoubleClick={role === 'audience' ? handleDoubleTap : undefined}
+      >
 
         {/* --- BANNER DE ENTRADA ELITE (FILA) --- */}
         {activeEntrance && (
@@ -978,31 +976,70 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           </div>
         )}
 
-        {/* --- CHUVA DE CURTIDAS (CORAÇÕES) --- */}
+        {/* --- CORAÇÕES DO DUPLO TOQUE --- */}
         {hearts.map(h => (
-          <div key={h.id} className="floating-heart" style={{ color: h.color }}>❤️</div>
+          <div 
+            key={h.id} 
+            className="floating-heart" 
+            style={{ 
+              color: h.color,
+              left: `${h.x}px`,
+              top: `${h.y}px`,
+            }}
+          >❤️</div>
         ))}
 
         <header className="live-header">
-          <div className="live-host-info">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="live-host-info" style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', padding: '4px 12px 4px 4px', borderRadius: '40px', alignItems: 'center', gap: '8px' }}>
+              <img 
+                src={room.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username || 'user'}`} 
+                alt="Host" 
+                style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.8)' }} 
+              />
+              <div className="host-meta" style={{ flex: 1, paddingRight: '8px' }}>
+                <span className="host-name" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', lineHeight: 1.2 }}>
+                  @{room.host_profile?.username || 'criador'}
+                  <UserBadges badges={room.host_profile?.badges} donatedAmount={room.host_profile?.total_donated} size={14} />
+                </span>
+                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px', display: 'block' }}>
+                  {room.title || 'Live'}
+                </span>
+              </div>
+              
+              {role === 'audience' && !isFollowing && (
+                <button 
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await handleFollowHost();
+                  }} 
+                  className="live-header-follow-btn"
+                  style={{ borderRadius: '20px', padding: '4px 12px', fontSize: '0.75rem', margin: 0, height: '28px' }}
+                >
+                  <UserPlus size={14} strokeWidth={3} /> SEGUIR
+                </button>
+              )}
+            </div>
+
             <div className="live-badge-column">
-               {/* Badge: só mostra AO VIVO quando estiver transmitindo */}
-               <div className="live-badge" style={{
-                 background: isBroadcasting ? '#ef4444' : 'rgba(255,255,255,0.15)',
-                 color: isBroadcasting ? '#fff' : 'rgba(255,255,255,0.6)',
-               }}>
-                 {isBroadcasting ? '🔴 AO VIVO' : '🎬 PREPARAÇÃO'}
-               </div>
-               <div className="live-header-metrics">
-                 <span className="header-count-neon">
-                   <Users size={14} color="var(--primary)" /> {sessionViewers}
-                 </span>
-                 <span className="header-count-neon mini-likes">
-                   <Heart size={14} fill="currentColor" /> {totalLikes}
-                 </span>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                 <div className="live-badge" style={{
+                   background: isBroadcasting ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                   color: isBroadcasting ? '#fff' : 'rgba(255,255,255,0.6)',
+                   margin: 0
+                 }}>
+                   {isBroadcasting ? '🔴 AO VIVO' : '🎬 PREPARAÇÃO'}
+                 </div>
+                 <div className="live-header-metrics" style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', padding: '2px 8px', borderRadius: '12px' }}>
+                   <span className="header-count-neon">
+                     <Users size={12} color="var(--primary)" /> {sessionViewers}
+                   </span>
+                   <span className="header-count-neon mini-likes" style={{ marginLeft: '8px' }}>
+                     <Heart size={12} fill="currentColor" /> {totalLikes}
+                   </span>
+                 </div>
                </div>
                
-               {/* BARRA DE META REPOSICIONADA PARA O CANTO - ABAIXO DOS VIEWERS/LIKES */}
                {goalTarget > 0 && (
                 <div className="goal-compact-container-sidebar">
                   <div className="goal-host-label-sidebar">{goalTitle || (goalType === 'gifts' ? 'Meta' : 'Meta')}</div>
@@ -1028,30 +1065,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                 </div>
                )}
             </div>
-
-            <div className="host-meta">
-              <span className="host-name">
-                {room.title}
-                <UserBadges badges={room.host_profile?.badges} donatedAmount={room.host_profile?.total_donated} size={14} />
-              </span>
-            </div>
-            {role === 'audience' && (
-              <button 
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  if (!isFollowing) {
-                    await handleFollowHost();
-                  }
-                }} 
-                className={`live-header-follow-btn ${isFollowing ? 'is-following' : ''}`}
-              >
-                {isFollowing ? (
-                  <><span style={{ fontSize: '1rem', marginRight: '4px' }}>✓</span> SEGUINDO</>
-                ) : (
-                  <><UserPlus size={16} strokeWidth={3} /> SEGUIR</>
-                )}
-              </button>
-            )}
           </div>
           
           {/* Botão de encerrar: só mostra vermelho quando já está ao vivo */}
@@ -1104,42 +1117,24 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             ))}
             <div ref={chatEndRef} />
           </div>
-          <div className="chat-footer">
-            <input 
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-              placeholder="Diz aí, cria..." 
-              className="live-chat-input"
-              style={{ background: 'rgba(255,255,255,0.08)', border: 'none', padding: '0.8rem 1.2rem' }}
-            />
-            {role === 'audience' && (
-               <button onClick={handleSendLike} className="btn-3d-red"><Heart size={24} fill="currentColor" /></button>
-            )}
-            <button onClick={() => setIsGiftPanelOpen(true)} className="btn-3d-gold"><Gift size={28} /></button>
-            {role === 'host' && (
-              <button 
-                onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)} 
-                className="btn-3d-purple"
-                style={{ background: 'linear-gradient(135deg, #a855f7 0%, #6b21a8 100%)', boxShadow: '0 4px 15px rgba(168, 85, 247, 0.4)' }}
-                title="Efeitos de Beleza"
-              >
-                <Sparkles size={24} color="#fff" />
+          {role === 'audience' && (
+            <div className="chat-footer">
+              <input 
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                placeholder="Diz aí, cria..." 
+                className="live-chat-input"
+                style={{ background: 'rgba(255,255,255,0.08)', border: 'none', padding: '0.8rem 1.2rem' }}
+              />
+              <button onClick={() => setIsGiftPanelOpen(true)} className="elite-gift-btn">
+                <div className="gift-btn-inner">
+                  <Gift size={24} color="#fff" strokeWidth={2.5} />
+                </div>
               </button>
-            )}
-          </div>
-          
-          {/* BOTÃO FLUTUANTE DE EFEITOS DURANTE A LIVE (PARA GARANTIR ACESSO DO HOST) */}
-          {role === 'host' && (
-             <button 
-               onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)}
-               className="floating-effects-btn"
-               style={{ position: 'absolute', bottom: '80px', right: '16px', zIndex: 100, width: 44, height: 44, borderRadius: 22, background: 'linear-gradient(to right, #a855f7, #ca8a04)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }}
-             >
-               <Sparkles size={20} color="#fff" />
-             </button>
+            </div>
           )}
-
+          
         </div>
         )}
 
@@ -1467,6 +1462,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             </div>
 
             <div className="live-controls">
+              {role === 'host' && (
+                 <button 
+                   onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)}
+                   className="control-btn"
+                   style={{ background: 'linear-gradient(to right, #a855f7, #ca8a04)' }}
+                   title="Filtros e Efeitos"
+                 >
+                   <Sparkles size={20} color="#fff" />
+                 </button>
+              )}
               <button onClick={toggleMute} className={`control-btn ${muted ? 'off' : ''}`}>{muted ? <MicOff /> : <Mic />}</button>
               <button onClick={toggleCamera} className={`control-btn ${cameraOff ? 'off' : ''}`}>{cameraOff ? <Camera size={24} style={{opacity: 0.5}} /> : <Camera />}</button>
             </div>
@@ -1474,7 +1479,14 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         )}
       </div>
 
-      {activeGift && <GiftAnimationOverlay gift={activeGift.gift} recipientName={activeGift.username} onComplete={() => setActiveGift(null)} />}
+      {activeGift && (
+        <GiftAnimationOverlay
+          gift={activeGift.gift}
+          senderName={activeGift.username}
+          recipientName={room.host_profile?.username || room.title || 'host'}
+          onComplete={() => setActiveGift(null)}
+        />
+      )}
 
       {isGiftPanelOpen && (
         <GiftPanel 
@@ -1590,11 +1602,168 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         .live-video-element { width: 100%; height: 100%; object-fit: cover; }
         .live-video-element video { object-fit: cover !important; }
         
+        /* CORAÇÕES DUPLO TOQUE */
+        .floating-heart {
+          position: absolute;
+          font-size: 2.4rem;
+          pointer-events: none;
+          z-index: 99999;
+          filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+          animation: float-heart-anim 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+        
+        @keyframes float-heart-anim {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+          15% { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+          25% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(-50%, calc(-50% - 150px)) scale(1.1); opacity: 0; }
+        }
+
+        /* BOTAO DE PRESENTE ELITE */
+        .elite-gift-btn {
+          position: relative;
+          background: linear-gradient(135deg, #ff0f7b, #f89b29);
+          border: none;
+          border-radius: 50%;
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 4px 15px rgba(255, 15, 123, 0.4), 
+                      inset 0 2px 4px rgba(255,255,255,0.4);
+          transition: transform 0.2s, box-shadow 0.2s;
+          flex-shrink: 0;
+        }
+        .elite-gift-btn:active {
+          transform: scale(0.92);
+        }
+        .elite-gift-btn::before {
+          content: '';
+          position: absolute;
+          inset: -3px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #ff0f7b, #f89b29);
+          z-index: -1;
+          filter: blur(8px);
+          opacity: 0.7;
+          animation: pulse-glow 2s infinite alternate;
+        }
+        .gift-btn-inner {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: gift-bounce 2s infinite ease-in-out;
+        }
+        @keyframes gift-bounce {
+          0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+          25% { transform: translateY(-2px) scale(1.05) rotate(-5deg); }
+          75% { transform: translateY(-2px) scale(1.05) rotate(5deg); }
+        }
+        @keyframes pulse-glow {
+          from { opacity: 0.5; filter: blur(6px); }
+          to { opacity: 0.9; filter: blur(10px); }
+        }
+
         .live-overlay {
           position: absolute; inset: 0; z-index: 10;
           display: flex; flex-direction: column;
           background: transparent;
           padding: env(safe-area-inset-top) 1rem env(safe-area-inset-bottom);
+        }
+
+        /* BANNER ELITE (ENTRADA) — estilo TikTok: compacto, canto inferior esquerdo, desliza da esquerda */
+        .elite-entrance-banner {
+          position: absolute;
+          bottom: 120px;
+          left: 12px;
+          background: linear-gradient(90deg, rgba(10,10,10,0.92), rgba(30,20,0,0.92));
+          border: 1.5px solid rgba(212,175,55,0.7);
+          border-radius: 40px;
+          padding: 6px 14px 6px 6px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          z-index: 200;
+          max-width: 220px;
+          box-shadow: 0 4px 16px rgba(212,175,55,0.3);
+          animation: elite-slide-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+                     elite-fade-out 0.4s ease 3.6s forwards;
+        }
+        
+        @keyframes elite-slide-in {
+          from { transform: translateX(-110%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes elite-fade-out {
+          from { transform: translateX(0); opacity: 1; }
+          to { transform: translateX(-110%); opacity: 0; }
+        }
+        
+        .elite-entrance-avatar-wrapper {
+          position: relative;
+          flex-shrink: 0;
+        }
+        
+        .elite-entrance-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid #d4af37;
+          object-fit: cover;
+        }
+        
+        .elite-level-tag {
+          position: absolute;
+          bottom: -6px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #d4af37;
+          color: #000;
+          font-size: 0.5rem;
+          font-weight: 900;
+          padding: 1px 4px;
+          border-radius: 6px;
+          border: 1px solid #fff;
+          white-space: nowrap;
+        }
+        
+        .elite-entrance-text {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
+
+        .elite-label {
+          font-size: 0.55rem;
+          font-weight: 900;
+          color: #d4af37;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          line-height: 1;
+        }
+        
+        .elite-crown { font-size: 0.65rem; }
+        
+        .elite-user-row {
+          display: flex;
+          align-items: center;
+          gap: 3px;
+          flex-wrap: nowrap;
+        }
+        
+        .elite-username {
+          font-weight: 900;
+          color: #fff;
+          font-size: 0.8rem;
+          line-height: 1;
+        }
+        
+        .elite-action {
+          color: #fbbf24;
+          font-weight: 800;
+          font-size: 0.7rem;
         }
 
         .live-header {
@@ -2328,5 +2497,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     </div>
   );
 
+  // Inline: renderiza diretamente no container pai (aba Lives/Avista)
+  // Portal: renderiza no body para modo tela cheia (Community/App)
+  if (inline) return content;
   return createPortal(content, document.body);
 }
