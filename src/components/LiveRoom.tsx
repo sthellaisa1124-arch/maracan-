@@ -13,6 +13,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { GiftAnimationOverlay } from './GiftAnimationOverlay';
 import { GiftPanel } from './GiftPanel';
 import { LiveBattleModal } from './LiveBattleModal';
+import { GlobalBattleMatchmaker } from './GlobalBattleMatchmaker';
 import { BattleScoreBar } from './BattleScoreBar';
 import { UserBadges } from './Badges';
 import BeautyExtension from 'agora-extension-beauty-effect';
@@ -100,6 +101,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   
   // BATALHAS (CONFRONTO)
   const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
+  const [isGlobalMatchmakerOpen, setIsGlobalMatchmakerOpen] = useState(false);
   const [activeBattle, setActiveBattle] = useState<any | null>(null);
   const [battleTimeLeft, setBattleTimeLeft] = useState(180); // 3 minutes
 
@@ -830,7 +832,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
     // 3. Sistema manda msg no chat
     const msgData = {
-      username: session.user.user_metadata?.username || session.user.user_metadata?.name || 'Cria',
+      username: userProfile?.username || session.user.user_metadata?.username || 'Cria',
       content: `👤 começou a seguir o Host!`,
       isSystem: true,
       badges: userProfile?.badges || session.user.user_metadata?.badges || [],
@@ -1634,6 +1636,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           onClose={() => setIsBattleModalOpen(false)}
           currentHostId={session.user.id}
           onInvite={handleInviteOpponent}
+          onGlobalSearch={() => setIsGlobalMatchmakerOpen(true)}
+        />
+      )}
+
+      {isGlobalMatchmakerOpen && (
+        <GlobalBattleMatchmaker
+          isOpen={isGlobalMatchmakerOpen}
+          onClose={() => setIsGlobalMatchmakerOpen(false)}
+          currentHostId={session.user.id}
+          currentChannelId={String(room.agora_channel)}
+          onMatchFound={(opponent) => {
+            setIsGlobalMatchmakerOpen(false);
+            handleInviteOpponent(opponent); // Aproveitamos a lógica existente de convite ou já forçamos a união
+          }}
         />
       )}
 

@@ -7,9 +7,10 @@ interface LiveBattleModalProps {
   onClose: () => void;
   currentHostId: string;
   onInvite: (opponent: any) => void;
+  onGlobalSearch?: () => void;
 }
 
-export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite }: LiveBattleModalProps) {
+export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGlobalSearch }: LiveBattleModalProps) {
   const [loading, setLoading] = useState(true);
   const [liveCreators, setLiveCreators] = useState<any[]>([]);
 
@@ -171,6 +172,31 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite }: Li
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Botão de Busca Global Opcional */}
+          {onGlobalSearch && !loading && (
+            <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => {
+                  onClose();
+                  onGlobalSearch();
+                }}
+                style={{
+                  width: '100%', padding: '1rem',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '1.2rem', color: '#fff',
+                  fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🌍</span> Procurar Oponente Global
+              </button>
+              <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                Conecte-se com qualquer criador disponível
+              </p>
             </div>
           )}
         </div>
