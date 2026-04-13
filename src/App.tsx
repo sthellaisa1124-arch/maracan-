@@ -286,7 +286,7 @@ function App() {
                 </div>
                 <div className="sidebar-section">
                   <h3><Star size={18} /> EM ALTA</h3>
-                  <LiveRail onJoinLive={(live) => setActiveLiveRoom(live)} />
+              <LiveRail onJoinLive={(live) => setActiveLiveRoom(live)} currentUserId={session?.user?.id} />
                 </div>
               </aside>
             )}
@@ -313,7 +313,7 @@ function App() {
 
           {/* ── MOBILE NAV — fora do dashboard para position:fixed funcionar ── */}
           {(activeTab !== 'avista' && !activeLiveRoom) && (
-            <nav className="mobile-nav-elite">
+            <nav className="mobile-nav-elite" style={{ zIndex: 100 }}>
               <button className={activeTab === 'community' ? 'active' : ''} onClick={() => handleTabChange('community')}>
                 <Home size={24} />
               </button>

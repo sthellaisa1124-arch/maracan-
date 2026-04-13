@@ -962,7 +962,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       style={inline ? {
         position: 'absolute', inset: 0, backgroundColor: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden'
       } : { 
-        position: 'fixed', inset: 0, zIndex: 5000, backgroundColor: '#000000', display: 'flex', flexDirection: 'column', visibility: 'visible', opacity: 1
+        position: 'fixed', inset: 0, zIndex: 20000, backgroundColor: '#000000', display: 'flex', flexDirection: 'column', visibility: 'visible', opacity: 1
       }}
     >
       <div 

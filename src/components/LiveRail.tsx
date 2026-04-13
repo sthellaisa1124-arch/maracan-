@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Video, Radio, Zap } from 'lucide-react';
+import { Radio } from 'lucide-react';
 
 interface LiveSession {
   id: string;
@@ -12,7 +12,7 @@ interface LiveSession {
   };
 }
 
-export function LiveRail({ onJoinLive }: { onJoinLive: (live: any) => void }) {
+export function LiveRail({ onJoinLive, currentUserId }: { onJoinLive: (live: any) => void; currentUserId?: string }) {
   const [activeLives, setActiveLives] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,28 +23,37 @@ export function LiveRail({ onJoinLive }: { onJoinLive: (live: any) => void }) {
       .on(
         'postgres_changes' as any, 
         { event: '*', table: 'live_sessions', schema: 'public' }, 
-        () => {
-          fetchActiveLives();
-        }
+        () => { fetchActiveLives(); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId]);
 
   async function fetchActiveLives() {
-    const { data, error } = await supabase
+    // Pega lives ativas
+    const { data: lives, error } = await supabase
       .from('live_sessions')
       .select('*, host_profile:profiles(username, avatar_url)')
       .eq('is_live', true)
       .is('ended_at', null)
       .order('started_at', { ascending: false });
 
-    if (!error && data) {
-      setActiveLives(data);
+    if (error || !lives) { setLoading(false); return; }
+
+    // Se tiver usuário logado, filtra apenas os que ele segue
+    if (currentUserId) {
+      const { data: following } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', currentUserId);
+
+      const followingIds = new Set((following || []).map((f: any) => f.following_id));
+      setActiveLives(lives.filter((l: any) => followingIds.has(l.host_id)));
+    } else {
+      setActiveLives(lives);
     }
+
     setLoading(false);
   }
 

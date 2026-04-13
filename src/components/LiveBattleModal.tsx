@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Search, Swords, User, Loader2 } from 'lucide-react';
+import { X, Swords, User, Loader2 } from 'lucide-react';
 
 interface LiveBattleModalProps {
   isOpen: boolean;
@@ -21,24 +21,14 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite }: Li
   async function fetchLiveOpponents() {
     setLoading(true);
     try {
-      // Buscar sessão de quem está online agora, exceto o próprio
       const { data, error } = await supabase
         .from('live_sessions')
-        .select(`
-          id,
-          host_id,
-          agora_channel,
-          title,
-          viewer_count,
-          profiles:host_id(username, avatar_url, name)
-        `)
+        .select(`id, host_id, agora_channel, title, viewer_count, profiles:host_id(username, avatar_url, name)`)
         .eq('is_live', true)
         .neq('host_id', currentHostId)
         .order('viewer_count', { ascending: false });
 
-      if (data && !error) {
-         setLiveCreators(data);
-      }
+      if (data && !error) setLiveCreators(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -49,71 +39,134 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite }: Li
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-[2rem] sm:rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-black/40">
-          <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-r from-red-600 to-orange-500 p-1.5 rounded-lg">
-              <Swords className="w-5 h-5 text-white" />
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 99999,
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      {/* Overlay */}
+      <div
+        style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div style={{
+        position: 'relative', width: '100%', maxWidth: '480px',
+        background: 'linear-gradient(180deg, #18181b 0%, #09090b 100%)',
+        borderRadius: '2rem 2rem 0 0',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderBottom: 'none',
+        boxShadow: '0 -20px 60px rgba(0,0,0,0.7)',
+        maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+        animation: 'slideUpSheet 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}>
+
+        {/* Header */}
+        <div style={{
+          padding: '1.2rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.07)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'rgba(0,0,0,0.3)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #dc2626, #ea580c)',
+              padding: '0.5rem', borderRadius: '0.75rem',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Swords size={20} color="#fff" />
             </div>
-            <h2 className="text-lg font-bold text-white tracking-wide">Desafiar para CONFRONTO</h2>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#fff', letterSpacing: '0.05em' }}>
+                CONFRONTO
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+                Desafie um criador ao vivo
+              </p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <X className="w-5 h-5 text-white" />
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.08)', border: 'none',
+              borderRadius: '50%', width: '36px', height: '36px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: '#fff',
+            }}
+          >
+            <X size={18} />
           </button>
         </div>
 
-        <div className="p-4 flex-1 overflow-y-auto">
+        {/* Body */}
+        <div style={{ padding: '1rem 1.5rem', flex: 1, overflowY: 'auto' }}>
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-white/50 animate-spin mb-4" />
-              <p className="text-white/50 text-sm">Buscando oponentes ao vivo...</p>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 0', gap: '0.75rem' }}>
+              <Loader2 size={32} color="rgba(255,255,255,0.3)" style={{ animation: 'spin 1s linear infinite' }} />
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', margin: 0 }}>Buscando criadores ao vivo...</p>
             </div>
           ) : liveCreators.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                <User className="w-8 h-8 text-white/20" />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 0', gap: '1rem', textAlign: 'center' }}>
+              <div style={{
+                width: '64px', height: '64px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.05)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <User size={32} color="rgba(255,255,255,0.2)" />
               </div>
-              <h3 className="text-white font-medium mb-1">Nenhum criador ao vivo</h3>
-              <p className="text-white/50 text-sm max-w-[250px]">
-                Seus amigos precisam estar em uma transmissão ao vivo para serem desafiados.
+              <h3 style={{ margin: 0, color: '#fff', fontSize: '1rem', fontWeight: 700 }}>
+                Nenhum criador ao vivo
+              </h3>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', maxWidth: '260px' }}>
+                Para desafiar, outro criador precisa estar numa live ao mesmo tempo que você.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {liveCreators.map((creator) => {
                 const profile = creator.profiles;
-                if (!profile) return null; // Fallback se não der join
-
+                if (!profile) return null;
                 return (
-                  <div key={creator.id} className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 hover:border-white/20 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <img 
-                          src={profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.username}`} 
-                          alt="Avatar" 
-                          className="w-12 h-12 rounded-full object-cover border border-white/10"
+                  <div key={creator.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderRadius: '1.2rem',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                      <div style={{ position: 'relative' }}>
+                        <img
+                          src={profile.avatar_url || `https://ui-avatars.com/api/?name=${profile.username}`}
+                          alt={profile.username}
+                          style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(239,68,68,0.4)' }}
                         />
-                        <div className="absolute -bottom-1 -right-1 bg-red-500 border-2 border-zinc-900 w-4 h-4 rounded-full flex items-center justify-center">
-                           <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                        </div>
+                        <div style={{
+                          position: 'absolute', bottom: '-2px', right: '-2px',
+                          background: '#22c55e', border: '2px solid #09090b',
+                          width: '14px', height: '14px', borderRadius: '50%',
+                        }} />
                       </div>
                       <div>
-                        <h4 className="text-white font-medium text-sm">@{profile.username}</h4>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                          <span className="text-xs text-white/50">{creator.viewer_count || 0} assistindo</span>
-                        </div>
+                        <h4 style={{ margin: 0, color: '#fff', fontWeight: 700, fontSize: '0.9rem' }}>
+                          @{profile.username}
+                        </h4>
+                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>
+                          {creator.viewer_count || 0} assistindo
+                        </span>
                       </div>
                     </div>
-                    
-                    <button 
+                    <button
                       onClick={() => onInvite(creator)}
-                      className="px-4 py-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 text-white text-sm font-bold rounded-xl transition-transform active:scale-95 shadow-lg flex flex-col items-center justify-center"
+                      style={{
+                        background: 'linear-gradient(135deg, #dc2626, #ea580c)',
+                        border: 'none', color: '#fff', fontWeight: 800, fontSize: '0.8rem',
+                        padding: '0.6rem 1.1rem', borderRadius: '0.85rem',
+                        cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase',
+                        boxShadow: '0 4px 15px rgba(220,38,38,0.4)',
+                        transition: 'all 0.2s',
+                      }}
                     >
-                      <span>Desafiar</span>
+                      Desafiar
                     </button>
                   </div>
                 );
