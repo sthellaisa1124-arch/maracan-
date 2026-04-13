@@ -133,38 +133,54 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     setActiveBattle(startPayload);
     setBattleTimeLeft(0);
     
+    // Broadcast helper robusto para evitar que chamadas de send travem os botões
+    const safeCrossBroadcast = (targetRoomId: string, eventName: string, p: any) => {
+       const chId = `live_chat:${targetRoomId}`;
+       // Se for a sala atual que já estamos ouvindo, pode só enviar... mas um canal de evento rápido garante.
+       const quickCh = supabase.channel(`quick_broadcast_${Date.now()}_${Math.random()}`);
+       quickCh.subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+             // O canal real precisa ser a sala para bater no listener deles
+             await supabase.channel(chId).send({ type: 'broadcast', event: eventName, payload: p }).catch(()=>null);
+             supabase.removeChannel(quickCh);
+          }
+       });
+       // Mas o send do Supabase js trava se for nulo, vamos resolver com o send não bloqueante sem await!
+       supabase.channel(chId).send({ type: 'broadcast', event: eventName, payload: p }).catch(()=>null);
+    };
+
     // Sincroniza a audiência local (apenas câmera dividida, sem barra)
-    await supabase.channel(`live_chat:${room.id}`).send({
-      type: 'broadcast',
-      event: 'match_connected',
-      payload: startPayload
-    }).catch(() => {});
+    safeCrossBroadcast(room.id, 'match_connected', startPayload);
 
     // Sincroniza a sala do oponente! Fala pra ele ligar a câmera dividida lá também.
     if (oppLive?.id) {
-       await supabase.channel(`live_chat:${oppLive.id}`).send({
-          type: 'broadcast',
-          event: 'match_connected',
-          payload: {
-            opponentId: room.host_id,
-            opponentProfile: room.host_profile || session.user.user_metadata,
-            agora_channel: room.agora_channel,
-            opponentRoomId: room.id,
-            endTime: null,
-            score_a: 0,
-            score_b: 0
-          }
-       }).catch(() => {});
+       safeCrossBroadcast(oppLive.id, 'match_connected', {
+          opponentId: room.host_id,
+          opponentProfile: room.host_profile || session.user.user_metadata,
+          agora_channel: room.agora_channel,
+          opponentRoomId: room.id,
+          endTime: null,
+          score_a: 0,
+          score_b: 0
+       });
     }
   }
 
+  // Função helper puramente não bloqueante para oponente e cross channel
+  const doBroadcast = (roomId: string, event: string, payload: any = {}) => {
+     try {
+       // Fire and forget sem travar componente do react
+       supabase.channel(`live_chat:${roomId}`).send({ type: 'broadcast', event, payload }).catch(() => null);
+     } catch(e) {}
+  };
+
   async function handleDisconnectMatch() {
-     // Enviar desconexão local
-     await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'match_disconnected', payload: {} });
+     // Enviar desconexão local sem travar o botão
+     doBroadcast(room.id, 'match_disconnected');
      
      // Enviar desconexão para o oponente
      if (activeBattle?.opponentRoomId) {
-        await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'match_disconnected', payload: {} });
+        doBroadcast(activeBattle.opponentRoomId, 'match_disconnected');
      }
      
      setActiveBattle(null);
@@ -177,10 +193,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
      if (!activeBattle?.opponentRoomId) return;
      setBattleInviteStatus('pending');
      
-     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({
-        type: 'broadcast',
-        event: 'battle_invite_request',
-        payload: { from: room.host_id, profile: room.host_profile || session.user.user_metadata }
+     doBroadcast(activeBattle.opponentRoomId, 'battle_invite_request', { 
+        from: room.host_id, 
+        profile: room.host_profile || session.user.user_metadata 
      });
   }
 
@@ -190,22 +205,22 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
      
      const payload = { endTime: eTime };
      
-     // Atualiza a própria sala
-     await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_started', payload });
+     // Seta o state LOCAL imediatamente para o host B não ficar preso
+     setActiveBattle((prev: any) => prev ? { ...prev, endTime: eTime } : null);
+     setBattleTimeLeft(180);
      
-     // Atualiza sala do oponente
-     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_started', payload });
+     // Atualiza a própria audiência
+     doBroadcast(room.id, 'battle_started', payload);
+     
+     // Atualiza sala do oponente e Host A
+     doBroadcast(activeBattle.opponentRoomId, 'battle_started', payload);
      
      setBattleInvite(null);
   }
 
   async function handleRejectBattle() {
      if (!activeBattle?.opponentRoomId) return;
-     await supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({
-        type: 'broadcast',
-        event: 'battle_invite_rejected',
-        payload: {}
-     });
+     doBroadcast(activeBattle.opponentRoomId, 'battle_invite_rejected');
      setBattleInvite(null);
   }
 
@@ -316,7 +331,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
   // Estados de Aquecimento da Batalha (Confronto)
   const [battleInvite, setBattleInvite] = useState<{from: string, profile: any} | null>(null);
-  const [battleInviteStatus, setBattleInviteStatus] = useState<'pending' | null>(null);
+  const [battleInviteStatus, setBattleInviteStatus] = useState<'pending' | 'rejected' | null>(null);
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false);
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
 
@@ -778,8 +793,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       })
       .on('broadcast', { event: 'battle_invite_rejected' }, () => {
          if (role === 'host') {
-            setBattleInviteStatus(null);
-            alert('O oponente recusou o convite para a batalha.');
+            setBattleInviteStatus('rejected');
+            setTimeout(() => setBattleInviteStatus(null), 3000);
          }
       })
       .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
@@ -1442,6 +1457,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                    <button onClick={(e) => { e.stopPropagation(); handleAcceptBattle(); }} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', fontWeight: 800, pointerEvents: 'auto' }}>Aceitar</button>
                 </div>
              </div>
+           </div>
+        )}
+
+        {/* Toast Notificação de Rejeição Nativo */}
+        {battleInviteStatus === 'rejected' && role === 'host' && (
+           <div style={{
+             position: 'absolute', top: '60px', left: '50%', transform: 'translateX(-50%)', zIndex: 100000000,
+             background: 'rgba(239, 68, 68, 0.95)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '16px',
+             padding: '12px 24px', color: '#fff', fontWeight: 800, fontSize: '0.95rem',
+             display: 'flex', alignItems: 'center', gap: '8px', 
+             boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+             animation: 'slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+           }}>
+             ❌ Convite Recusado pelo Oponente
            </div>
         )}
 
