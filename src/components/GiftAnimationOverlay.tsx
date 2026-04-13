@@ -689,32 +689,9 @@ function VideoOverlayWithFallback({
   onVideoError,
 }: GiftAnimationOverlayProps & { onVideoError: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [showSkip, setShowSkip] = useState(false);
   const [ended, setEnded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // começa mudo para autoplay funcionar
-
-  // Pausa todos os vídeos do feed ao iniciar a animação, retoma apenas o ativo ao sair
-  useEffect(() => {
-    const feedVideos = Array.from(document.querySelectorAll<HTMLVideoElement>('.avista-item video'));
-    feedVideos.forEach(v => v.pause());
-    return () => {
-      // Só retoma o vídeo que está visível (intersectando com a viewport)
-      const activeVideo = feedVideos.find(v => {
-        const rect = v.closest('.avista-item')?.getBoundingClientRect();
-        return rect && rect.top >= -100 && rect.top <= 100;
-      });
-      if (activeVideo) {
-        activeVideo.muted = true;
-        activeVideo.play().catch(() => {});
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => setShowSkip(true), 1500);
-    return () => clearTimeout(t);
-  }, []);
 
   function handleError(e: any) {
     console.error("Erro ao carregar vídeo de presente:", gift.animationVideo, e);
@@ -753,7 +730,6 @@ function VideoOverlayWithFallback({
   return createPortal(
     <div
       className={`gao-video-overlay ${ended ? 'gao-video-ending' : ''}`}
-      onClick={showSkip ? onComplete : undefined}
       style={{
         position: 'fixed',
         inset: 0,
@@ -762,7 +738,6 @@ function VideoOverlayWithFallback({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'pointer',
         transition: 'opacity 0.5s ease',
         opacity: ended ? 0 : 1,
       }}
@@ -837,15 +812,8 @@ function VideoOverlayWithFallback({
         {isMuted ? '🔇' : '🔊'}
       </button>
 
-      {/* Botão pular */}
-      {showSkip && (
-        <button
-          className="gao-video-skip-btn"
-          onClick={(e) => { e.stopPropagation(); onComplete(); }}
-        >
-          Pular ▶▶
-        </button>
-      )}
+
+      {/* Botão PULAR REMOVIDO — o vídeo roda até o fim obrigatoriamente */}
 
       {/* Barra sincronizada com o vídeo */}
       <div className="gao-progress-bar">

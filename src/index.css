@@ -89,6 +89,35 @@ html, body {
   margin-bottom: 1.5rem;
 }
 
+/* --- PERFIL: BOTÕES DE AÇÃO (Editar, Configurações, Mensagem) --- */
+.profile-action-btn-velar {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  padding: 0.55rem 1.2rem !important;
+  border-radius: 1rem !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+  backdrop-filter: blur(6px) !important;
+  min-height: 38px !important;
+}
+
+.profile-action-btn-velar:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  transform: translateY(-1px) !important;
+}
+
+.profile-action-btn-velar:active {
+  transform: scale(0.97) !important;
+}
+
 /* --- BOTTOM NAV ELITE (ESTILO FOTO 1) --- */
 .mobile-nav-elite {
   position: fixed !important;
