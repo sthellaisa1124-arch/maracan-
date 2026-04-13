@@ -8,10 +8,12 @@ import AgoraRTC, {
   type IMicrophoneAudioTrack, 
   type IAgoraRTCRemoteUser 
 } from 'agora-rtc-sdk-ng';
-import { Heart, Users, UserPlus, Mic, MicOff, Camera, X, ChevronRight, ChevronLeft, Gift, Video, Share2, BarChart2, Zap, Power, Sparkles } from 'lucide-react';
+import { Heart, Users, UserPlus, Mic, MicOff, Camera, X, ChevronRight, ChevronLeft, Gift, Video, Share2, BarChart2, Zap, Power, Sparkles, Swords } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { GiftAnimationOverlay } from './GiftAnimationOverlay';
 import { GiftPanel } from './GiftPanel';
+import { LiveBattleModal } from './LiveBattleModal';
+import { BattleScoreBar } from './BattleScoreBar';
 import { UserBadges } from './Badges';
 import BeautyExtension from 'agora-extension-beauty-effect';
 import VirtualBackgroundExtension from 'agora-extension-virtual-background';
@@ -96,6 +98,43 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const [activeEffectTab, setActiveEffectTab] = useState<'vibe' | 'ambiente'>('vibe');
   const [isBeautyMenuOpen, setIsBeautyMenuOpen] = useState(false);
   
+  // BATALHAS (CONFRONTO)
+  const [isBattleModalOpen, setIsBattleModalOpen] = useState(false);
+  const [activeBattle, setActiveBattle] = useState<any | null>(null);
+  const [battleTimeLeft, setBattleTimeLeft] = useState(180); // 3 minutes
+
+  useEffect(() => {
+    if (activeBattle && battleTimeLeft > 0) {
+      const timer = setTimeout(() => setBattleTimeLeft(prev => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    } else if (activeBattle && battleTimeLeft === 0) {
+      // Fim da Batalha
+      const win = activeBattle.score_a > activeBattle.score_b;
+      const isDraw = activeBattle.score_a === activeBattle.score_b;
+      // Broadcast simple event or just close
+      setTimeout(() => setActiveBattle(null), 5000); // Mostra o resultado por 5s e fecha
+    }
+  }, [activeBattle, battleTimeLeft]);
+
+  async function handleInviteOpponent(opponent: any) {
+    setIsBattleModalOpen(false);
+    alert(`Convite enviado para @${opponent.profiles?.username || 'Oponente'}! Em produção aguardaríamos o aceite.`);
+    
+    // Inicia a batalha imediatamente para fins de MVP
+    setActiveBattle({
+       opponentId: opponent.host_id,
+       opponentProfile: opponent.profiles,
+       score_a: 0,
+       score_b: 0
+    });
+    setBattleTimeLeft(180);
+    
+    // Configura o Agora Relay Channel (Opcional, pro MVP a UI divide de qualquer forma)
+    if (agoraClientRef.current) {
+        // ... (SDK Agora cross relay connection setup goes here in future)
+    }
+  }
+
   // INTERATIVIDADE DE ELITE (FILA DE ENTRADA)
   const [hearts, setHearts] = useState<{ id: number, color: string, x: number, y: number }[]>([]);
   const [entranceQueue, setEntranceQueue] = useState<any[]>([]);
@@ -462,6 +501,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         if (isMatch) {
            setGoalCurrent((prev: number) => prev + (goalGiftId ? 1 : payload.gift.price));
         }
+
+        // Se estiver num confronto, conta pontos (Simplificado para todos os presentes irem pro dono da live logado: no real teria userId target)
+        setActiveBattle(prevBattle => {
+           if (!prevBattle) return prevBattle;
+           // O dono desta sala recebeu
+           return { ...prevBattle, score_a: prevBattle.score_a + payload.gift.price };
+        });
 
         // Se for o Host, atualizamos o banco para persistência
         if (role === 'host') {
@@ -921,15 +967,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     >
       <div 
         className="live-video-layer" 
-        style={{ zIndex: 1, position: 'absolute', inset: 0 }}
+        style={{ zIndex: 1, position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row' }}
       >
+        {/* Vídeo do Host da sala (Seja eu ou o criador que estou assistindo) */}
         {role === 'host' ? (
-          <div ref={videoContainerRef} className="live-video-element" />
+          <div ref={videoContainerRef} className="live-video-element" style={{ width: activeBattle ? '50%' : '100%', height: '100%', transition: 'width 0.3s' }} />
         ) : (
           <div 
             id={`remote-video-${room.host_id}`} 
             className="live-video-element"
-            style={{ width: '100%', height: '100%', background: '#000' }}
+            style={{ width: activeBattle ? '50%' : '100%', height: '100%', background: '#000', transition: 'width 0.3s' }}
             ref={(el) => {
               if (el) {
                 const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
@@ -946,6 +993,19 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             )}
           </div>
         )}
+
+        {/* Vídeo do Oponente na Batalha */}
+        {activeBattle && (
+           <div id={`remote-video-opponent`} style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                 <div className="text-center">
+                    <img src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} className="w-16 h-16 rounded-full mx-auto mb-2 opacity-50" />
+                    <div className="animate-pulse text-white/50 text-xs">Conectando oponente...</div>
+                 </div>
+              </div>
+              {/* Onde a track de vídeo do oponente seria ejetada no futuro */}
+           </div>
+        )}
       </div>
 
       <div 
@@ -953,6 +1013,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         onTouchEnd={role === 'audience' ? handleDoubleTap : undefined}
         onDoubleClick={role === 'audience' ? handleDoubleTap : undefined}
       >
+
+        {activeBattle && (
+          <BattleScoreBar 
+            scoreA={activeBattle.score_a} 
+            scoreB={activeBattle.score_b}
+            timeRemainingSec={battleTimeLeft}
+            hostAvatar={room.host_profile?.avatar_url}
+            opponentAvatar={activeBattle.opponentProfile?.avatar_url}
+          />
+        )}
 
         {/* --- BANNER DE ENTRADA ELITE (FILA) --- */}
         {activeEntrance && (
@@ -1463,14 +1533,24 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
             <div className="live-controls">
               {role === 'host' && (
-                 <button 
-                   onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)}
-                   className="control-btn"
-                   style={{ background: 'linear-gradient(to right, #a855f7, #ca8a04)' }}
-                   title="Filtros e Efeitos"
-                 >
-                   <Sparkles size={20} color="#fff" />
-                 </button>
+                 <>
+                   <button 
+                     onClick={() => setIsBattleModalOpen(true)}
+                     className="control-btn"
+                     style={{ background: 'linear-gradient(to right, #dc2626, #ea580c)' }}
+                     title="CONFRONTO"
+                   >
+                     <Swords size={20} color="#fff" />
+                   </button>
+                   <button 
+                     onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)}
+                     className="control-btn"
+                     style={{ background: 'linear-gradient(to right, #a855f7, #ca8a04)' }}
+                     title="Filtros e Efeitos"
+                   >
+                     <Sparkles size={20} color="#fff" />
+                   </button>
+                 </>
               )}
               <button onClick={toggleMute} className={`control-btn ${muted ? 'off' : ''}`}>{muted ? <MicOff /> : <Mic />}</button>
               <button onClick={toggleCamera} className={`control-btn ${cameraOff ? 'off' : ''}`}>{cameraOff ? <Camera size={24} style={{opacity: 0.5}} /> : <Camera />}</button>
@@ -1546,6 +1626,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
               </div>
            </div>
         </div>
+      )}
+
+      {isBattleModalOpen && (
+        <LiveBattleModal
+          isOpen={isBattleModalOpen}
+          onClose={() => setIsBattleModalOpen(false)}
+          currentHostId={session.user.id}
+          onInvite={handleInviteOpponent}
+        />
       )}
 
       {showEndConfirm && (
