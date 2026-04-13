@@ -1274,60 +1274,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           transition: 'all 0.3s ease-out'
         }}
       >
-        {activeBattle && !activeBattle.endTime && role === 'host' && (
-          <div style={{
-            position: 'absolute',
-            bottom: '22%', // Fica acima da barra de controles do host
-            left: 0, right: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            zIndex: 10000
-          }}>
-            <button 
-               onClick={handleDisconnectMatch}
-               style={{
-                 background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-                 borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: '0.9rem',
-                 display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer'
-               }}>
-               ❌ Sair
-            </button>
-            <button
-               onClick={handleRequestBattleStart}
-               disabled={battleInviteStatus === 'pending'}
-               style={{
-                  background: battleInviteStatus === 'pending' ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #ef4444, #f97316)',
-                  border: 'none', borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 900, 
-                  fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: battleInviteStatus ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 15px rgba(239,68,68,0.4)'
-               }}>
-               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Batalha'}
-            </button>
-          </div>
-        )}
 
-        {/* Modal de Convite Recebido (Sobre a câmera do host B) */}
-        {battleInvite && role === 'host' && (
-           <div style={{
-             position: 'absolute', inset: 0, zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)'
-           }}>
-             <div style={{
-                background: 'rgba(15,15,20,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
-                padding: '1.5rem', textAlign: 'center', maxWidth: '300px',
-                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-             }}>
-                <img src={battleInvite.profile?.avatar_url || 'https://ui-avatars.com/api/?name=Oponente'} style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: '1rem', objectFit: 'cover' }} />
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Oponente quer Iniciar Batalha!</h3>
-                <p style={{ margin: '0.5rem 0 1.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Se você não quer batalhar, pode apenas conversar ou sair.</p>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                   <button onClick={handleRejectBattle} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontWeight: 700 }}>Recusar</button>
-                   <button onClick={handleAcceptBattle} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', fontWeight: 800 }}>Aceitar</button>
-                </div>
-             </div>
-           </div>
-        )}
 
         {/* Vídeo do Host da sala (Seja eu ou o criador que estou assistindo) */}
         {role === 'host' ? (
@@ -1440,6 +1387,62 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
               </div>
             )}
           </>
+        )}
+
+        {activeBattle && !activeBattle.endTime && role === 'host' && (
+          <div style={{
+            position: 'absolute',
+            bottom: '22%', // Fica acima da barra de controles do host
+            left: 0, right: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '12px',
+            zIndex: 10000000,
+            pointerEvents: 'auto'
+          }}>
+            <button 
+               onClick={(e) => { e.stopPropagation(); handleDisconnectMatch(); }}
+               style={{
+                 background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                 borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: '0.9rem',
+                 display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', pointerEvents: 'auto'
+               }}>
+               ❌ Sair
+            </button>
+            <button
+               onClick={(e) => { e.stopPropagation(); handleRequestBattleStart(); }}
+               disabled={battleInviteStatus === 'pending'}
+               style={{
+                  background: battleInviteStatus === 'pending' ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #ef4444, #f97316)',
+                  border: 'none', borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 900, 
+                  fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: battleInviteStatus ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 4px 15px rgba(239,68,68,0.4)', pointerEvents: 'auto'
+               }}>
+               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Batalha'}
+            </button>
+          </div>
+        )}
+
+        {/* Modal de Convite Recebido (Sobre a câmera do host B) */}
+        {battleInvite && role === 'host' && (
+           <div style={{
+             position: 'absolute', inset: 0, zIndex: 100000000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(5px)', pointerEvents: 'auto'
+           }}>
+             <div onClick={(e) => e.stopPropagation()} style={{
+                background: 'rgba(15,15,20,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px',
+                padding: '1.5rem', textAlign: 'center', maxWidth: '300px',
+                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)', pointerEvents: 'auto'
+             }}>
+                <img src={battleInvite.profile?.avatar_url || 'https://ui-avatars.com/api/?name=Oponente'} style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: '1rem', objectFit: 'cover' }} />
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Oponente quer Iniciar Batalha!</h3>
+                <p style={{ margin: '0.5rem 0 1.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Se você não quer batalhar, pode apenas conversar ou sair.</p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                   <button onClick={(e) => { e.stopPropagation(); handleRejectBattle(); }} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontWeight: 700, pointerEvents: 'auto' }}>Recusar</button>
+                   <button onClick={(e) => { e.stopPropagation(); handleAcceptBattle(); }} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', fontWeight: 800, pointerEvents: 'auto' }}>Aceitar</button>
+                </div>
+             </div>
+           </div>
         )}
 
         {/* --- BANNER DE ENTRADA ELITE (FILA) --- */}
