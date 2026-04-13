@@ -114,16 +114,24 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
   async function handleInviteOpponent(opponent: any) {
     setIsBattleModalOpen(false);
-    alert(`Convite enviado para @${opponent.profiles?.username || 'Oponente'}! Em produção aguardaríamos o aceite.`);
     
     // Inicia a batalha imediatamente para fins de MVP
-    setActiveBattle({
+    const startPayload = {
        opponentId: opponent.host_id,
-       opponentProfile: opponent.profiles,
+       opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
        score_a: 0,
        score_b: 0
-    });
+    };
+    
+    setActiveBattle(startPayload);
     setBattleTimeLeft(180);
+    
+    // Sincroniza a audiência e o oponente (se estiverem na mesma rede de live_chat)
+    await supabase.channel(`live_chat:${room.id}`).send({
+      type: 'broadcast',
+      event: 'battle_started',
+      payload: startPayload
+    });
     
     // Configura o Agora Relay Channel (Opcional, pro MVP a UI divide de qualquer forma)
     if (agoraClientRef.current) {
@@ -545,6 +553,18 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
              .eq('id', room.id)
              .then(() => {});
         }
+      })
+      .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
+         if (role === 'audience') {
+            setActiveBattle(payload);
+            setBattleTimeLeft(180);
+         }
+      })
+      .on('broadcast', { event: 'battle_ended' }, () => {
+         if (role === 'audience') {
+            setActiveBattle(null);
+            setBattleTimeLeft(0);
+         }
       })
       .on('broadcast', { event: 'goal_update' }, ({ payload }) => {
         setGoalType(payload.type);

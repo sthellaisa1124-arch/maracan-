@@ -23,7 +23,7 @@ import { UserBadges } from '../components/Badges';
 import { LiveRoom } from '../components/LiveRoom';
 
 
-export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void }) {
+export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void }) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
@@ -36,8 +36,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   const [activeStatusGroup, setActiveStatusGroup] = useState<any>(null);
   const [isCreatingStatus, setIsCreatingStatus] = useState(false);
   const [statusRefreshKey, setStatusRefreshKey] = useState(0);
-  const [activeLive, setActiveLive] = useState<any>(null);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -352,8 +350,8 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           session={session} 
           profile={profile}
           onOpenStatus={(group) => {
-            if (group.is_live) {
-              setActiveLive({ 
+            if (group.is_live && onJoinLive) {
+              onJoinLive({ 
                 id: group.live_id, 
                 host_id: group.user_id, 
                 agora_channel: group.agora_channel,
@@ -612,16 +610,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         />
       )}
 
-      {/* OVERLAY DE LIVE */}
-      {activeLive && (
-        <LiveRoom 
-          session={session}
-          userProfile={profile}
-          role="audience"
-          room={activeLive}
-          onClose={() => setActiveLive(null)}
-        />
-      )}
+
     </div>
   );
 }

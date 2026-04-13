@@ -248,6 +248,7 @@ function App() {
                     onTabChange={(tab: any) => handleTabChange(tab)}
                     isCreateModalOpen={isPostModalOpen}
                     onCloseCreateModal={() => setIsPostModalOpen(false)}
+                    onJoinLive={(live) => setActiveLiveRoom(live)}
                   />
                 )}
                 {activeTab === 'chat' && <Chat userProfile={userProfile} />}
