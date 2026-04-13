@@ -119,6 +119,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     const startPayload = {
        opponentId: opponent.host_id,
        opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
+       agora_channel: opponent.agora_channel,
        score_a: 0,
        score_b: 0
     };
@@ -132,12 +133,86 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       event: 'battle_started',
       payload: startPayload
     });
-    
-    // Configura o Agora Relay Channel (Opcional, pro MVP a UI divide de qualquer forma)
-    if (agoraClientRef.current) {
-        // ... (SDK Agora cross relay connection setup goes here in future)
-    }
   }
+
+  // SINCRONIZAR AUDIÊNCIA (ENTRADAS TARDIAS)
+  useEffect(() => {
+    async function syncOngoingBattle() {
+      if (!room || !room.host_id || role !== 'audience') return;
+      const { data, error } = await supabase
+        .from('battle_queue')
+        .select('*')
+        .eq('status', 'matched')
+        .or(`host_id.eq.${room.host_id},opponent_id.eq.${room.host_id}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data && !error) {
+        const opponentId = data.host_id === room.host_id ? data.opponent_id : data.host_id;
+        try {
+           const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
+           // Também precisaria buscar o canal agora, assumindo que profile tem ou apenas pegando da live_sessions
+           const { data: oppLive } = await supabase.from('live_sessions').select('agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
+           
+           if (oppProfile && oppLive) {
+              setActiveBattle({
+                opponentId: opponentId,
+                opponentProfile: oppProfile,
+                agora_channel: oppLive.agora_channel,
+                score_a: 0, score_b: 0
+              });
+              setBattleTimeLeft(180);
+           }
+        } catch (e) {}
+      }
+    }
+    syncOngoingBattle();
+  }, [room?.host_id, role]);
+
+  // CRUZADOR DE CANAIS AGORA (OPONENTE)
+  const opponentClientRef = useRef<IAgoraRTCClient | null>(null);
+  
+  useEffect(() => {
+    if (!activeBattle?.agora_channel || !APP_ID) return;
+    
+    let isMounted = true;
+    const opponentClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+    opponentClientRef.current = opponentClient;
+
+    opponentClient.on('user-published', async (user, mediaType) => {
+      await opponentClient.subscribe(user, mediaType);
+      
+      if (mediaType === 'video' && isMounted) {
+        setTimeout(() => {
+          const el = document.getElementById(`remote-video-opponent`);
+          if (el) {
+             el.innerHTML = '';
+             user.videoTrack?.play(el);
+          }
+        }, 500);
+      }
+      if (mediaType === 'audio') {
+        user.audioTrack?.play();
+      }
+    });
+
+    async function joinOpponentChannel() {
+      try {
+         await opponentClient.join(APP_ID, activeBattle.agora_channel, null, null);
+      } catch (err) {
+         console.warn("Opponent Join Error:", err);
+      }
+    }
+    
+    joinOpponentChannel();
+    
+    return () => {
+      isMounted = false;
+      opponentClient.leave().catch(() => {});
+      opponentClientRef.current = null;
+    };
+  }, [activeBattle?.agora_channel]);
 
   // INTERATIVIDADE DE ELITE (FILA DE ENTRADA)
   const [hearts, setHearts] = useState<{ id: number, color: string, x: number, y: number }[]>([]);
