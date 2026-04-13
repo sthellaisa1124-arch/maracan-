@@ -660,8 +660,8 @@ export function GiftAnimationOverlay(props: GiftAnimationOverlayProps) {
   const { gift, isBattle } = props;
   const [videoFailed, setVideoFailed] = useState(false);
 
-  // Durante batalha: nunca tomar tela toda, sempre usar card compacto
-  const hasVideo = !!gift.animationVideo && !videoFailed && !isBattle;
+  // Se tiver video e no falhou carregar...
+  const hasVideo = !!gift.animationVideo && !videoFailed;
 
   if (hasVideo) {
     return (
@@ -684,6 +684,7 @@ function VideoOverlayWithFallback({
   senderName,
   onComplete,
   onVideoError,
+  isBattle,
 }: GiftAnimationOverlayProps & { onVideoError: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [ended, setEnded] = useState(false);
@@ -729,14 +730,18 @@ function VideoOverlayWithFallback({
       className={`gao-video-overlay ${ended ? 'gao-video-ending' : ''}`}
       style={{
         position: 'fixed',
-        inset: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        top: isBattle ? '50%' : 0, // se for batalha, fica apenas na metade de baixo (chat)
         zIndex: 2000000000,
-        background: '#000',
+        background: isBattle ? 'transparent' : '#000', // não pretejar fundo se for batalha
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         transition: 'opacity 0.5s ease',
         opacity: ended ? 0 : 1,
+        pointerEvents: 'none',
       }}
     >
       <video
@@ -751,7 +756,7 @@ function VideoOverlayWithFallback({
           inset: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover',
+          objectFit: isBattle ? 'contain' : 'cover', // não cortar o vídeo no modo restrito
         }}
         onEnded={() => { setEnded(true); onComplete(); }}
         onError={handleError}
@@ -764,7 +769,7 @@ function VideoOverlayWithFallback({
 
       {/* Info do presente — centralizado na parte inferior do vídeo */}
       <div style={{
-        position: 'absolute', bottom: '80px', left: 0, right: 0,
+        position: 'absolute', bottom: isBattle ? '40px' : '80px', left: 0, right: 0,
         textAlign: 'center', padding: '1rem', zIndex: 5,
         pointerEvents: 'none',
       }}>
