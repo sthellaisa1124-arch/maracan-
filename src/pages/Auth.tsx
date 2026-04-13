@@ -77,7 +77,7 @@ export function Auth() {
       )}
       
       <div className="auth-card">
-        <h2 className="velar-logo" style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>VELAR</h2>
+        <h2 className="velar-logo">VELLAR</h2>
         <p className="subtitle">{isLogin ? 'Bota sua conta aí e entra logo!' : 'Cria seu perfil agora e escolhe seu nome de guerra!'}</p>
 
         <form onSubmit={handleAuth}>
