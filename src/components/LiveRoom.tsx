@@ -115,11 +115,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   async function handleInviteOpponent(opponent: any) {
     setIsBattleModalOpen(false);
     
-    // Inicia a batalha imediatamente para fins de MVP
+    const endTime = Date.now() + 180000; // 3 minutos
+    // Inicia a batalha imediatamente
     const startPayload = {
        opponentId: opponent.host_id,
        opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
        agora_channel: opponent.agora_channel,
+       endTime: endTime,
        score_a: 0,
        score_b: 0
     };
@@ -127,7 +129,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     setActiveBattle(startPayload);
     setBattleTimeLeft(180);
     
-    // Sincroniza a audiência e o oponente (se estiverem na mesma rede de live_chat)
+    // Sincroniza a audiência e o oponente
     await supabase.channel(`live_chat:${room.id}`).send({
       type: 'broadcast',
       event: 'battle_started',
@@ -150,9 +152,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
       if (data && !error) {
         const opponentId = data.host_id === room.host_id ? data.opponent_id : data.host_id;
+        const tTime = new Date(data.created_at).getTime();
+        const eTime = tTime + 180000;
         try {
            const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
-           // Também precisaria buscar o canal agora, assumindo que profile tem ou apenas pegando da live_sessions
            const { data: oppLive } = await supabase.from('live_sessions').select('agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
            
            if (oppProfile && oppLive) {
@@ -160,9 +163,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                 opponentId: opponentId,
                 opponentProfile: oppProfile,
                 agora_channel: oppLive.agora_channel,
-                score_a: 0, score_b: 0
+                endTime: eTime,
+                score_a: 0,
+                score_b: 0
               });
-              setBattleTimeLeft(180);
+              setBattleTimeLeft(Math.max(0, Math.floor((eTime - Date.now()) / 1000)));
            }
         } catch (e) {}
       }
@@ -294,6 +299,19 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
       return () => clearTimeout(timer);
     }
   }, [activeEntrance, entranceQueue]);
+
+  // Timer da Batalha (Global Sync)
+  useEffect(() => {
+    if (!activeBattle?.endTime) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((activeBattle.endTime - Date.now()) / 1000));
+      setBattleTimeLeft(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeBattle?.endTime]);
 
   // MOTOR DA FILA DE PRESENTES (anima um por vez)
   useEffect(() => {
@@ -1058,7 +1076,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     >
       <div 
         className="live-video-layer" 
-        style={{ zIndex: 1, position: 'absolute', inset: 0, display: 'flex', flexDirection: 'row' }}
+        style={{ 
+          zIndex: 1, 
+          position: 'absolute', 
+          top: activeBattle ? '10%' : '0', 
+          left: '0', 
+          right: '0', 
+          bottom: activeBattle ? '45%' : '0', 
+          display: 'flex', 
+          flexDirection: 'row',
+          transition: 'all 0.3s ease-out'
+        }}
       >
         {/* Vídeo do Host da sala (Seja eu ou o criador que estou assistindo) */}
         {role === 'host' ? (

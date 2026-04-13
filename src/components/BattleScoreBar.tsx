@@ -59,22 +59,22 @@ export function BattleScoreBar({ scoreA, scoreB, hostAvatar, opponentAvatar, tim
             transition: 'width 0.3s ease-out', display: 'flex', alignItems: 'center', padding: '0 1.5rem',
             width: `${percentA}%`
           }}>
-            <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+            <span style={{ color: '#fff', fontWeight: 900, whiteSpace: 'nowrap', textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontSize: '1.2rem', paddingLeft: '0.5rem' }}>
               {scoreA} pts
             </span>
           </div>
 
-          {/* Lado Vermelho (Oponente) */}
+
+          {/* Lado Laranja/Vermelho (Oponente) */}
           <div style={{
-            height: '100%', background: 'linear-gradient(to left, #dc2626, #f97316)',
+            height: '100%', background: 'linear-gradient(to left, #ea580c, #ef4444)',
             transition: 'width 0.3s ease-out', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 1.5rem',
-            flex: 1
+            width: `${100 - percentA}%`
           }}>
-            <span style={{ color: '#fff', fontSize: '0.75rem', fontWeight: 'bold', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
+            <span style={{ color: '#fff', fontWeight: 900, whiteSpace: 'nowrap', textShadow: '0 2px 4px rgba(0,0,0,0.8)', fontSize: '1.2rem', paddingRight: '0.5rem' }}>
               {scoreB} pts
             </span>
           </div>
-
           {/* Indicador Central (Espadas) */}
           <div style={{
             position: 'absolute', top: '50%', transform: 'translate(-50%, -50%)',

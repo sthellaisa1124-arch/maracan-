@@ -429,8 +429,7 @@ function CssOverlay({
           </div>
         </div>
 
-        <div className="gao-tap-hint">Toque para fechar</div>
-      </div>
+
 
       <div className="gao-progress-bar">
         <div
@@ -455,7 +454,7 @@ function SimpleFloatingOverlay({
 }: GiftAnimationOverlayProps) {
   const [phase, setPhase] = useState<'enter' | 'hold' | 'exit'>('enter');
   const [mounted, setMounted] = useState(true);
-  const DURATION = 4000;
+  const DURATION = 2000;
 
   const finish = useCallback(() => {
     setPhase('exit');
@@ -636,9 +635,6 @@ function SimpleFloatingOverlay({
           <div style={{ fontSize: '0.95rem', fontWeight: 900, color: c, marginTop: '0.15rem' }}>
             🪙 {gift.price.toLocaleString('pt-BR')} Moral
           </div>
-
-          {/* Dica tap */}
-          <div className="sfo-hint">toque para fechar</div>
 
           {/* Barra de progresso */}
           <div className="sfo-bar">
