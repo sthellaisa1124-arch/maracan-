@@ -478,66 +478,47 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
         {/* --- Aba de Usuários --- */}
         {activeSubTab === 'users' && (
           <div className="admin-users-view">
-            <div className="search-box" style={{marginBottom: '1rem'}}>
-               <Search size={18} />
+            <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '16px', padding: '0 1rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+               <Search size={20} color="var(--text-secondary)" />
                <input 
                  type="text" 
-                 placeholder="Buscar username ou filtrar 'admin', 'ceo'..." 
+                 placeholder="O que você está procurando, CEO?" 
                  value={searchTerm} 
                  onChange={e => setSearchTerm(e.target.value)} 
+                 style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', padding: '1rem', outline: 'none', fontSize: '1rem' }}
                />
             </div>
 
-            <div className="table-container-v2">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Cria</th>
-                    <th>Moral</th>
-                    <th>Cargo / Selos</th>
-                    <th>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map(u => (
-                    <tr key={u.id} style={{ cursor: 'pointer' }} onClick={() => setSelectedUser(u)}>
-                      <td>
-                        <div className="user-table-cell" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <img src={u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`} className="mini-avatar" />
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span>@{u.username}</span>
-                            <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{u.id}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#eab308', fontWeight: 'bold' }}>
-                          <Wallet size={14} /> {u.moral_balance || 0}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                           <span className={`badge ${u.account_role === 'ceo' ? 'ceo-badge' : u.account_role === 'admin' ? 'admin-badge' : 'comunitário'}`}>
-                              {(u.account_role || 'user').toUpperCase()}
-                           </span>
-                           {u.badges && u.badges.length > 0 && (
-                             <UserBadges badges={u.badges} size={16} />
-                           )}
-                        </div>
-                      </td>
-                      <td>
-                        <button 
-                           className="btn-approve"
-                           style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', color: '#fff' }}
-                           onClick={(e) => { e.stopPropagation(); setSelectedUser(u); }}
-                        >
-                          Ver detalhes
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {filteredUsers.map(u => (
+                <div key={u.id} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '1.2rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }} onClick={() => setSelectedUser(u)}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <img src={u.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`} style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '1.05rem', color: '#fff' }}>@{u.username}</span>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.5, fontFamily: 'monospace' }}>{u.id.substring(0, 12)}...</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#eab308', fontWeight: 900, fontSize: '1.1rem', background: 'rgba(234, 179, 8, 0.1)', padding: '4px 10px', borderRadius: '20px' }}>
+                      <Wallet size={16} /> {u.moral_balance || 0}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                       <span className={`badge ${u.account_role === 'ceo' ? 'ceo-badge' : u.account_role === 'admin' ? 'admin-badge' : 'comunitário'}`} style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}>
+                          {(u.account_role || 'user').toUpperCase()}
+                       </span>
+                       {u.badges && u.badges.length > 0 && (
+                         <UserBadges badges={u.badges} size={16} />
+                       )}
+                    </div>
+                    <button style={{ padding: '6px 16px', fontSize: '0.8rem', background: 'var(--primary)', border: 'none', borderRadius: '8px', color: '#000', cursor: 'pointer', fontWeight: 'bold' }} onClick={(e) => { e.stopPropagation(); setSelectedUser(u); }}>
+                      Detalhes
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -550,20 +531,18 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
              ) : (
                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                  {logs.map(log => (
-                   <div key={log.id} className="request-card">
-                      <div className="req-user" style={{ flex: 1 }}>
-                        <div>
-                          <p>
-                            <strong style={{ color: '#fff' }}>@{log.admin?.username || 'Sistema'}</strong> modificou <strong style={{ color: 'var(--primary)' }}>@{log.target?.username || log.target_user_id}</strong>
-                          </p>
-                          <span style={{ fontSize: '0.85rem', color: '#ff79c6', background: 'rgba(255,121,198,0.1)', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' }}>{log.action}</span>
-                          {log.details?.reason && <p style={{ fontSize: '0.8rem', opacity: 0.6, marginTop: '4px', fontStyle: 'italic' }}>"{log.details.reason}"</p>}
-                        </div>
+                   <div key={log.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', padding: '1rem', width: '100%' }}>
+                      <div>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.95rem', lineHeight: 1.4 }}>
+                          <strong style={{ color: '#fff' }}>@{log.admin?.username || 'Sistema'}</strong> modificou <strong style={{ color: 'var(--primary)' }}>@{log.target?.username || log.target_user_id}</strong>
+                        </p>
+                        <span style={{ fontSize: '0.75rem', color: '#ff79c6', background: 'rgba(255,121,198,0.1)', border: '1px solid rgba(255,121,198,0.3)', padding: '4px 8px', borderRadius: '8px', display: 'inline-block' }}>{log.action.toUpperCase()}</span>
+                        {log.details?.reason && <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginTop: '8px', fontStyle: 'italic', background: 'rgba(0,0,0,0.2)', padding: '8px', borderRadius: '6px', borderLeft: '2px solid rgba(255,255,255,0.1)' }}>"{log.details.reason}"</p>}
                       </div>
-                      <div className="req-actions" style={{ flexDirection: 'column', alignItems: 'flex-end' }}>
-                        <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>{new Date(log.created_at).toLocaleString()}</span>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px', marginTop: '12px' }}>
+                        <span style={{ fontSize: '0.75rem', opacity: 0.4 }}>{new Date(log.created_at).toLocaleString()}</span>
                         <button 
-                          style={{ fontSize: '0.75rem', background: 'transparent', border: '1px solid #3b82f6', color: '#3b82f6', padding: '4px 8px', borderRadius: '4px', marginTop: '6px', cursor: 'pointer' }}
+                          style={{ fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', color: '#3b82f6', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                           onClick={() => alert(JSON.stringify(log.details, null, 2))}
                         >
                           Ver Payload
