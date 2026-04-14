@@ -666,6 +666,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
 
         {/* Botão PAPO RETO NO VELLAR */}
         <button
+          className="papo-reto-btn"
           onClick={() => {
             fetchMoralBalance();
             setContent('');
@@ -674,25 +675,17 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
             setIsPostModalOpen(true);
           }}
           style={{
-            background: 'linear-gradient(135deg, rgba(108,43,255,0.15), rgba(157,107,255,0.15))',
-            border: '1px solid rgba(108,43,255,0.4)',
-            borderRadius: '20px', padding: '7px 14px',
-            color: '#9D6BFF', fontWeight: 900, fontSize: '0.75rem',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-            fontFamily: 'Outfit', letterSpacing: '0.3px',
-            transition: 'all 0.25s', whiteSpace: 'nowrap',
-            boxShadow: '0 4px 15px rgba(108,43,255,0.2)'
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, rgba(108,43,255,0.25), rgba(157,107,255,0.25))';
-            (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, rgba(108,43,255,0.15), rgba(157,107,255,0.15))';
-            (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+            border: 'none',
+            borderRadius: '24px', padding: '9px 18px',
+            color: '#fff', fontWeight: 900, fontSize: '0.8rem',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+            fontFamily: 'Outfit', letterSpacing: '0.5px',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 15px rgba(108,43,255,0.4)',
+            textTransform: 'uppercase'
           }}
         >
-          <Zap size={14} fill="currentColor" /> PAPO RETO NO VELLAR
+          <Zap size={16} fill="currentColor" /> PAPO RETO NO VELLAR
         </button>
       </div>
 
