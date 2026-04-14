@@ -13,11 +13,13 @@ import { MoralRanking } from './components/MoralRanking';
 import { LiveRoom } from './components/LiveRoom';
 import { LiveRail } from './components/LiveRail';
 import { SetupLiveModal } from './components/SetupLiveModal';
+import { StatusCreator } from './components/StatusCreator';
 import type { Session } from '@supabase/supabase-js';
 import { 
   MessageSquare, LogOut, User, Bell, Hash, Search, 
-  MessageCircle, Plus, Eye, Video, Home, Star, Shield, X, Users, Radio
+  MessageCircle, Plus, Eye, Video, Home, Star, Shield, X, Users, Radio, Camera
 } from 'lucide-react';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 
 type TabType = 'chat' | 'profile' | 'admin' | 'notifications' | 'community' | 'messages' | 'avista';
 
@@ -36,6 +38,7 @@ function App() {
   const [activeLiveRoom, setActiveLiveRoom] = useState<any>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [isSetupLiveOpen, setIsSetupLiveOpen] = useState(false);
+  const [isCreatingStatus, setIsCreatingStatus] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
@@ -162,6 +165,7 @@ function App() {
   // ── RENDERIZAÇÃO ──────────────────────────────────────────────
   return (
     <>
+      <PWAInstallBanner />
       {loading ? (
         <div className="loading-container">
           <div className="loader"></div>
@@ -246,6 +250,7 @@ function App() {
                     onViewProfile={onViewProfile}
                     onTabChange={(tab: any) => handleTabChange(tab)}
                     onJoinLive={(live) => setActiveLiveRoom(live)}
+                    onOpenStatusCreator={() => setIsCreatingStatus(true)}
                   />
                 )}
                 {/* O chat foi movido para o top-level (Portals) para resolver conflitos de position:fixed */}
@@ -335,12 +340,64 @@ function App() {
           {/* ── MENU FAB — fora do dashboard ── */}
           {(showFabMenu && !activeLiveRoom) && (
             <div className="fab-container-urban active">
-              <div className="fab-menu-options animate-fade-up">
-                <button className="fab-menu-item" onClick={() => { setIsAvistaModalOpen(true); setShowFabMenu(false); }}>
-                  <Video size={20} /><span>Lançar AVISTA</span>
+              <div className="fab-menu-options animate-fade-up" style={{
+                background: 'rgba(10, 10, 15, 0.95)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(168, 85, 247, 0.2)',
+                borderRadius: '24px',
+                padding: '0.5rem',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(168,85,247,0.1)'
+              }}>
+                <button className="fab-menu-item" onClick={() => { setIsCreatingStatus(true); setShowFabMenu(false); }} style={{
+                  borderRadius: '16px',
+                  padding: '1rem 1.2rem',
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  background: 'transparent', border: 'none', width: '100%',
+                  cursor: 'pointer', transition: 'background 0.2s'
+                }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Camera size={18} color="#a855f7" />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ color: '#fff', fontWeight: 800, margin: 0, fontSize: '0.9rem' }}>Soltar Story</p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.7rem' }}>Aparece por 24h</p>
+                  </div>
                 </button>
-                <button className="fab-menu-item" onClick={() => { setIsSetupLiveOpen(true); setShowFabMenu(false); }}>
-                  <Radio size={20} color="#ef4444" /><span style={{ color: '#ef4444' }}>Abrir Live</span>
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0 1rem' }} />
+
+                <button className="fab-menu-item" onClick={() => { setIsAvistaModalOpen(true); setShowFabMenu(false); }} style={{
+                  borderRadius: '16px',
+                  padding: '1rem 1.2rem',
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  background: 'transparent', border: 'none', width: '100%',
+                  cursor: 'pointer', transition: 'background 0.2s'
+                }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Video size={18} color="#a855f7" />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ color: '#fff', fontWeight: 800, margin: 0, fontSize: '0.9rem' }}>Lançar AVISTA</p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.7rem' }}>Vídeo no feed por 15 dias</p>
+                  </div>
+                </button>
+
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0 1rem' }} />
+
+                <button className="fab-menu-item" onClick={() => { setIsSetupLiveOpen(true); setShowFabMenu(false); }} style={{
+                  borderRadius: '16px',
+                  padding: '1rem 1.2rem',
+                  display: 'flex', alignItems: 'center', gap: '14px',
+                  background: 'transparent', border: 'none', width: '100%',
+                  cursor: 'pointer', transition: 'background 0.2s'
+                }}>
+                  <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Radio size={18} color="#f87171" />
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ color: '#fff', fontWeight: 800, margin: 0, fontSize: '0.9rem' }}>Abrir Live</p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, fontSize: '0.7rem' }}>Transmissão ao vivo</p>
+                  </div>
                 </button>
               </div>
               <div className="fab-overlay-urban" onClick={() => setShowFabMenu(false)} />
@@ -363,6 +420,20 @@ function App() {
       {/* ── CHAT IA (Full Viewport) ── */}
       {activeTab === 'chat' && (
         <Chat userProfile={userProfile} onBack={() => handleTabChange('community')} />
+      )}
+
+      {/* ── STATUS CREATOR (Global) ── */}
+      {isCreatingStatus && (
+        <StatusCreator 
+          session={session} 
+          onClose={() => setIsCreatingStatus(false)}
+          onRefresh={() => {
+            // Recarrega a página ou dispara um evento de refresh se necessário
+            // Por enquanto, o refresh vai depender do componente Community montar novamente ou ser notificado
+            setIsCreatingStatus(false);
+            window.location.reload(); // Forma bruta, mas garante o refresh dos stories em todas as abas
+          }}
+        />
       )}
     </>
   );

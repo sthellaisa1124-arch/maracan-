@@ -166,6 +166,26 @@ export function Avista({
   }, [posts, initialPostId]);
 
   useEffect(() => {
+    let animationFrameId: number;
+
+    const checkVideoLoops = () => {
+      if (currentTab === 'avista' && activeVideoId) {
+        const video = videoRefs.current.get(activeVideoId);
+        const post = posts.find(p => p.id === activeVideoId);
+        if (video && post && post.metadata && !video.paused) {
+          const { startTime = 0, endTime = 0 } = post.metadata;
+          if (endTime > 0) {
+            if (video.currentTime < startTime) video.currentTime = startTime;
+            if (video.currentTime >= endTime) {
+              video.currentTime = startTime;
+              video.play();
+            }
+          }
+        }
+      }
+      animationFrameId = requestAnimationFrame(checkVideoLoops);
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -175,8 +195,13 @@ export function Avista({
             if (currentTab === 'avista') {
                setActiveVideoId(postId);
                const video = videoRefs.current.get(postId);
+               const post = posts.find(p => p.id === postId);
                if (video) {
-                 video.currentTime = 0;
+                 // Aplicar volume e zoom iniciais do metadata
+                 if (post?.metadata) {
+                   video.volume = post.metadata.volume ?? 1;
+                   video.currentTime = post.metadata.startTime ?? 0;
+                 }
                  video.play().catch(() => {
                    video.muted = true;
                    video.play();
@@ -217,9 +242,13 @@ export function Avista({
 
     const items = document.querySelectorAll('.avista-item');
     items.forEach(item => observer.observe(item));
+    animationFrameId = requestAnimationFrame(checkVideoLoops);
 
-    return () => observer.disconnect();
-  }, [posts, liveSessions, currentTab]);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [posts, liveSessions, currentTab, activeVideoId]);
 
   async function fetchAvistaPosts() {
     setLoading(true);
@@ -563,7 +592,17 @@ export function Avista({
                 ref={el => { if (el) videoRefs.current.set(post.id, el); }}
                 src={post.video_url} 
                 className={`avista-video ${activeVideoId === post.id ? 'active' : ''}`}
-                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'cover', 
+                  zIndex: 0,
+                  transform: post.metadata?.zoom ? `scale(${post.metadata.zoom})` : 'none',
+                  transition: 'transform 0.3s'
+                }}
                 loop 
                 playsInline
                 preload={activeVideoId === post.id || isNext ? "auto" : "none"}

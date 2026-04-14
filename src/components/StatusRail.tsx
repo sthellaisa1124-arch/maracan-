@@ -20,7 +20,7 @@ interface StatusGroup {
   goal_gift_id?: string | null;
 }
 
-export function StatusRail({ session, profile, onOpenStatus }: { session: any, profile: any, onOpenStatus: (group: StatusGroup) => void }) {
+export function StatusRail({ session, profile, onOpenStatus, onOpenCreator }: { session: any, profile: any, onOpenStatus: (group: StatusGroup) => void, onOpenCreator?: () => void }) {
   const [groups, setGroups] = useState<StatusGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const userId = session?.user?.id;
@@ -115,7 +115,7 @@ export function StatusRail({ session, profile, onOpenStatus }: { session: any, p
     <div className="status-rail-container-urban">
       <div className="status-rail-scroll">
         {/* Botão de Adicionar Meu Status (Primeira Bolinha) */}
-        <div className="status-item-urban creator" onClick={() => (window as any).openStatusCreator()}>
+        <div className="status-item-urban creator" onClick={() => onOpenCreator?.()}>
           <div className="status-avatar-ring-urban creator">
              <img 
               src={profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + userId} 

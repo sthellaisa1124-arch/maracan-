@@ -24,7 +24,7 @@ import { UserBadges } from '../components/Badges';
 
 const POST_COST = 10000; // 10mil moral por post
 
-export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void }) {
+export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive, onOpenStatusCreator }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void, onOpenStatusCreator?: () => void }) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
@@ -34,16 +34,13 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   const [isSocialFeed, setIsSocialFeed] = useState(false);
   const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
   const [activeStatusGroup, setActiveStatusGroup] = useState<any>(null);
-  const [isCreatingStatus, setIsCreatingStatus] = useState(false);
   const [statusRefreshKey, setStatusRefreshKey] = useState(0);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [moralBalance, setMoralBalance] = useState<number>(profile?.moral_balance ?? 0);
   const [noSaldoModal, setNoSaldoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    (window as any).openStatusCreator = () => setIsCreatingStatus(true);
-  }, []);
+  // Removido o hack do window pois agora o controle é global via props
 
   useEffect(() => {
     fetchPosts();
@@ -625,6 +622,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           key={statusRefreshKey} 
           session={session} 
           profile={profile}
+          onOpenCreator={onOpenStatusCreator}
           onOpenStatus={(group) => {
             if (group.is_live && onJoinLive) {
               onJoinLive({ 
@@ -826,15 +824,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           onClose={() => setActiveStatusGroup(null)} 
         />
       )}
-
-      {isCreatingStatus && (
-        <StatusCreator 
-          session={session} 
-          onClose={() => setIsCreatingStatus(false)}
-          onRefresh={() => setStatusRefreshKey(prev => prev + 1)}
-        />
-      )}
-
 
     </div>
   );
