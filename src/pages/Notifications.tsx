@@ -230,42 +230,41 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
               : (notif.from_user?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + notif.from_user_id);
 
             return (
-              <div key={notif.id} className={`notification-item ${notif.read ? 'read' : 'unread'}`}>
-                <div className="notif-content-wrapper">
-                  <div className="notif-avatar">
+              <div key={notif.id} className={`notification-item ${notif.read ? 'read' : 'unread'}`} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1.25rem 1rem', background: notif.read ? 'transparent' : 'rgba(108,43,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px', transition: 'background 0.3s' }}>
+                
+                {/* Lado Esquerdo + Central (Avatar e Textos) */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: 0 }}>
+                  <div className="notif-avatar" style={{ position: 'relative', flexShrink: 0 }}>
                      <img 
                       src={displayAvatar} 
                       alt="Remetente" 
-                      style={{ width: '46px', height: '46px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' }}
-                    />
-                    <div className="notif-type-icon">{getIcon(notif.type)}</div>
+                      style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)', background: '#111' }}
+                     />
+                     <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#000', borderRadius: '50%', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {getIcon(notif.type)}
+                     </div>
                   </div>
                   
-                  <div className="notif-info">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div className="notif-text">
+                  <div className="notif-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, paddingTop: '2px', minWidth: 0 }}>
+                      <div className="notif-text" style={{ fontSize: '0.92rem', lineHeight: 1.4, color: 'rgba(255,255,255,0.9)', wordWrap: 'break-word' }}>
                         {notif.title && (
-                          <div style={{ 
-                            fontWeight: 900, 
-                            color: '#fff', 
-                            fontSize: '0.9rem', 
-                            marginBottom: '4px',
-                            display: 'block' 
-                          }}>
+                          <span style={{ fontWeight: 900, color: '#fff', display: 'block', marginBottom: '2px' }}>
                             {notif.title}
-                          </div>
+                          </span>
                         )}
                         {getMessage(notif)}
                       </div>
-                      {!notif.read && <span className="unread-dot" title="Novo!"></span>}
-                    </div>
-                    <span className="notif-date"><Clock size={12} /> {new Date(notif.created_at).toLocaleString()}</span>
+                      <span className="notif-date" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', opacity: 0.5 }}>
+                         <Clock size={12} /> {new Date(notif.created_at).toLocaleString()}
+                      </span>
                   </div>
                 </div>
 
-                <div className="notif-actions">
-                  <button className="btn-delete-notif" onClick={() => deleteNotification(notif)}>
-                    <Trash2 size={16} />
+                {/* Lado Direito (Ações) */}
+                <div className="notif-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', flexShrink: 0 }}>
+                  {!notif.read && <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px rgba(108,43,255,0.8)' }}></span>}
+                  <button onClick={() => deleteNotification(notif)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>

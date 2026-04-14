@@ -586,24 +586,37 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           <span className="logo-v">V</span>ELLΛ<span className="logo-r">R</span>
         </h3>
 
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: 'auto' }}>
+          <button
+            onClick={() => onTabChange('chat')}
+            style={{
+              background: 'linear-gradient(135deg, #6C2BFF 0%, #a855f7 100%)',
+              border: 'none', borderRadius: '50%', width: '38px', height: '38px',
+              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 15px rgba(108,43,255,0.4)',
+              animation: 'criaPulse 3s ease-in-out infinite'
+            }}
+          >
+            <Bot size={20} />
+          </button>
 
-
-        <button 
-          onClick={() => onTabChange('notifications')}
-          style={{ 
-            background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '0.4rem', flexShrink: 0,
-            color: unreadCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.7)'
-          }}
-        >
-          <Bell size={22} strokeWidth={unreadCount > 0 ? 3 : 2} />
-          {unreadCount > 0 && (
-            <span style={{
-              position: 'absolute', top: 0, right: 0, width: '10px', height: '10px',
-              backgroundColor: '#ef4444', borderRadius: '50%',
-              border: '2px solid #000', boxShadow: '0 0 5px rgba(239, 68, 68, 0.4)'
-            }} />
-          )}
-        </button>
+          <button 
+            onClick={() => onTabChange('notifications')}
+            style={{ 
+              background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '0.4rem', flexShrink: 0,
+              color: unreadCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.7)'
+            }}
+          >
+            <Bell size={24} strokeWidth={unreadCount > 0 ? 3 : 2} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 0, right: 0, width: '10px', height: '10px',
+                backgroundColor: '#ef4444', borderRadius: '50%',
+                border: '2px solid #000', boxShadow: '0 0 5px rgba(239, 68, 68, 0.4)'
+              }} />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* --- SISTEMA SOLTA NA PISTA (STORIES) --- */}
@@ -829,32 +842,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         />
       )}
 
-      {/* --- BOTÃO FLUTUANTE IA CARIOCA --- */}
-      <button
-        onClick={() => onTabChange('chat')}
-        className="cria-floating-btn"
-        style={{
-          position: 'fixed',
-          bottom: '95px', // Acima da bottom nav
-          right: '20px',
-          width: '56px',
-          height: '56px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #6C2BFF 0%, #a855f7 100%)',
-          color: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 8px 30px rgba(108,43,255,0.4), inset 0 2px 4px rgba(255,255,255,0.2)',
-          cursor: 'pointer',
-          zIndex: 99,
-          animation: 'criaPulse 3s ease-in-out infinite',
-          border: 'none',
-          outline: 'none'
-        }}
-      >
-        <Bot size={28} />
-      </button>
+
     </div>
   );
 }
