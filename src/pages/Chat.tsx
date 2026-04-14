@@ -22,7 +22,6 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
   const [loading, setLoading] = useState(false);
   const [moralBalance, setMoralBalance] = useState<number>(userProfile?.moral_balance ?? 0);
   const [lastSentAt, setLastSentAt] = useState<number>(0);
-  const [lastSentAt, setLastSentAt] = useState<number>(0);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
