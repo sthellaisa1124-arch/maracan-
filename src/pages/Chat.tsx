@@ -3,7 +3,8 @@ import {
   Send, 
   Trash2, 
   Sparkles, 
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -14,7 +15,7 @@ interface Message {
   timestamp: string;
 }
 
-export function Chat({ userProfile }: { userProfile: any, onGoToPricing?: () => void }) {
+export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?: () => void, onBack?: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -181,6 +182,11 @@ export function Chat({ userProfile }: { userProfile: any, onGoToPricing?: () => 
       {/* Header Fixo */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: '#050505', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {onBack && (
+            <button onClick={onBack} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0 8px 0 0', display: 'flex' }}>
+              <ArrowLeft size={24} />
+            </button>
+          )}
           <div style={{position: 'relative'}}>
             <img src="/iai-cria-logo.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover'}} />
             <div className={`status-dot ${loading ? 'typing' : ''}`} style={{position: 'absolute', bottom: '2px', right: '0', width: '12px', height: '12px', borderRadius: '50%', background: loading ? 'var(--primary)' : '#10b981', border: '2px solid #050505'}}></div>

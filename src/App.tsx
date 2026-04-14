@@ -248,7 +248,7 @@ function App() {
                     onJoinLive={(live) => setActiveLiveRoom(live)}
                   />
                 )}
-                {activeTab === 'chat' && <Chat userProfile={userProfile} />}
+                {activeTab === 'chat' && <Chat userProfile={userProfile} onBack={() => handleTabChange('community')} />}
                 {activeTab === 'avista' && (
                   <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} />
                 )}
