@@ -355,9 +355,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
 
   const [hasFollowed, setHasFollowed] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
   const chatChannelRef = useRef<any>(null);
   const dbChannelRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null); // Container do vídeo local (host)
   const agoraClientRef = useRef<any>(null); // Refs imortais para shutdown
   const localAudioRef = useRef<any>(null);
   const localVideoRef = useRef<any>(null);
