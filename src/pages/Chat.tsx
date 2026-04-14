@@ -178,7 +178,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
   const canSend = moralBalance >= COST_PER_MSG;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '80vh', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#000', zIndex: 90 }}>
       {/* Header Fixo */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: '#050505', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
