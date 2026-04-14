@@ -174,7 +174,7 @@ function App() {
       ) : (
         <>
           {/* ── LAYOUT PRINCIPAL ── */}
-          <div className={`dashboard-layout ${(activeTab as string) === 'avista' ? 'is-avista' : ''}`}>
+          <div className={`dashboard-layout ${(activeTab as string) === 'avista' ? 'is-avista' : ''} ${(activeTab as string) === 'chat' ? 'is-chat' : ''}`} style={{ paddingBottom: activeTab === 'chat' ? 0 : undefined }}>
 
             {/* Sidebar Desktop (oculta no mobile via CSS) */}
             {(activeTab as string) !== 'avista' && (
@@ -310,7 +310,7 @@ function App() {
           </div>
 
           {/* ── MOBILE NAV — fora do dashboard para position:fixed funcionar ── */}
-          {(activeTab !== 'avista' && !activeLiveRoom) && (
+          {(activeTab !== 'avista' && activeTab !== 'chat' && !activeLiveRoom) && (
             <nav className="mobile-nav-elite" style={{ zIndex: 100 }}>
               <button className={activeTab === 'community' ? 'active' : ''} onClick={() => handleTabChange('community')}>
                 <Home size={24} />
