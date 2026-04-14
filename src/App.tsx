@@ -248,7 +248,7 @@ function App() {
                     onJoinLive={(live) => setActiveLiveRoom(live)}
                   />
                 )}
-                {activeTab === 'chat' && <Chat userProfile={userProfile} onBack={() => handleTabChange('community')} />}
+                {/* O chat foi movido para o top-level (Portals) para resolver conflitos de position:fixed */}
                 {activeTab === 'avista' && (
                   <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} />
                 )}
@@ -358,6 +358,11 @@ function App() {
           room={activeLiveRoom}
           onClose={() => setActiveLiveRoom(null)}
         />
+      )}
+
+      {/* ── CHAT IA (Full Viewport) ── */}
+      {activeTab === 'chat' && (
+        <Chat userProfile={userProfile} onBack={() => handleTabChange('community')} />
       )}
     </>
   );
