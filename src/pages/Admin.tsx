@@ -566,8 +566,11 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
             ) : (
               creatorRequests.map(req => (
                 <div key={req.id} className="request-card" style={{ borderLeft: '4px solid #a78bfa', display: 'flex', flexDirection: 'column' }}>
-                  <div className="req-user" style={{ marginBottom: '1rem' }}>
-                    <img src={req.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.profiles?.username}`} className="mini-avatar" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexShrink: 0 }}>
+                    <img 
+                      src={req.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.profiles?.username}`} 
+                      style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(167,139,250,0.4)' }}
+                    />
                     <div>
                       <p><strong>@{req.profiles?.username}</strong> solicitou Selo de Criador</p>
                       <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>Enviado em: {new Date(req.created_at).toLocaleString()}</span>
