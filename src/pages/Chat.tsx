@@ -4,7 +4,8 @@ import {
   Trash2, 
   Sparkles, 
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -21,6 +22,8 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
   const [loading, setLoading] = useState(false);
   const [moralBalance, setMoralBalance] = useState<number>(userProfile?.moral_balance ?? 0);
   const [lastSentAt, setLastSentAt] = useState<number>(0);
+  const [lastSentAt, setLastSentAt] = useState<number>(0);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const COST_PER_MSG = 5;
@@ -178,7 +181,10 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
   const canSend = moralBalance >= COST_PER_MSG;
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#000', zIndex: 90 }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column', backgroundColor: '#000', backgroundImage: 'url(/iai-cria-login-bg.png)', backgroundSize: 'cover', backgroundPosition: 'center', zIndex: 90 }}>
+      {/* Overlay escuro para garantir legibilidade dos textos da favela ao fundo */}
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 0 }}></div>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', zIndex: 1 }}>
       {/* Header Fixo */}
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: '#050505', borderBottom: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -187,11 +193,11 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
               <ArrowLeft size={24} />
             </button>
           )}
-          <div style={{position: 'relative'}}>
+          <div style={{position: 'relative', cursor: 'pointer'}} onClick={() => setShowProfileModal(true)}>
             <img src="/iai-cria-logo.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover'}} />
             <div className={`status-dot ${loading ? 'typing' : ''}`} style={{position: 'absolute', bottom: '2px', right: '0', width: '12px', height: '12px', borderRadius: '50%', background: loading ? 'var(--primary)' : '#10b981', border: '2px solid #050505'}}></div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }} onClick={() => setShowProfileModal(true)}>
             <div style={{display: 'flex', alignItems: 'center'}}>
               <h2 style={{fontSize: '1.2rem', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1}}>IAI CRIA</h2>
               <span style={{marginLeft: '6px', width: '18px', height: '18px'}}>
@@ -344,6 +350,39 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
           {loading ? <Loader2 size={24} className="animate-spin" /> : <Send size={22} style={{ marginLeft: '2px' }} />}
         </button>
       </div>
+      </div>
+      
+      {/* Modal de Perfil do IA */}
+      {showProfileModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', backdropFilter: 'blur(10px)' }} onClick={() => setShowProfileModal(false)}>
+          <div style={{ background: '#0a0a0a', border: '1px solid rgba(250,204,21,0.2)', borderRadius: '28px', padding: '2rem 1.5rem', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowProfileModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: '8px', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+              <X size={20} />
+            </button>
+            <div style={{ position: 'relative', marginBottom: '1.5rem', marginTop: '1rem' }}>
+              <img src="/iai-cria-logo.png" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 0 25px rgba(250,204,21,0.2)' }} />
+              <div style={{ position: 'absolute', bottom: '5px', right: '10px', background: '#10b981', border: '4px solid #0a0a0a', width: '24px', height: '24px', borderRadius: '50%' }}></div>
+            </div>
+            <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 900, margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              IAI CRIA
+              <span style={{ width: '22px', height: '22px' }}>
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 1L14.6 4.7H19.3L19.3 9.4L23 12L19.3 14.6L19.3 19.3H14.6L12 23L9.4 19.3H4.7L4.7 14.6L1 12L4.7 9.4L4.7 4.7H9.4L12 1Z" fill="#facc15" />
+                  <path d="M17.5 8.5L10 16L6.5 12.5" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </h2>
+            <div style={{ background: 'rgba(250,204,21,0.1)', color: 'var(--primary)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.5rem', border: '1px solid rgba(250,204,21,0.3)', textAlign: 'center' }}>
+              🤖 Inteligência Artificial Oficial da Comunidade
+            </div>
+            <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}></div>
+            <h3 style={{ width: '100%', margin: '0 0 8px 0', fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>Biografia</h3>
+            <p style={{ color: '#fff', margin: 0, fontSize: '0.95rem', lineHeight: 1.6, textAlign: 'center', opacity: 0.9 }}>
+              Salve! Eu sou o Cria, o cérebro digital da sua comunidade. Fui treinado nas ruas e programado em código puro pra te passar a visão, te dar os melhores conselhos e resolver os trampos cabulosos, sem caô. Tô ligado no que tá em alta, no que vinga e no que é furada. <strong>Pode mandar o papo que a firma tá forte!</strong>
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
