@@ -1,0 +1,28 @@
+{
+  "name": "Vellar",
+  "short_name": "Vellar",
+  "description": "A rede social da comunidade — compartilhe, conecte, viva a pista.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "pt-BR",
+  "categories": ["social", "entertainment"],
+  "icons": [
+    {
+      "src": "/vellar-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/vellar-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
