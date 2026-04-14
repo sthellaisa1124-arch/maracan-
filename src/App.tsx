@@ -16,7 +16,7 @@ import { SetupLiveModal } from './components/SetupLiveModal';
 import type { Session } from '@supabase/supabase-js';
 import { 
   MessageSquare, LogOut, User, Bell, Hash, Search, 
-  MessageCircle, Plus, Eye, Video, Home, Star, Edit3, Shield, X, Users, Radio
+  MessageCircle, Plus, Eye, Video, Home, Star, Shield, X, Users, Radio
 } from 'lucide-react';
 
 type TabType = 'chat' | 'profile' | 'admin' | 'notifications' | 'community' | 'messages' | 'avista';
@@ -31,7 +31,6 @@ function App() {
   const [viewingUsername, setViewingUsername] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isAvistaModalOpen, setIsAvistaModalOpen] = useState(false);
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [activeLiveRoom, setActiveLiveRoom] = useState<any>(null);
@@ -246,8 +245,6 @@ function App() {
                     unreadCount={unreadCount}
                     onViewProfile={onViewProfile}
                     onTabChange={(tab: any) => handleTabChange(tab)}
-                    isCreateModalOpen={isPostModalOpen}
-                    onCloseCreateModal={() => setIsPostModalOpen(false)}
                     onJoinLive={(live) => setActiveLiveRoom(live)}
                   />
                 )}
@@ -339,9 +336,6 @@ function App() {
           {(showFabMenu && !activeLiveRoom) && (
             <div className="fab-container-urban active">
               <div className="fab-menu-options animate-fade-up">
-                <button className="fab-menu-item" onClick={() => { setIsPostModalOpen(true); setShowFabMenu(false); }}>
-                  <Edit3 size={20} /><span>Postar</span>
-                </button>
                 <button className="fab-menu-item" onClick={() => { setIsAvistaModalOpen(true); setShowFabMenu(false); }}>
                   <Video size={20} /><span>Lançar AVISTA</span>
                 </button>

@@ -10,18 +10,19 @@ import {
   MoreHorizontal,
   Compass,
   Users,
-  Crown,
   X,
   Eye,
-  Bell
+  Bell,
+  Zap,
+  ShoppingCart
 } from 'lucide-react';
 import { StatusRail } from '../components/StatusRail';
 import { StatusViewer } from '../components/StatusViewer';
 import { StatusCreator } from '../components/StatusCreator';
 import { UserBadges } from '../components/Badges';
-
 import { LiveRoom } from '../components/LiveRoom';
 
+const POST_COST = 10000; // 10mil moral por post
 
 export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void }) {
   const [posts, setPosts] = useState<any[]>([]);
@@ -31,11 +32,13 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [isSocialFeed, setIsSocialFeed] = useState(false);
-  const [postsCountToday, setPostsCountToday] = useState(0);
   const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
   const [activeStatusGroup, setActiveStatusGroup] = useState<any>(null);
   const [isCreatingStatus, setIsCreatingStatus] = useState(false);
   const [statusRefreshKey, setStatusRefreshKey] = useState(0);
+  const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [moralBalance, setMoralBalance] = useState<number>(profile?.moral_balance ?? 0);
+  const [noSaldoModal, setNoSaldoModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -44,21 +47,25 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
 
   useEffect(() => {
     fetchPosts();
-    if (session?.user?.id) fetchDailyCount();
+    if (session?.user?.id) fetchMoralBalance();
   }, [session?.user?.id]);
 
-  async function fetchDailyCount() {
-    if (!session || (profile?.plan === 'premium' || profile?.plan === 'gold')) return;
-    
+  // Sincroniza quando o modal de post externo abre (chamado do App.tsx via isCreateModalOpen)
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      setIsPostModalOpen(true);
+      if (onCloseCreateModal) onCloseCreateModal();
+    }
+  }, [isCreateModalOpen]);
+
+  async function fetchMoralBalance() {
     if (!session?.user?.id) return;
-    
-    const { count } = await supabase
-      .from('user_posts')
-      .select('id', { count: 'exact' })
-      .eq('user_id', session.user.id)
-      .gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-    
-    setPostsCountToday(count || 0);
+    const { data } = await supabase
+      .from('profiles')
+      .select('moral_balance')
+      .eq('id', session.user.id)
+      .single();
+    if (data) setMoralBalance(data.moral_balance ?? 0);
   }
 
   async function fetchPosts() {
@@ -106,27 +113,22 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         }
     }
 
-    // Buscar contagens e interações para cada post
     const postsWithStats = await Promise.all((finalPosts || []).map(async (post: any) => {
-      // Likes
       const { count: likesCount } = await supabase
         .from('user_post_likes')
         .select('id', { count: 'exact' })
         .eq('post_id', post.id);
 
-      // Comentários
       const { count: commsCount } = await supabase
         .from('user_post_comments')
         .select('id', { count: 'exact' })
         .eq('post_id', post.id);
 
-      // Visualizações
       const { count: viewsCount } = await supabase
         .from('user_post_views')
         .select('id', { count: 'exact' })
         .eq('post_id', post.id);
 
-      // Verificar se eu curto
       let isLiked = false;
       if (session?.user?.id) {
         const { data: myLike } = await supabase
@@ -137,7 +139,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           .maybeSingle();
         isLiked = !!myLike;
 
-        // Registrar minha visualização se não for meu post
         if (post.user_id !== session.user.id) {
           await supabase.from('user_post_views').insert({ 
             post_id: post.id, 
@@ -146,7 +147,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         }
       }
 
-      // Comentários Detalhados (para exibição)
       const { data: commentsList } = await supabase
         .from('user_post_comments')
         .select('*, author:profiles(username, avatar_url, badges, total_donated)')
@@ -176,7 +176,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // LIMITE DE 30MB SOLICITADO
     if (file.size > 30 * 1024 * 1024) {
       return notify("Pô cria, o vídeo tá muito pesado! Máximo 30MB pra não travar a pista. 🛡️", "error");
     }
@@ -206,25 +205,46 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     if (!content.trim() && !mediaUrl) return notify("Diz alguma coisa pro mundo, cria! 🎤", "error");
     if (!session) return notify("Loga aí pra largar o aço! 🔐", "error");
 
+    // VERIFICAR SALDO DE MORAL
+    await fetchMoralBalance();
+    const freshBalance = moralBalance;
+    
+    if (freshBalance < POST_COST) {
+      setIsPostModalOpen(false);
+      setNoSaldoModal(true);
+      return;
+    }
+
     setUploading(true);
 
-    // TRAVA DE MONETIZAÇÃO
-    if (profile?.plan !== 'premium' && profile?.plan !== 'gold') {
-      if (postsCountToday >= 2) {
-        setUploading(false);
-        return notify("Limite de 2 posts atingido! Vire PREMIUM pra soltar o papo sem limites! 👑💎", "error");
-      }
+    // 1. DEBITAR O MORAL
+    const { error: debitError } = await supabase
+      .from('profiles')
+      .update({ moral_balance: freshBalance - POST_COST })
+      .eq('id', session.user.id);
+
+    if (debitError) {
+      setUploading(false);
+      return notify("Erro ao debitar moral: " + debitError.message, "error");
     }
+
+    // 2. REGISTRAR TRANSAÇÃO
+    await supabase.from('moral_transactions').insert({
+      user_id: session.user.id,
+      amount: -POST_COST,
+      type: 'post_divulgacao',
+      description: 'Divulgação na tela inicial - PAPO RETO NO VELLAR'
+    }).then(() => {});
+
+    // 3. CRIAR O POST
     const { error } = await supabase
       .from('user_posts')
-      .insert([
-        {
-          user_id: session.user.id,
-          content: content,
-          image_url: mediaType === 'image' ? mediaUrl : null,
-          video_url: mediaType === 'video' ? mediaUrl : null
-        }
-      ]);
+      .insert([{
+        user_id: session.user.id,
+        content: content,
+        image_url: mediaType === 'image' ? mediaUrl : null,
+        video_url: mediaType === 'video' ? mediaUrl : null
+      }]);
 
     if (error) {
       notify("Erro ao postar: " + error.message, "error");
@@ -232,8 +252,9 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       setContent('');
       setMediaUrl(null);
       setMediaType(null);
-      notify("Papo reto largado na pista! 🔥🏙️");
-      if (onCloseCreateModal) onCloseCreateModal();
+      setMoralBalance(prev => prev - POST_COST);
+      setIsPostModalOpen(false);
+      notify("Papo reto largado na pista! 🔥🏙️ (-10.000 Moral)");
       fetchPosts();
     }
     setUploading(false);
@@ -243,7 +264,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     if (!session) return notify("Loga aí pra mostrar que gostou! ❤️", "error");
 
     if (post.is_liked) {
-      // Traduzir para descurtir
       const { error } = await supabase
         .from('user_post_likes')
         .delete()
@@ -262,17 +282,14 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         setPosts(prev => prev.map(p => p.id === post.id ? { ...p, is_liked: true, likes_count: p.likes_count + 1 } : p));
         notify("Curtiu o papo reto! ❤️🔥");
         
-        // Gerar notificação para o autor
         if (post.user_id !== session.user.id) {
-          const { error: notifErr } = await supabase.from('notifications').insert({
+          await supabase.from('notifications').insert({
             user_id: post.user_id,
             from_user_id: session.user.id,
             type: 'like',
             post_id: post.id
           });
-          if (notifErr) notify("Erro Notif Like: " + notifErr.message, "error");
         }
-
       }
     }
   }
@@ -302,24 +319,257 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       setCommentText('');
       notify("Comentário largado na pista! 🎤");
 
-      // Notificar autor
       if (authorId !== session.user.id) {
-        const { error: notifErr } = await supabase.from('notifications').insert({
+        await supabase.from('notifications').insert({
           user_id: authorId,
           from_user_id: session.user.id,
           type: 'comment',
           post_id: postId
         });
-        if (notifErr) notify("Erro Notif Comment: " + notifErr.message, "error");
       }
-
     }
   }
 
   return (
     <div className="community-page animate-fade-up">
       {toast && <div className={`toast-notification ${toast.typ}`}>{toast.msg}</div>}
-      
+
+      {/* ── MODAL SEM SALDO ── */}
+      {noSaldoModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 999999,
+          background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #0f0f0f, #1a1a1a)',
+            border: '1px solid rgba(239,68,68,0.4)',
+            borderRadius: '28px', padding: '2rem', maxWidth: '360px', width: '100%',
+            textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.8)'
+          }}>
+            <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>💸</div>
+            <h3 style={{ margin: '0 0 0.5rem', color: '#ef4444', fontWeight: 900, fontSize: '1.4rem' }}>
+              Saldo Insuficiente!
+            </h3>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.95rem', margin: '0 0 1.5rem', lineHeight: 1.5 }}>
+              Você precisa de <strong style={{ color: '#facc15' }}>10.000 Moral</strong> para divulgar na pista.<br />
+              Seu saldo atual: <strong style={{ color: '#ef4444' }}>{moralBalance.toLocaleString('pt-BR')} Moral</strong>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => { setNoSaldoModal(false); onTabChange('profile'); }}
+                style={{
+                  background: 'linear-gradient(135deg, #6C2BFF, #9D6BFF)',
+                  border: 'none', borderRadius: '16px', padding: '14px',
+                  color: '#fff', fontWeight: 900, fontSize: '1rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  boxShadow: '0 8px 25px rgba(108,43,255,0.4)'
+                }}
+              >
+                <ShoppingCart size={20} /> RECARREGAR MORAL
+              </button>
+              <button
+                onClick={() => setNoSaldoModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: '16px', padding: '12px', color: 'rgba(255,255,255,0.6)',
+                  fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem'
+                }}
+              >
+                Agora não
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL DE DIVULGAÇÃO "PAPO RETO NO VELLAR" ── */}
+      {isPostModalOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999998,
+            background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(15px)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+          }}
+          onClick={() => { if (!uploading) setIsPostModalOpen(false); }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: '540px',
+              background: 'linear-gradient(180deg, #0f0f0f 0%, #0a0a0a 100%)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '32px 32px 0 0', padding: '1.5rem 1.5rem 2.5rem',
+              maxHeight: '92vh', overflowY: 'auto', scrollbarWidth: 'none',
+              animation: 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1)'
+            }}
+          >
+            {/* Handle */}
+            <div style={{ width: '36px', height: '4px', background: 'rgba(255,255,255,0.15)', borderRadius: '2px', margin: '0 auto 1.5rem' }} />
+            
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px', color: '#fff', fontWeight: 900, fontSize: '1.3rem', fontFamily: 'Outfit' }}>
+                  📣 Divulgação no Vellar
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.72rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  Tela Inicial · Visível para todos
+                </p>
+              </div>
+              <button
+                onClick={() => setIsPostModalOpen(false)}
+                style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#fff', width: '34px', height: '34px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Badge de Promoção */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(250,204,21,0.12), rgba(251,146,60,0.12))',
+              border: '1px solid rgba(250,204,21,0.3)',
+              borderRadius: '20px', padding: '1rem 1.2rem',
+              marginBottom: '1.5rem', position: 'relative', overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute', top: '8px', right: '10px',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff', fontSize: '0.65rem', fontWeight: 900,
+                padding: '3px 10px', borderRadius: '20px', letterSpacing: '0.5px'
+              }}>
+                🔥 PROMOÇÃO
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '2rem' }}>🎉</span>
+                <div>
+                  <div style={{ color: '#facc15', fontWeight: 900, fontSize: '0.95rem' }}>
+                    Desconto de Inauguração!
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.8rem', marginTop: '2px' }}>
+                    <span style={{ textDecoration: 'line-through', color: 'rgba(255,255,255,0.3)' }}>20.000 Moral</span>
+                    {' '}→{' '}
+                    <span style={{ color: '#facc15', fontWeight: 900, fontSize: '1rem' }}>10.000 Moral</span>
+                    <span style={{ background: 'rgba(34,197,94,0.2)', color: '#22c55e', fontSize: '0.7rem', fontWeight: 800, padding: '2px 7px', borderRadius: '8px', marginLeft: '6px' }}>
+                      50% OFF
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ marginTop: '0.8rem', fontSize: '0.78rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>
+                💼 Sua divulgação aparece para <strong style={{ color: 'rgba(255,255,255,0.7)' }}>todos os usuários</strong> na tela inicial do Vellar
+              </div>
+            </div>
+
+            {/* Saldo atual */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '16px', padding: '0.8rem 1.2rem', marginBottom: '1.4rem'
+            }}>
+              <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>SEU SALDO</span>
+              <span style={{
+                fontWeight: 900, fontSize: '1rem',
+                color: moralBalance >= POST_COST ? '#22c55e' : '#ef4444'
+              }}>
+                🪙 {moralBalance.toLocaleString('pt-BR')} Moral
+              </span>
+            </div>
+
+            {/* Campo Título */}
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: '#facc15', letterSpacing: '2px', marginBottom: '8px', opacity: 0.7 }}>
+                TÍTULO / DESCRIÇÃO
+              </label>
+              <textarea
+                placeholder="O que você quer divulgar? Manda o papo reto! 🎤"
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.1)', borderRadius: '18px',
+                  padding: '1rem 1.2rem', color: '#fff', fontSize: '1rem',
+                  fontFamily: 'Outfit, sans-serif', lineHeight: 1.5,
+                  outline: 'none', resize: 'none', minHeight: '100px',
+                  boxSizing: 'border-box', transition: 'border-color 0.3s'
+                }}
+                onFocus={e => e.currentTarget.style.borderColor = '#facc15'}
+                onBlur={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
+              />
+            </div>
+
+            {/* Preview de mídia */}
+            {mediaUrl && (
+              <div style={{ marginBottom: '1rem', borderRadius: '18px', overflow: 'hidden', border: '1px solid rgba(250,204,21,0.3)', position: 'relative' }}>
+                {mediaType === 'image' ? (
+                  <img src={mediaUrl} style={{ width: '100%', display: 'block', maxHeight: '300px', objectFit: 'cover' }} alt="Preview" />
+                ) : (
+                  <video src={mediaUrl} style={{ width: '100%', display: 'block', maxHeight: '300px' }} controls />
+                )}
+                <button
+                  onClick={() => { setMediaUrl(null); setMediaType(null); }}
+                  style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Botões de ação */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '1.2rem' }}>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                style={{
+                  flex: 1, background: 'rgba(255,255,255,0.05)',
+                  border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '16px',
+                  padding: '14px', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                  fontWeight: 700, fontSize: '0.9rem', transition: 'all 0.2s'
+                }}
+              >
+                {uploading ? <Loader2 size={18} className="animate-spin" /> : <><ImageIcon size={20} /> Galeria</>}
+              </button>
+              <input
+                type="file"
+                hidden
+                ref={fileInputRef}
+                accept="image/*,video/*"
+                onChange={handleMediaUpload}
+              />
+            </div>
+
+            {/* Botão Postar */}
+            <button
+              onClick={handleCreatePost}
+              disabled={uploading || (!content.trim() && !mediaUrl)}
+              style={{
+                width: '100%', height: '60px', borderRadius: '20px', border: 'none',
+                background: uploading || (!content.trim() && !mediaUrl)
+                  ? 'rgba(255,255,255,0.08)'
+                  : 'linear-gradient(135deg, #facc15 0%, #fb923c 100%)',
+                color: uploading || (!content.trim() && !mediaUrl) ? 'rgba(255,255,255,0.3)' : '#000',
+                fontFamily: 'Outfit', fontWeight: 900, fontSize: '1.1rem',
+                cursor: uploading || (!content.trim() && !mediaUrl) ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                boxShadow: uploading || (!content.trim() && !mediaUrl) ? 'none' : '0 12px 35px rgba(250,204,21,0.3)',
+                transition: 'all 0.3s'
+              }}
+            >
+              {uploading ? (
+                <><Loader2 size={22} className="animate-spin" /> Publicando...</>
+              ) : (
+                <><Zap size={22} fill="currentColor" /> PUBLICAR · 10.000 Moral</>
+              )}
+            </button>
+
+            <p style={{ textAlign: 'center', fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', marginTop: '1rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Ao publicar, os 10.000 moral serão debitados do seu saldo
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* --- HEADER FIXO MODERNO --- */}
       <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default' }}>
         <h3 className="vellar-neon-logo" style={{ margin: 0 }}>
@@ -344,7 +594,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       </div>
 
       {/* --- SISTEMA SOLTA NA PISTA (STORIES) --- */}
-      <div style={{ marginBottom: '1.5rem', padding: '0 0.5rem' }}>
+      <div style={{ marginBottom: '1rem', padding: '0 0.5rem' }}>
         <StatusRail 
           key={statusRefreshKey} 
           session={session} 
@@ -374,213 +624,169 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         />
       </div>
 
-      {/* --- MODAL DE CRIAÇÃO (SUBSTITUI CAIXA FIXA) --- */}
-      {isCreateModalOpen && (
-        <div className="modal-overlay-urban" onClick={onCloseCreateModal}>
-          <div className="urbano-card animate-fade-up" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '600px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-               <h3 style={{ margin: 0, color: 'var(--primary)', fontWeight: 900 }}>LANÇAR UM PAPO RETO 🎤🔥</h3>
-               <button onClick={onCloseCreateModal} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>×</button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
-              <img 
-                src={profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + session?.user?.id} 
-                style={{ width: '56px', height: '56px', borderRadius: '50%', border: '2px solid var(--primary)', padding: '2px' }} 
-                alt="Avatar"
-              />
-              <textarea 
-                placeholder="Qual é o papo de hoje, cria? 🤙🏙️"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                style={{ 
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--separator)', color: '#fff', 
-                  fontSize: '1.2rem', fontWeight: '500', outline: 'none', width: '100%',
-                  padding: '1.25rem', borderRadius: '1.5rem', minHeight: '150px', resize: 'none'
-                }}
-              />
-            </div>
-
-            {(profile?.plan !== 'premium' && profile?.plan !== 'gold') && (
-              <div style={{ 
-                background: postsCountToday >= 2 ? 'rgba(239, 68, 68, 0.1)' : 'rgba(250, 204, 21, 0.05)', 
-                color: postsCountToday >= 2 ? 'var(--danger)' : 'var(--primary)',
-                padding: '1rem', borderRadius: '1rem', marginBottom: '1.5rem',
-                fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.75rem',
-                border: '1px solid currentColor'
-              }}>
-                <Crown size={18} />
-                {postsCountToday >= 2 
-                  ? "Limite diário atingido! Posts ilimitados só no plano PREMIUM. ✨" 
-                  : `Você já usou ${postsCountToday}/2 posts gratuitos hoje.`}
-              </div>
-            )}
-            
-            {mediaUrl && (
-              <div className="media-preview" style={{ marginBottom: '2rem', borderRadius: '1.5rem', overflow: 'hidden', border: '1px solid var(--primary)', position: 'relative' }}>
-                {mediaType === 'image' ? (
-                  <img src={mediaUrl} style={{ width: '100%', display: 'block' }} alt="Preview" />
-                ) : (
-                  <video src={mediaUrl} style={{ width: '100%', display: 'block' }} controls />
-                )}
-                <button 
-                  onClick={() => setMediaUrl(null)}
-                  style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1.5rem', borderTop: '1px solid var(--separator)' }}>
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button className="icon-btn" onClick={() => fileInputRef.current?.click()} title="Adicionar Mídia">
-                  <ImageIcon size={22} />
-                </button>
-                <input 
-                  type="file" 
-                  hidden 
-                  ref={fileInputRef} 
-                  accept="image/*,video/*" 
-                  onChange={handleMediaUpload} 
-                />
-              </div>
-              <button 
-                className="gold-button" 
-                onClick={handleCreatePost}
-                disabled={uploading || (!content.trim() && !mediaUrl)}
-              >
-                {uploading ? <Loader2 className="animate-spin" /> : <><Send size={20} /> LANÇAR NA PISTA</>}
-              </button>
-            </div>
-          </div>
+      {/* --- BOTÃO "PAPO RETO NO VELLAR" + LABEL DE SEÇÃO --- */}
+      <div style={{
+        margin: '0 0.75rem 1rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        {/* Label feed */}
+        <div style={{ opacity: 0.6, fontSize: '0.82rem', fontStyle: 'italic', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {isSocialFeed ? (
+            <><Users size={16} /> OS CRIA TÃO LANÇANDO</>
+          ) : (
+            <><Compass size={16} /> EM ALTA NO VELLAR</>
+          )}
         </div>
-      )}
 
-
-      <div style={{ margin: '1.5rem 0.75rem 1rem', opacity: 0.6, fontSize: '0.85rem', fontStyle: 'italic', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {isSocialFeed ? (
-          <><Users size={18} /> OS CRIA TÃO LANÇANDO</>
-        ) : (
-          <><Compass size={18} /> PAPO RETO NO VELLAR</>
-        )}
+        {/* Botão PAPO RETO NO VELLAR */}
+        <button
+          onClick={() => {
+            fetchMoralBalance();
+            setContent('');
+            setMediaUrl(null);
+            setMediaType(null);
+            setIsPostModalOpen(true);
+          }}
+          style={{
+            background: 'linear-gradient(135deg, rgba(108,43,255,0.15), rgba(157,107,255,0.15))',
+            border: '1px solid rgba(108,43,255,0.4)',
+            borderRadius: '20px', padding: '7px 14px',
+            color: '#9D6BFF', fontWeight: 900, fontSize: '0.75rem',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+            fontFamily: 'Outfit', letterSpacing: '0.3px',
+            transition: 'all 0.25s', whiteSpace: 'nowrap',
+            boxShadow: '0 4px 15px rgba(108,43,255,0.2)'
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, rgba(108,43,255,0.25), rgba(157,107,255,0.25))';
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = 'linear-gradient(135deg, rgba(108,43,255,0.15), rgba(157,107,255,0.15))';
+            (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+          }}
+        >
+          <Zap size={14} fill="currentColor" /> PAPO RETO NO VELLAR
+        </button>
       </div>
 
-      <div className="community-feed">
+      {/* --- FEED DE POSTS (COLUNA VERTICAL) --- */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         {loading ? (
-          <div style={{textAlign: 'center', padding: '4rem'}}><Loader2 className="animate-spin" /></div>
+          <div style={{ textAlign: 'center', padding: '4rem' }}><Loader2 className="animate-spin" /></div>
         ) : posts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>A pista tá quieta... solta o papo você! 🎤🔇</div>
         ) : (
           posts.map(post => (
-            <div key={post.id} className="feed-post-card">
+            <div key={post.id} className="feed-post-card" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
               {/* Header do Post */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '0 1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', padding: '0 1rem' }}>
                 <img 
                   src={post.author?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + post.user_id} 
-                  style={{ width: '48px', height: '48px', borderRadius: '50%', cursor: 'pointer' }}
+                  style={{ width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', objectFit: 'cover', flexShrink: 0 }}
                   onClick={() => onViewProfile(post.author?.username)}
                   alt="Avatar"
                 />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <span 
-                      style={{ fontWeight: 800, fontSize: '1.05rem', cursor: 'pointer' }}
+                      style={{ fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer' }}
                       onClick={() => onViewProfile(post.author?.username)}
                     >
                       @{post.author?.username}
                     </span>
-                    <UserBadges badges={post.author?.badges} donatedAmount={post.author?.total_donated} size={16} />
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>• {new Date(post.created_at).toLocaleDateString()}</span>
+                    <UserBadges badges={post.author?.badges} donatedAmount={post.author?.total_donated} size={14} />
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>• {new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <MoreHorizontal size={20} />
+                <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
+                  <MoreHorizontal size={18} />
                 </button>
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <p style={{ fontSize: '1.05rem', lineHeight: 1.5, marginBottom: post.image_url || post.video_url ? '0.75rem' : 0, padding: '0 1rem' }}>
-                  {post.content}
-                </p>
+              {/* Conteúdo */}
+              <div style={{ marginBottom: '0.75rem', width: '100%' }}>
+                {post.content && (
+                  <p style={{ fontSize: '1rem', lineHeight: 1.5, marginBottom: post.image_url || post.video_url ? '0.75rem' : 0, padding: '0 1rem', margin: 0 }}>
+                    {post.content}
+                  </p>
+                )}
                 {post.image_url && (
-                  <div style={{ borderTop: '1px solid var(--separator)', borderBottom: '1px solid var(--separator)', background: '#000' }}>
-                    <img src={post.image_url} alt="Post" style={{ width: '100%', maxHeight: '550px', objectFit: 'contain', display: 'block' }} />
+                  <div style={{ marginTop: post.content ? '0.75rem' : 0 }}>
+                    <img src={post.image_url} alt="Post" style={{ width: '100%', maxHeight: '500px', objectFit: 'cover', display: 'block' }} />
                   </div>
                 )}
                 {post.video_url && (
-                  <div style={{ borderTop: '1px solid var(--separator)', borderBottom: '1px solid var(--separator)', background: '#000' }}>
-                    <video src={post.video_url} preload="none" controls style={{ width: '100%', maxHeight: '550px', display: 'block' }} />
+                  <div style={{ marginTop: post.content ? '0.75rem' : 0 }}>
+                    <video src={post.video_url} preload="none" controls style={{ width: '100%', maxHeight: '500px', display: 'block' }} />
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.75rem', paddingLeft: '1rem', paddingRight: '1rem', flexWrap: 'wrap' }}>
+              {/* Ações */}
+              <div style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.75rem', paddingLeft: '1rem', paddingRight: '1rem', flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                 <button 
-                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', color: post.is_liked ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800 }}
+                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', color: post.is_liked ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
                   onClick={() => handleLike(post)}
                 >
-                  <Heart size={20} fill={post.is_liked ? "currentColor" : "none"} /> <span>{post.likes_count || 0}</span>
+                  <Heart size={18} fill={post.is_liked ? "currentColor" : "none"} /> <span>{post.likes_count || 0}</span>
                 </button>
                 <button 
-                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem', color: commentingOn === post.id ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800 }}
+                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', color: commentingOn === post.id ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
                   onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
                 >
-                  <MessageCircle size={20} /> <span>{post.comments_count || 0}</span>
+                  <MessageCircle size={18} /> <span>{post.comments_count || 0}</span>
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 800 }}>
-                   <Eye size={18} /> <span>{post.views_count || 0}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 700 }}>
+                   <Eye size={16} /> <span>{post.views_count || 0}</span>
                 </div>
                 <button style={{ background: 'transparent', border: 'none', marginLeft: 'auto', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
-                  <Share2 size={20} />
+                  <Share2 size={18} />
                 </button>
               </div>
 
-              {/* SEÇÃO DE COMENTÁRIOS (Visível apenas se clicar no ícone) */}
+              {/* Comentários */}
               {commentingOn === post.id && (
-                <div className="comments-section-wrapper" style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem', animation: 'fadeUp 0.3s ease' }}>
-                  
-                  {/* LISTA DE COMENTÁRIOS COM SCROLL */}
-                  <div className="comments-scroll-area" style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
+                <div style={{ marginTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '1rem', animation: 'fadeUp 0.3s ease', padding: '1rem' }}>
+                  <div style={{ maxHeight: '280px', overflowY: 'auto', marginBottom: '1rem' }}>
                     {post.comments_list && post.comments_list.length > 0 ? (
                       post.comments_list.map((c: any) => (
-                        <div key={c.id} style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem' }}>
+                        <div key={c.id} style={{ display: 'flex', gap: '0.7rem', marginBottom: '0.8rem' }}>
                            <img 
                              src={c.author?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + c.user_id} 
-                             style={{ width: '32px', height: '32px', borderRadius: '50%' }}
+                             style={{ width: '30px', height: '30px', borderRadius: '50%', flexShrink: 0 }}
                              alt="Avatar"
                            />
-                           <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.6rem 1rem', borderRadius: '1rem' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                   <strong style={{ fontSize: '0.85rem', color: 'var(--primary)' }}>@{c.author?.username}</strong>
-                                   <UserBadges badges={c.author?.badges} donatedAmount={c.author?.total_donated} size={14} />
+                           <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '0.5rem 0.9rem', borderRadius: '14px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                   <strong style={{ fontSize: '0.8rem', color: 'var(--primary)' }}>@{c.author?.username}</strong>
+                                   <UserBadges badges={c.author?.badges} donatedAmount={c.author?.total_donated} size={12} />
                                  </div>
-                                 <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{new Date(c.created_at).toLocaleDateString()}</span>
+                                 <span style={{ fontSize: '0.65rem', opacity: 0.4 }}>{new Date(c.created_at).toLocaleDateString()}</span>
                               </div>
-                              <p style={{ fontSize: '0.9rem', margin: 0, color: '#fff', opacity: 0.9 }}>{c.content}</p>
+                              <p style={{ fontSize: '0.88rem', margin: 0, color: '#fff', opacity: 0.9 }}>{c.content}</p>
                            </div>
                         </div>
                       ))
                     ) : (
-                      <p style={{ textAlign: 'center', opacity: 0.4, fontSize: '0.85rem', padding: '1rem' }}>Nenhum comentário ainda. Seja o primeiro a mandar o papo! 🎤</p>
+                      <p style={{ textAlign: 'center', opacity: 0.4, fontSize: '0.82rem', padding: '0.5rem' }}>Nenhum comentário ainda. Seja o primeiro! 🎤</p>
                     )}
                   </div>
 
-                  {/* INPUT DE COMENTÁRIO (AGORA ABAIXO DA LISTA) */}
-                  <div className="comment-input-area" style={{ display: 'flex', gap: '0.8rem' }}>
+                  <div style={{ display: 'flex', gap: '0.7rem' }}>
                      <input 
                       type="text" 
                       placeholder="Manda seu comentário..."
                       value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendComment(post.id, post.user_id)}
-                      style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--separator)', borderRadius: '1rem', padding: '0.6rem 1rem', color: '#fff', fontSize: '0.9rem', outline: 'none' }}
+                      onChange={e => setCommentText(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSendComment(post.id, post.user_id)}
+                      style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--separator)', borderRadius: '14px', padding: '0.6rem 1rem', color: '#fff', fontSize: '0.88rem', outline: 'none' }}
                      />
                      <button 
                       onClick={() => handleSendComment(post.id, post.user_id)}
                       disabled={!commentText.trim()}
-                      style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '0.6rem 1rem', borderRadius: '1rem', fontWeight: 800, cursor: 'pointer' }}
+                      style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '0.6rem 1rem', borderRadius: '14px', fontWeight: 800, cursor: 'pointer', fontSize: '0.85rem' }}
                      >
                        ENVIAR
                      </button>
@@ -609,8 +815,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           onRefresh={() => setStatusRefreshKey(prev => prev + 1)}
         />
       )}
-
-
     </div>
   );
 }
