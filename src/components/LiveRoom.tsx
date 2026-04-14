@@ -202,19 +202,25 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   async function handleAcceptBattle() {
      if (!activeBattle?.opponentRoomId) return;
      const eTime = Date.now() + 180000;
+     const endsAtStr = new Date(eTime).toISOString();
      
-     const payload = { endTime: eTime };
+     // 1. O Banco de Dados passa a comandar a Batalha Global!
+     const { error } = await supabase.from('live_battles').insert({
+        host_a_id: activeBattle.opponentId,
+        host_b_id: room.host_id,
+        status: 'active',
+        started_at: new Date().toISOString(),
+        ends_at: endsAtStr,
+        agora_channel_a: activeBattle.agora_channel,
+        agora_channel_b: room.agora_channel
+     });
      
-     // Seta o state LOCAL imediatamente para o host B não ficar preso
-     setActiveBattle((prev: any) => prev ? { ...prev, endTime: eTime } : null);
-     setBattleTimeLeft(180);
+     if (error) {
+        console.error("Erro ao iniciar DB Battle", error);
+     }
      
-     // Atualiza a própria audiência
-     doBroadcast(room.id, 'battle_started', payload);
-     
-     // Atualiza sala do oponente e Host A
-     doBroadcast(activeBattle.opponentRoomId, 'battle_started', payload);
-     
+     // Os listeners do postgres_changes em ambos os hosts (e 100% da audiência) 
+     // pegarão essa criação instantaneamente e descerão a barra idênticos!
      setBattleInvite(null);
   }
 
@@ -244,25 +250,38 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
            const { data: oppLive } = await supabase.from('live_sessions').select('id, agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
            
            if (oppProfile && oppLive) {
+              const { data: activeDBMatch } = await supabase.from('live_battles')
+                 .select('id, ends_at')
+                 .eq('status', 'active')
+                 .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
+                 .maybeSingle();
+
+              let syncEndTime = null;
+              if (activeDBMatch?.ends_at) {
+                 syncEndTime = new Date(activeDBMatch.ends_at).getTime();
+              }
+
               setActiveBattle({
                 opponentId: opponentId,
                 opponentProfile: oppProfile,
                 agora_channel: oppLive.agora_channel,
                 opponentRoomId: oppLive.id,
-                endTime: null, // Aquecimento! Sem relógio ainda
+                endTime: syncEndTime,
                 score_a: 0,
-                score_b: 0
+                score_b: 0,
+                battleId: activeDBMatch?.id
               });
-              setBattleTimeLeft(0);
-
-              // Avisa a audiência para abrir câmera dividida localmente
-              await supabase.channel(`live_chat:${room.id}`).send({
-                type: 'broadcast',
-                event: 'match_connected',
-                payload: {
-                  opponentId, opponentProfile: oppProfile, agora_channel: oppLive.agora_channel, opponentRoomId: oppLive.id, endTime: null, score_a: 0, score_b: 0
-                }
-              }).catch(() => {});
+              
+              if (syncEndTime) {
+                 setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
+              } else {
+                 setBattleTimeLeft(0);
+                 // Avisa a audiência que ainda está no aquecimento para abrir câmera dividida localmente
+                 await supabase.channel(`live_chat:${room.id}`).send({
+                   type: 'broadcast', event: 'match_connected',
+                   payload: { opponentId, opponentProfile: oppProfile, agora_channel: oppLive.agora_channel, opponentRoomId: oppLive.id, endTime: null, score_a: 0, score_b: 0 }
+                 }).catch(() => {});
+              }
            }
         } catch (e) {}
       }
@@ -335,10 +354,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false);
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  const videoContainerRef = useRef<HTMLDivElement>(null);
+  const [hasFollowed, setHasFollowed] = useState(false);
+  const chatChannelRef = useRef<any>(null);
+  const dbChannelRef = useRef<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const chatChannelRef = useRef<any>(null); // Ref para o canal de chat
   const agoraClientRef = useRef<any>(null); // Refs imortais para shutdown
   const localAudioRef = useRef<any>(null);
   const localVideoRef = useRef<any>(null);
@@ -381,6 +400,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     return () => {
       active = false;
       cleanupTracks();
+      if (chatChannelRef.current) supabase.removeChannel(chatChannelRef.current);
+      if (dbChannelRef.current) supabase.removeChannel(dbChannelRef.current);
       clearTimeout(timer);
     };
   }, [room.host_id, session?.user?.id]);
@@ -414,23 +435,39 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
           const scoreB = activeBattle.score_b ?? 0;
           const winnerId = scoreA >= scoreB ? session.user.id : (activeBattle.opponentId ?? session.user.id);
 
-          // Salvar resultado final na tabela live_battles
-          await supabase.from('live_battles').insert({
-            host_a_id: session.user.id,
-            host_b_id: activeBattle.opponentId,
-            status: 'finished',
-            score_a: scoreA,
-            score_b: scoreB,
-            final_score_a: scoreA,
-            final_score_b: scoreB,
-            winner_id: winnerId,
-            agora_channel_a: room.agora_channel,
-            agora_channel_b: activeBattle.agora_channel,
-            started_at: new Date(activeBattle.endTime - 180000).toISOString(),
-            ends_at: new Date(activeBattle.endTime).toISOString(),
-          }).then(({ error }) => {
-            if (error) console.warn('Erro ao salvar batalha:', error.message);
-          });
+          // Salvar/Atualizar resultado final na tabela live_battles (usando o ID para update)
+          if (activeBattle.battleId) {
+             await supabase.from('live_battles').update({
+               status: 'finished',
+               score_a: scoreA,
+               score_b: scoreB,
+               final_score_a: scoreA,
+               final_score_b: scoreB,
+               winner_id: winnerId,
+               ends_at: new Date(activeBattle.endTime).toISOString()
+             }).eq('id', activeBattle.battleId)
+               .then(({ error }) => {
+                 if (error) console.warn('Erro ao atualizar batalha final:', error.message);
+             });
+          } else {
+             // Fallback caso battleId não exista localmente
+             await supabase.from('live_battles').insert({
+               host_a_id: session.user.id,
+               host_b_id: activeBattle.opponentId,
+               status: 'finished',
+               score_a: scoreA,
+               score_b: scoreB,
+               final_score_a: scoreA,
+               final_score_b: scoreB,
+               winner_id: winnerId,
+               agora_channel_a: room.agora_channel,
+               agora_channel_b: activeBattle.agora_channel,
+               started_at: new Date(activeBattle.endTime - 180000).toISOString(),
+               ends_at: new Date(activeBattle.endTime).toISOString(),
+             }).then(({ error }) => {
+               if (error) console.warn('Erro ao salvar batalha fallback:', error.message);
+             });
+          }
 
           // Notificar toda a audiência que a batalha terminou
           await supabase.channel(`live_chat:${room.id}`).send({
@@ -797,18 +834,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             setTimeout(() => setBattleInviteStatus(null), 3000);
          }
       })
-      .on('broadcast', { event: 'battle_started' }, ({ payload }) => {
-         // Agora atualiza tanto host quanto audiência com o relógio
-         setActiveBattle((prev: any) => prev ? { ...prev, endTime: payload.endTime } : payload);
-         if (payload.endTime) {
-            setBattleTimeLeft(Math.max(0, Math.floor((payload.endTime - Date.now()) / 1000)));
-         }
-         // Limpa os estados de convite
-         if (role === 'host') {
-            setBattleInviteStatus(null);
-            setBattleInvite(null);
-         }
-      })
       .on('broadcast', { event: 'score_update' }, ({ payload }) => {
          // Se o payload vier da MINHA sala, já tratamos (score_a).
          // Mas se o payload vier da sala do OPONENTE, atualizamos nosso score_b (que é o score_a dele lá)
@@ -879,8 +904,32 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             }, 2000);
           }
         });
-      })
-      .subscribe(async (status) => {
+      });
+      
+    // DB Listener para ativar batalhas do aquecimento para ativas
+    const dbChannel = supabase.channel(`public:live_battles:${room.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_battles' }, (payload) => {
+         const match = payload.new as any;
+         if (!match || match.status !== 'active') return;
+         
+         const belongsToRoom = match.host_a_id === room.host_id || match.host_b_id === room.host_id;
+         if (belongsToRoom) {
+            const endsAt = new Date(match.ends_at).getTime();
+            setActiveBattle((prev: any) => prev ? { ...prev, endTime: endsAt, battleId: match.id } : { ...match, endTime: endsAt, battleId: match.id });
+            setBattleTimeLeft(Math.max(0, Math.floor((endsAt - Date.now()) / 1000)));
+
+            if (role === 'host') {
+               setBattleInviteStatus(null);
+               setBattleInvite(null);
+            }
+         }
+      });
+      
+    dbChannel.subscribe();
+    dbChannelRef.current = dbChannel;
+    
+    // Inscreve ambos
+    chatChannel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           // Se não houver prop, eu forço a puxar do banco agora para a PRESENCE ficar exata (Elite bug fix)
           let dbProf = userProfile;
