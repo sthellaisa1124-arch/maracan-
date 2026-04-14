@@ -194,20 +194,20 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
             </button>
           )}
           <div style={{position: 'relative', cursor: 'pointer'}} onClick={() => setShowProfileModal(true)}>
-            <img src="/iai-cria-logo.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover'}} />
-            <div className={`status-dot ${loading ? 'typing' : ''}`} style={{position: 'absolute', bottom: '2px', right: '0', width: '12px', height: '12px', borderRadius: '50%', background: loading ? 'var(--primary)' : '#10b981', border: '2px solid #050505'}}></div>
+            <img src="/iai-cria-logo.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--secondary)', objectFit: 'cover'}} />
+            <div className={`status-dot ${loading ? 'typing' : ''}`} style={{position: 'absolute', bottom: '2px', right: '0', width: '12px', height: '12px', borderRadius: '50%', background: loading ? 'var(--secondary)' : '#10b981', border: '2px solid #050505'}}></div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }} onClick={() => setShowProfileModal(true)}>
             <div style={{display: 'flex', alignItems: 'center'}}>
               <h2 style={{fontSize: '1.2rem', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1}}>IAI CRIA</h2>
               <span style={{marginLeft: '6px', width: '18px', height: '18px'}}>
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 1L14.6 4.7H19.3L19.3 9.4L23 12L19.3 14.6L19.3 19.3H14.6L12 23L9.4 19.3H4.7L4.7 14.6L1 12L4.7 9.4L4.7 4.7H9.4L12 1Z" fill="#facc15" />
-                  <path d="M17.5 8.5L10 16L6.5 12.5" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 1L14.6 4.7H19.3L19.3 9.4L23 12L19.3 14.6L19.3 19.3H14.6L12 23L9.4 19.3H4.7L4.7 14.6L1 12L4.7 9.4L4.7 4.7H9.4L12 1Z" fill="#a855f7" />
+                  <path d="M17.5 8.5L10 16L6.5 12.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
             </div>
-            <p style={{fontSize: '0.8rem', color: loading ? 'var(--primary)' : '#10b981', fontWeight: 700, margin: '4px 0 0 0'}}>
+            <p style={{fontSize: '0.8rem', color: loading ? 'var(--secondary)' : '#10b981', fontWeight: 700, margin: '4px 0 0 0'}}>
               {loading ? 'Digitando...' : '🟢 Online'}
             </p>
           </div>
@@ -217,12 +217,12 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '0.4rem',
-            background: canSend ? 'rgba(250,204,21,0.1)' : 'rgba(255,59,48,0.1)',
-            border: `1px solid ${canSend ? 'rgba(250,204,21,0.3)' : 'rgba(255,59,48,0.3)'}`,
+            background: canSend ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255,59,48,0.1)',
+            border: `1px solid ${canSend ? 'rgba(168, 85, 247, 0.3)' : 'rgba(255,59,48,0.3)'}`,
             borderRadius: '2rem', padding: '0.4rem 0.8rem',
           }}>
             <span style={{ fontSize: '1rem' }}>🪙</span>
-            <span style={{ color: canSend ? 'var(--primary)' : '#ff3b30', fontWeight: 800, fontSize: '0.9rem' }}>
+            <span style={{ color: canSend ? 'var(--secondary)' : '#ff3b30', fontWeight: 800, fontSize: '0.9rem' }}>
               {moralBalance}
             </span>
           </div>
@@ -236,9 +236,9 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
       <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {messages.length === 0 && (
           <div style={{ margin: 'auto', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-            <Sparkles size={54} color="var(--primary)" style={{marginBottom: '1rem', filter: 'drop-shadow(0 0 15px var(--primary))'}} />
+            <Sparkles size={54} color="var(--secondary)" style={{marginBottom: '1rem', filter: 'drop-shadow(0 0 15px var(--secondary))'}} />
             <h3 style={{fontSize: '1.5rem', fontWeight: 900, color: '#fff', marginBottom: '0.5rem'}}>Manda o papo, cria!</h3>
-            <p style={{color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '80%'}}>Tô aqui pra trocar aquela ideia. Cada mensagem te custa <strong>{COST_PER_MSG} Moral 🪙</strong></p>
+            <p style={{color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '80%'}}>Tô aqui pra trocar aquela ideia. Cada mensagem te custa <strong style={{color: 'var(--secondary)'}}>{COST_PER_MSG} Moral 🪙</strong></p>
           </div>
         )}
 
@@ -332,7 +332,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
           onClick={sendMessage} 
           disabled={!input.trim() || loading || !canSend}
           style={{
-            background: !input.trim() || loading || !canSend ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, var(--primary) 0%, #d8b4fe 100%)',
+            background: !input.trim() || loading || !canSend ? 'rgba(255,255,255,0.1)' : 'linear-gradient(135deg, var(--secondary) 0%, #6C2BFF 100%)',
             border: 'none',
             borderRadius: '50%',
             width: '50px',
@@ -340,10 +340,10 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: !input.trim() || loading || !canSend ? 'rgba(255,255,255,0.3)' : '#000',
+            color: '#fff',
             cursor: !input.trim() || loading || !canSend ? 'not-allowed' : 'pointer',
             flexShrink: 0,
-            boxShadow: input.trim() && !loading && canSend ? '0 4px 15px rgba(108,43,255,0.4)' : 'none',
+            boxShadow: input.trim() && !loading && canSend ? '0 4px 15px rgba(168, 85, 247, 0.4)' : 'none',
             transition: 'all 0.3s'
           }}
         >
@@ -355,24 +355,24 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
       {/* Modal de Perfil do IA */}
       {showProfileModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', backdropFilter: 'blur(10px)' }} onClick={() => setShowProfileModal(false)}>
-          <div style={{ background: '#0a0a0a', border: '1px solid rgba(250,204,21,0.2)', borderRadius: '28px', padding: '2rem 1.5rem', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: '#0a0a0a', border: '1px solid rgba(168, 85, 247, 0.2)', borderRadius: '28px', padding: '2rem 1.5rem', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.8)' }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowProfileModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', padding: '8px', color: '#fff', cursor: 'pointer', display: 'flex' }}>
               <X size={20} />
             </button>
             <div style={{ position: 'relative', marginBottom: '1.5rem', marginTop: '1rem' }}>
-              <img src="/iai-cria-logo.png" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)', boxShadow: '0 0 25px rgba(250,204,21,0.2)' }} />
+              <img src="/iai-cria-logo.png" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--secondary)', boxShadow: '0 0 25px rgba(168, 85, 247, 0.4)' }} />
               <div style={{ position: 'absolute', bottom: '5px', right: '10px', background: '#10b981', border: '4px solid #0a0a0a', width: '24px', height: '24px', borderRadius: '50%' }}></div>
             </div>
             <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 900, margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
               IAI CRIA
               <span style={{ width: '22px', height: '22px' }}>
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 1L14.6 4.7H19.3L19.3 9.4L23 12L19.3 14.6L19.3 19.3H14.6L12 23L9.4 19.3H4.7L4.7 14.6L1 12L4.7 9.4L4.7 4.7H9.4L12 1Z" fill="#facc15" />
-                  <path d="M17.5 8.5L10 16L6.5 12.5" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M12 1L14.6 4.7H19.3L19.3 9.4L23 12L19.3 14.6L19.3 19.3H14.6L12 23L9.4 19.3H4.7L4.7 14.6L1 12L4.7 9.4L4.7 4.7H9.4L12 1Z" fill="#a855f7" />
+                  <path d="M17.5 8.5L10 16L6.5 12.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </span>
             </h2>
-            <div style={{ background: 'rgba(250,204,21,0.1)', color: 'var(--primary)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.5rem', border: '1px solid rgba(250,204,21,0.3)', textAlign: 'center' }}>
+            <div style={{ background: 'rgba(168, 85, 247, 0.1)', color: 'var(--secondary)', padding: '6px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.5rem', border: '1px solid rgba(168, 85, 247, 0.3)', textAlign: 'center' }}>
               🤖 Inteligência Artificial Oficial da Comunidade
             </div>
             <div style={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.05)', marginBottom: '1.5rem' }}></div>
