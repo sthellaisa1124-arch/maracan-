@@ -88,10 +88,10 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
         }
         .header-main { display: flex; align-items: center; gap: 14px; }
         .icon-box { 
-          background: linear-gradient(135deg, #d4af37 0%, #8a6d3b 100%);
+          background: linear-gradient(135deg, #a855f7 0%, #6C2BFF 100%);
           width: 44px; height: 44px; border-radius: 14px;
           display: flex; align-items: center; justify-content: center;
-          box-shadow: 0 8px 15px rgba(212,175,55,0.25);
+          box-shadow: 0 8px 15px rgba(168,85,247,0.25);
         }
         .modal-title-text h3 { margin: 0; font-family: 'Outfit'; font-weight: 900; color: #fff; font-size: 1.25rem; letter-spacing: -0.5px; }
         .modal-title-text p { margin: 0; font-size: 0.7rem; color: rgba(255,255,255,0.4); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
@@ -108,8 +108,8 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
         
         .vellar-input-wrap { position: relative; }
         .vellar-input-wrap label { 
-          display: block; font-size: 0.6rem; font-weight: 900; color: #d4af37;
-          margin-bottom: 10px; letter-spacing: 2px; opacity: 0.6;
+          display: block; font-size: 0.6rem; font-weight: 900; color: #a855f7;
+          margin-bottom: 10px; letter-spacing: 2px; opacity: 0.8;
         }
         .vellar-field {
           width: 100%; background: transparent; border: none;
@@ -118,8 +118,8 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           transition: all 0.4s;
         }
         .vellar-field:focus {
-          outline: none; border-bottom-color: #d4af37;
-          background: linear-gradient(transparent 80%, rgba(212,175,55,0.03));
+          outline: none; border-bottom-color: #a855f7;
+          background: linear-gradient(transparent 80%, rgba(168,85,247,0.03));
         }
 
         /* Estilo YouTube Description Box - Reforçado */
@@ -128,7 +128,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           border-radius: 16px; padding: 1rem; transition: all 0.3s;
         }
         .yt-desc-box:focus-within {
-          background: #1a1a1a; border-color: #d4af37;
+          background: #1a1a1a; border-color: #a855f7;
           box-shadow: 0 8px 25px rgba(0,0,0,0.4);
         }
         .yt-textarea {
@@ -147,8 +147,8 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           transition: all 0.2s;
         }
         .vibe-tag.active {
-          background: rgba(212,175,55,0.1); border-color: #d4af37; color: #fff;
-          box-shadow: 0 4px 12px rgba(212,175,55,0.15);
+          background: rgba(168,85,247,0.15); border-color: #a855f7; color: #fff;
+          box-shadow: 0 4px 12px rgba(168,85,247,0.2);
         }
 
         .toggle-card {
@@ -176,10 +176,10 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
 
         .vellar-launch-btn {
           width: 100%; height: 64px; border-radius: 20px; border: none;
-          background: #d4af37; color: #000; font-family: 'Outfit';
+          background: linear-gradient(135deg, #a855f7 0%, #6C2BFF 100%); color: #fff; font-family: 'Outfit';
           font-weight: 900; font-size: 1.25rem; cursor: pointer;
           display: flex; align-items: center; justify-content: center; gap: 12px;
-          box-shadow: 0 15px 35px rgba(212,175,55,0.3);
+          box-shadow: 0 15px 35px rgba(168,85,247,0.35);
           transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .vellar-launch-btn:disabled { 
@@ -198,7 +198,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
         <header className="vellar-modal-header">
           <div className="header-main">
             <div className="icon-box">
-              <Video size={24} color="#000" />
+              <Video size={24} color="#fff" />
             </div>
             <div className="modal-title-text">
               <h3>Nova Live</h3>
@@ -256,7 +256,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
                    background: 'rgba(255,255,255,0.03)',
                    borderRadius: '16px',
                    cursor: 'pointer',
-                   border: '1px dashed rgba(212,175,55,0.3)'
+                   border: '1px dashed rgba(168,85,247,0.3)'
                 }}
               >
                  {goalGiftId ? (
