@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { 
   Image as ImageIcon,
-  Send, 
   Loader2, 
   MessageCircle, 
   Heart, 
@@ -14,13 +14,13 @@ import {
   Eye,
   Bell,
   Zap,
-  ShoppingCart
+  ShoppingCart,
+  Bot
 } from 'lucide-react';
 import { StatusRail } from '../components/StatusRail';
 import { StatusViewer } from '../components/StatusViewer';
 import { StatusCreator } from '../components/StatusCreator';
 import { UserBadges } from '../components/Badges';
-import { LiveRoom } from '../components/LiveRoom';
 
 const POST_COST = 10000; // 10mil moral por post
 
@@ -50,13 +50,31 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     if (session?.user?.id) fetchMoralBalance();
   }, [session?.user?.id]);
 
-  // Sincroniza quando o modal de post externo abre (chamado do App.tsx via isCreateModalOpen)
+  // Sincroniza quando o modal de post externo abre
   useEffect(() => {
     if (isCreateModalOpen) {
-      setIsPostModalOpen(true);
+      openModal();
       if (onCloseCreateModal) onCloseCreateModal();
     }
   }, [isCreateModalOpen]);
+
+  // Lock/unlock scroll do body quando modal abre/fecha
+  function openModal() {
+    setIsPostModalOpen(true);
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    setIsPostModalOpen(false);
+    document.body.style.overflow = '';
+  }
+  function openNoSaldo() {
+    setNoSaldoModal(true);
+    document.body.style.overflow = 'hidden';
+  }
+  function closeNoSaldo() {
+    setNoSaldoModal(false);
+    document.body.style.overflow = '';
+  }
 
   async function fetchMoralBalance() {
     if (!session?.user?.id) return;
@@ -210,8 +228,8 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     const freshBalance = moralBalance;
     
     if (freshBalance < POST_COST) {
-      setIsPostModalOpen(false);
-      setNoSaldoModal(true);
+      closeModal();
+      openNoSaldo();
       return;
     }
 
@@ -253,7 +271,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       setMediaUrl(null);
       setMediaType(null);
       setMoralBalance(prev => prev - POST_COST);
-      setIsPostModalOpen(false);
+      closeModal();
       notify("Papo reto largado na pista! 🔥🏙️ (-10.000 Moral)");
       fetchPosts();
     }
@@ -334,14 +352,14 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     <div className="community-page animate-fade-up">
       {toast && <div className={`toast-notification ${toast.typ}`}>{toast.msg}</div>}
 
-      {/* ── MODAL SEM SALDO ── */}
-      {noSaldoModal && (
+      {/* ── MODAL SEM SALDO (via Portal — fora do scroll) ── */}
+      {noSaldoModal && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 999999,
           background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
-        }}>
-          <div style={{
+        }} onClick={closeNoSaldo}>
+          <div onClick={e => e.stopPropagation()} style={{
             background: 'linear-gradient(145deg, #0f0f0f, #1a1a1a)',
             border: '1px solid rgba(239,68,68,0.4)',
             borderRadius: '28px', padding: '2rem', maxWidth: '360px', width: '100%',
@@ -357,7 +375,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
-                onClick={() => { setNoSaldoModal(false); onTabChange('profile'); }}
+                onClick={() => { closeNoSaldo(); onTabChange('profile'); }}
                 style={{
                   background: 'linear-gradient(135deg, #6C2BFF, #9D6BFF)',
                   border: 'none', borderRadius: '16px', padding: '14px',
@@ -369,7 +387,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 <ShoppingCart size={20} /> RECARREGAR MORAL
               </button>
               <button
-                onClick={() => setNoSaldoModal(false)}
+                onClick={closeNoSaldo}
                 style={{
                   background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: '16px', padding: '12px', color: 'rgba(255,255,255,0.6)',
@@ -380,18 +398,19 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* ── MODAL DE DIVULGAÇÃO "PAPO RETO NO VELLAR" ── */}
-      {isPostModalOpen && (
+      {/* ── MODAL DE DIVULGAÇÃO (via Portal — fora do scroll) ── */}
+      {isPostModalOpen && createPortal(
         <div
           style={{
             position: 'fixed', inset: 0, zIndex: 999998,
             background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(15px)',
             display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
           }}
-          onClick={() => { if (!uploading) setIsPostModalOpen(false); }}
+          onClick={() => { if (!uploading) closeModal(); }}
         >
           <div
             onClick={e => e.stopPropagation()}
@@ -418,7 +437,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 </p>
               </div>
               <button
-                onClick={() => setIsPostModalOpen(false)}
+                onClick={closeModal}
                 style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: '#fff', width: '34px', height: '34px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 <X size={18} />
@@ -461,17 +480,14 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               </div>
             </div>
 
-            {/* Saldo atual */}
+            {/* Saldo */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
               borderRadius: '16px', padding: '0.8rem 1.2rem', marginBottom: '1.4rem'
             }}>
               <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>SEU SALDO</span>
-              <span style={{
-                fontWeight: 900, fontSize: '1rem',
-                color: moralBalance >= POST_COST ? '#22c55e' : '#ef4444'
-              }}>
+              <span style={{ fontWeight: 900, fontSize: '1rem', color: moralBalance >= POST_COST ? '#22c55e' : '#ef4444' }}>
                 🪙 {moralBalance.toLocaleString('pt-BR')} Moral
               </span>
             </div>
@@ -498,7 +514,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               />
             </div>
 
-            {/* Preview de mídia */}
+            {/* Preview */}
             {mediaUrl && (
               <div style={{ marginBottom: '1rem', borderRadius: '18px', overflow: 'hidden', border: '1px solid rgba(250,204,21,0.3)', position: 'relative' }}>
                 {mediaType === 'image' ? (
@@ -515,7 +531,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               </div>
             )}
 
-            {/* Botões de ação */}
+            {/* Galeria */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '1.2rem' }}>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -525,21 +541,15 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                   border: '1px dashed rgba(255,255,255,0.15)', borderRadius: '16px',
                   padding: '14px', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                  fontWeight: 700, fontSize: '0.9rem', transition: 'all 0.2s'
+                  fontWeight: 700, fontSize: '0.9rem'
                 }}
               >
                 {uploading ? <Loader2 size={18} className="animate-spin" /> : <><ImageIcon size={20} /> Galeria</>}
               </button>
-              <input
-                type="file"
-                hidden
-                ref={fileInputRef}
-                accept="image/*,video/*"
-                onChange={handleMediaUpload}
-              />
+              <input type="file" hidden ref={fileInputRef} accept="image/*,video/*" onChange={handleMediaUpload} />
             </div>
 
-            {/* Botão Postar */}
+            {/* Botão Publicar */}
             <button
               onClick={handleCreatePost}
               disabled={uploading || (!content.trim() && !mediaUrl)}
@@ -562,23 +572,26 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 <><Zap size={22} fill="currentColor" /> PUBLICAR · 10.000 Moral</>
               )}
             </button>
-
             <p style={{ textAlign: 'center', fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', marginTop: '1rem', fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase' }}>
               Ao publicar, os 10.000 moral serão debitados do seu saldo
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* --- HEADER FIXO MODERNO --- */}
-      <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default' }}>
-        <h3 className="vellar-neon-logo" style={{ margin: 0 }}>
+      <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default', gap: '8px' }}>
+        <h3 className="vellar-neon-logo" style={{ margin: 0, flexShrink: 0 }}>
           <span className="logo-v">V</span>ELLΛ<span className="logo-r">R</span>
         </h3>
+
+
+
         <button 
           onClick={() => onTabChange('notifications')}
           style={{ 
-            background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '0.4rem',
+            background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '0.4rem', flexShrink: 0,
             color: unreadCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.7)'
           }}
         >
@@ -678,9 +691,9 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>A pista tá quieta... solta o papo você! 🎤🔇</div>
         ) : (
           posts.map(post => (
-            <div key={post.id} className="feed-post-card" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            <div key={post.id} className="feed-post-card" style={{ display: 'flex', flexDirection: 'column', width: '100%', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1.5rem', marginBottom: '1.5rem' }}>
               {/* Header do Post */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', padding: '0 1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', padding: '0 1.25rem' }}>
                 <img 
                   src={post.author?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + post.user_id} 
                   style={{ width: '44px', height: '44px', borderRadius: '50%', cursor: 'pointer', objectFit: 'cover', flexShrink: 0 }}
@@ -707,7 +720,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               {/* Conteúdo */}
               <div style={{ marginBottom: '0.75rem', width: '100%' }}>
                 {post.content && (
-                  <p style={{ fontSize: '1rem', lineHeight: 1.5, marginBottom: post.image_url || post.video_url ? '0.75rem' : 0, padding: '0 1rem', margin: 0 }}>
+                  <p style={{ fontSize: '1.05rem', lineHeight: 1.6, marginBottom: post.image_url || post.video_url ? '0.75rem' : 0, padding: '0 1.25rem', margin: 0, color: 'rgba(255,255,255,0.95)' }}>
                     {post.content}
                   </p>
                 )}
@@ -724,7 +737,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               </div>
 
               {/* Ações */}
-              <div style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.75rem', paddingLeft: '1rem', paddingRight: '1rem', flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.75rem', paddingLeft: '1.25rem', paddingRight: '1.25rem', flexWrap: 'wrap' }}>
                 <button 
                   style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', color: post.is_liked ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
                   onClick={() => handleLike(post)}
@@ -815,6 +828,33 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           onRefresh={() => setStatusRefreshKey(prev => prev + 1)}
         />
       )}
+
+      {/* --- BOTÃO FLUTUANTE IA CARIOCA --- */}
+      <button
+        onClick={() => onTabChange('chat')}
+        className="cria-floating-btn"
+        style={{
+          position: 'fixed',
+          bottom: '95px', // Acima da bottom nav
+          right: '20px',
+          width: '56px',
+          height: '56px',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #6C2BFF 0%, #a855f7 100%)',
+          color: '#fff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 30px rgba(108,43,255,0.4), inset 0 2px 4px rgba(255,255,255,0.2)',
+          cursor: 'pointer',
+          zIndex: 99,
+          animation: 'criaPulse 3s ease-in-out infinite',
+          border: 'none',
+          outline: 'none'
+        }}
+      >
+        <Bot size={28} />
+      </button>
     </div>
   );
 }

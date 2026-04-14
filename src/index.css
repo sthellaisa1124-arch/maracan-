@@ -1598,3 +1598,19 @@ h2.velar-logo {
   0% { filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.3)); }
   100% { filter: drop-shadow(0 0 25px rgba(168, 85, 247, 0.8)); }
 }
+
+/* --- ANIMAÇÕES CRIA IA BUTTON --- */
+@keyframes criaPulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(108,43,255,0.5), 0 4px 15px rgba(108,43,255,0.3); }
+  50% { box-shadow: 0 0 24px rgba(168,85,247,0.8), 0 4px 25px rgba(108,43,255,0.6); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}

@@ -236,7 +236,7 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
                      <img 
                       src={displayAvatar} 
                       alt="Remetente" 
-                      className="avatar-small"
+                      style={{ width: '46px', height: '46px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid rgba(255,255,255,0.1)' }}
                     />
                     <div className="notif-type-icon">{getIcon(notif.type)}</div>
                   </div>

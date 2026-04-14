@@ -294,6 +294,9 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
   const totalMoralEmCirculacao = users.reduce((acc, current) => acc + (current.moral_balance || 0), 0);
   const totalAdmins = users.filter(u => u.account_role === 'admin' || u.account_role === 'ceo').length;
 
+  const btnColor = viewerRole === 'ceo' ? '#eab308' : '#9D6BFF';
+  const btnBg = viewerRole === 'ceo' ? 'rgba(234,179,8,0.15)' : 'rgba(108,43,255,0.15)';
+
   return (
     <div className="admin-container">
       {onBack && (
@@ -313,49 +316,71 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
           </div>
         </div>
 
-        <div className="admin-tabs">
-          <button className={`admin-tab ${activeSubTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveSubTab('overview')}>
-            <LayoutDashboard size={18} /> Resumo
-          </button>
-          <button className={`admin-tab ${activeSubTab === 'users' ? 'active' : ''}`} onClick={() => setActiveSubTab('users')}>
-            <Users size={18} /> Crias
-          </button>
-          <button className={`admin-tab ${activeSubTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveSubTab('requests')}>
-            <CreditCard size={18} /> Planos {requests.length > 0 && <span className="req-count">{requests.length}</span>}
-          </button>
-          <button className={`admin-tab ${activeSubTab === 'saques' ? 'active' : ''}`} onClick={() => setActiveSubTab('saques')}>
-            <Wallet size={18} /> Saques FIXOS {withdraws.length > 0 && <span className="req-count">{withdraws.length}</span>}
-          </button>
-          <button className={`admin-tab ${activeSubTab === 'logs' ? 'active' : ''}`} onClick={() => setActiveSubTab('logs')}>
-            <History size={18} /> Auditoria
-          </button>
-          <button className={`admin-tab ${activeSubTab === 'criadores' ? 'active' : ''}`} onClick={() => setActiveSubTab('criadores')}>
-            <Star size={18} /> Criadores {creatorRequests.length > 0 && <span className="req-count">{creatorRequests.length}</span>}
-          </button>
+        <div className="admin-tabs" style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '14px', scrollbarWidth: 'none', margin: '1.5rem 0 1rem', whiteSpace: 'nowrap' }}>
+          {[
+            { id: 'overview', icon: <LayoutDashboard size={18} />, label: 'Resumo' },
+            { id: 'users', icon: <Users size={18} />, label: 'Crias' },
+            { id: 'requests', icon: <CreditCard size={18} />, label: 'Planos', count: requests.length },
+            { id: 'saques', icon: <Wallet size={18} />, label: 'Saques FIXOS', count: withdraws.length },
+            { id: 'logs', icon: <History size={18} />, label: 'Auditoria' },
+            { id: 'criadores', icon: <Star size={18} />, label: 'Criadores', count: creatorRequests.length },
+          ].map((tab: any) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveSubTab(tab.id as any)}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '16px',
+                border: activeSubTab === tab.id ? `1px solid ${btnColor}` : '1px solid rgba(255,255,255,0.1)',
+                background: activeSubTab === tab.id ? btnBg : 'rgba(255,255,255,0.04)',
+                color: activeSubTab === tab.id ? btnColor : 'rgba(255,255,255,0.7)',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                cursor: 'pointer', fontWeight: 800, fontSize: '0.85rem',
+                transition: 'all 0.2s', flexShrink: 0,
+                boxShadow: activeSubTab === tab.id ? `0 4px 15px ${btnBg}` : 'none'
+              }}
+            >
+              {tab.icon} {tab.label} 
+              {tab.count > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', fontWeight: 900 }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </header>
 
       <main className="admin-content-area">
         {activeSubTab === 'overview' && (
           <div className="admin-overview">
-            <div className="stats-grid">
-               <div className="stat-card">
-                  <div className="stat-icon users-bg"><Users size={24} /></div>
-                  <div className="stat-info"><span>Total de Crias</span><h2>{users.length}</h2></div>
+            <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: '2rem' }}>
+               <div className="stat-card" style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(0,0,0,0.6))', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+                  <div className="stat-icon" style={{ background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '12px', width: 'max-content' }}><Users size={24} color="#fff" /></div>
+                  <div className="stat-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6, fontWeight: 700 }}>Total de Crias</span>
+                    <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900 }}>{users.length}</h2>
+                  </div>
                </div>
-               <div className="stat-card">
-                  <div className="stat-icon online-bg"><Wallet size={24} color="#eab308" /></div>
-                  <div className="stat-info"><span>Moral em Giro</span><h2 style={{color: '#eab308'}}>{totalMoralEmCirculacao}</h2></div>
+               <div className="stat-card" style={{ background: 'linear-gradient(145deg, rgba(234,179,8,0.1), rgba(0,0,0,0.6))', border: '1px solid rgba(234,179,8,0.2)', borderRadius: '24px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 8px 32px rgba(234,179,8,0.1)' }}>
+                  <div className="stat-icon" style={{ background: 'rgba(234,179,8,0.15)', padding: '10px', borderRadius: '12px', width: 'max-content' }}><Wallet size={24} color="#eab308" /></div>
+                  <div className="stat-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#eab308', opacity: 0.8, fontWeight: 700 }}>Moral em Giro</span>
+                    <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900, color: '#eab308' }}>{totalMoralEmCirculacao.toLocaleString('pt-BR')}</h2>
+                  </div>
                </div>
-               <div className="stat-card">
-                  <div className="stat-icon users-bg"><ShieldCheck size={24} /></div>
-                  <div className="stat-info"><span>Staff (Admins/CEO)</span><h2>{totalAdmins}</h2></div>
+               <div className="stat-card" style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(0,0,0,0.6))', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+                  <div className="stat-icon" style={{ background: 'rgba(255,255,255,0.1)', padding: '10px', borderRadius: '12px', width: 'max-content' }}><ShieldCheck size={24} color="#fff" /></div>
+                  <div className="stat-info" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.6, fontWeight: 700 }}>Staff Global</span>
+                    <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 900 }}>{totalAdmins}</h2>
+                  </div>
                </div>
             </div>
             
-            <div className="card-v2 recent-activity">
-               <h3><TrendingUp size={18} /> Sistema Otimizado V2</h3>
-               <p>Motor de economia reativo e novo sistema de cargos ativado. {viewerRole === 'ceo' && <strong style={{color: '#eab308'}}>Privilégios de CEO estão desbloqueados.</strong>}</p>
+            <div className="card-v2 recent-activity" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '24px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: 0, color: '#fff', fontSize: '1.1rem' }}><TrendingUp size={20} color="#eab308" /> Sistema Otimizado V2</h3>
+               <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.7, lineHeight: 1.5 }}>Motor de economia reativo e novo sistema de cargos ativado. {viewerRole === 'ceo' && <strong style={{color: '#eab308', display: 'block', marginTop: '4px'}}>Privilégios de CEO estão desbloqueados.</strong>}</p>
             </div>
           </div>
         )}
