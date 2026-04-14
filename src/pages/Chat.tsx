@@ -193,7 +193,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
             </button>
           )}
           <div style={{position: 'relative', cursor: 'pointer'}} onClick={() => setShowProfileModal(true)}>
-            <img src="/iai-cria-logo.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--secondary)', objectFit: 'cover'}} />
+            <img src="/iai-cria-login-bg.png" alt="Mascote" style={{width: '46px', height: '46px', borderRadius: '50%', border: '2px solid var(--secondary)', objectFit: 'cover'}} />
             <div className={`status-dot ${loading ? 'typing' : ''}`} style={{position: 'absolute', bottom: '2px', right: '0', width: '12px', height: '12px', borderRadius: '50%', background: loading ? 'var(--secondary)' : '#10b981', border: '2px solid #050505'}}></div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }} onClick={() => setShowProfileModal(true)}>
@@ -244,7 +244,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
         {messages.map(msg => (
           <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{display: 'flex', alignItems: 'flex-start', gap: '8px', maxWidth: '85%'}}>
-              {msg.role === 'ai' && <img src="/iai-cria-logo.png" style={{width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover'}} alt="AI" />}
+              {msg.role === 'ai' && <img src="/iai-cria-login-bg.png" style={{width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover'}} alt="AI" />}
               
               <div style={{ 
                   background: msg.role === 'user' ? 'linear-gradient(135deg, #6C2BFF 0%, #a855f7 100%)' : 'rgba(255,255,255,0.08)', 
@@ -262,7 +262,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
 
         {loading && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-            <img src="/iai-cria-logo.png" style={{width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover'}} alt="AI" />
+            <img src="/iai-cria-login-bg.png" style={{width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover'}} alt="AI" />
             <div style={{ background: 'rgba(255,255,255,0.08)', padding: '16px', borderRadius: '0 16px 16px 16px' }}>
               <div style={{ display: 'flex', gap: '4px' }}>
                 <span style={{ width: '6px', height: '6px', background: '#fff', borderRadius: '50%', animation: 'criaPulse 1s infinite alternate' }}></span>
@@ -359,7 +359,7 @@ export function Chat({ userProfile, onBack }: { userProfile: any, onGoToPricing?
               <X size={20} />
             </button>
             <div style={{ position: 'relative', marginBottom: '1.5rem', marginTop: '1rem' }}>
-              <img src="/iai-cria-logo.png" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--secondary)', boxShadow: '0 0 25px rgba(168, 85, 247, 0.4)' }} />
+              <img src="/iai-cria-login-bg.png" style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--secondary)', boxShadow: '0 0 25px rgba(168, 85, 247, 0.4)' }} />
               <div style={{ position: 'absolute', bottom: '5px', right: '10px', background: '#10b981', border: '4px solid #0a0a0a', width: '24px', height: '24px', borderRadius: '50%' }}></div>
             </div>
             <h2 style={{ color: '#fff', fontSize: '1.6rem', fontWeight: 900, margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
