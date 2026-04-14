@@ -592,20 +592,32 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
                     </div>
                   </div>
 
-                  <div className="req-actions" style={{ justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                     <button
-                      className="btn-approve"
                       onClick={() => resolveCreatorRequest(req.id, req.user_id, 'approved')}
-                      style={{ flex: 1, marginRight: '0.5rem', background: '#22c55e', color: '#000', fontWeight: 'bold', display: 'flex', justifyContent: 'center', gap: '4px' }}
+                      style={{
+                        flex: 1, padding: '0.75rem', border: 'none', borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                        color: '#fff', fontWeight: 800, fontSize: '0.9rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        cursor: 'pointer', boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
+                        transition: 'all 0.2s'
+                      }}
                     >
-                      <CheckIcon size={18} /> APROVAR
+                      <CheckIcon size={16} /> APROVAR
                     </button>
                     <button
-                      className="btn-reject"
                       onClick={() => resolveCreatorRequest(req.id, req.user_id, 'rejected')}
-                      style={{ flex: 1, marginLeft: '0.5rem', display: 'flex', justifyContent: 'center', gap: '4px' }}
+                      style={{
+                        flex: 1, padding: '0.75rem', borderRadius: '12px',
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.4)',
+                        color: '#ef4444', fontWeight: 800, fontSize: '0.9rem',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        cursor: 'pointer', transition: 'all 0.2s'
+                      }}
                     >
-                      <X size={18} /> NEGAR
+                      <X size={16} /> NEGAR
                     </button>
                   </div>
                 </div>
