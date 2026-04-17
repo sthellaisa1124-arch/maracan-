@@ -19,7 +19,9 @@ import {
   Trash2,
   RefreshCw,
   MoreVertical,
-  Users
+  Users,
+  Clock,
+  Slash
 } from 'lucide-react';
 
 interface Message {
@@ -103,7 +105,8 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mediaCaption, setMediaCaption] = useState('');
   const [filterTab, setFilterTab] = useState('TODOS');
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
+  const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -243,6 +246,24 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     } catch (err) {
       console.error("Erro ao excluir conversa:", err);
       alert("Erro ao excluir conversa. Tente novamente.");
+    }
+  }
+
+  async function clearConversation() {
+    if (!selectedUser || !userId) return;
+    const confirmClear = window.confirm(`Deseja limpar todas as mensagens com @${selectedUser.username}?`);
+    if (!confirmClear) return;
+
+    try {
+      await supabase
+        .from('direct_messages')
+        .delete()
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},receiver_id.eq.${userId})`);
+      
+      setMessages([]);
+      fetchConversations();
+    } catch (err) {
+      console.error("Erro ao limpar:", err);
     }
   }
 
@@ -675,14 +696,64 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         .animate-slide {
           animation: slideInRight 0.3s ease forwards;
         }
+        .menu-btn-velar {
+          width: 100%;
+          padding: 0.7rem 0.9rem;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: transparent;
+          border: none;
+          color: #fff;
+          font-size: 0.8rem;
+          font-weight: 700;
+          cursor: pointer;
+          border-radius: 8px;
+          transition: background 0.2s;
+          text-align: left;
+        }
+        .menu-btn-velar:hover {
+          background: rgba(255,255,255,0.05);
+        }
       `}</style>
       
       {/* Barra Lateral de Conversas */}
       <aside className="dc-sidebar">
         <div className="dm-sidebar-header" style={{ padding: '1.2rem', borderBottom: '1px solid var(--separator)' }}>
-          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
-            <MessageSquare size={20} color="var(--primary)" /> PAPOS
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}>
+              <MessageSquare size={20} color="var(--primary)" /> PAPOS
+            </h3>
+            
+            {/* Menu da Barra Lateral */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
+                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px' }}
+              >
+                <MoreVertical size={20} />
+              </button>
+              {isSidebarMenuOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsSidebarMenuOpen(false)} />
+                  <div style={{
+                    position: 'absolute', top: '100%', right: 0, zIndex: 101,
+                    background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
+                    padding: '0.4rem', minWidth: '180px', marginTop: '8px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                  }}>
+                    <button onClick={() => { alert('Funcionalidade de Grupos em breve!'); setIsSidebarMenuOpen(false); }} className="menu-btn-velar">
+                      <Users size={16} color="var(--primary)" /> CRIA GRUPO
+                    </button>
+                    <button onClick={() => { setIsSidebarMenuOpen(false); deleteConversation(); }} className="menu-btn-velar" style={{ color: '#ef4444' }}>
+                      <Trash2 size={16} /> EXCLUIR CONVERSA
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
           <input 
             type="text" 
             placeholder="Pesquisar conversa..." 
@@ -772,47 +843,50 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                 </div>
               </div>
 
-              {/* Botão de Opções (Três Pontinhos) */}
+              {/* Botão de Opções (Três Pontinhos na Janela de Conversa) */}
               <div style={{ position: 'relative' }}>
                 <button 
-                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
                   style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center' }}
                 >
                   <MoreVertical size={22} />
                 </button>
 
-                {isMenuOpen && (
+                {isChatMenuOpen && (
                   <>
                     <div 
                       style={{ position: 'fixed', inset: 0, zIndex: 100 }} 
-                      onClick={() => setIsMenuOpen(false)} 
+                      onClick={() => setIsChatMenuOpen(false)} 
                     />
                     <div style={{
                       position: 'absolute', top: '100%', right: 0, zIndex: 101,
                       background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
-                      padding: '0.5rem', minWidth: '180px', marginTop: '10px',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(168,85,247,0.1)',
+                      padding: '0.5rem', minWidth: '200px', marginTop: '10px',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
                       animation: 'slideUp 0.2s ease'
                     }}>
                       <button 
-                        onClick={() => { alert('Funcionalidade de Grupos chegará em breve!'); setIsMenuOpen(false); }}
-                        style={{ width: '100%', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', borderRadius: '10px', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        onClick={() => { setIsChatMenuOpen(false); clearConversation(); }}
+                        className="menu-btn-velar"
                       >
-                        <Users size={18} color="var(--primary)" /> CRIA GRUPO
+                        <Trash2 size={16} color="var(--primary)" /> LIMPAR CONVERSA
                       </button>
                       
+                      <button 
+                        onClick={() => { alert('Ativando Mensagens Temporárias...'); setIsChatMenuOpen(false); }}
+                        className="menu-btn-velar"
+                      >
+                        <Clock size={16} color="var(--primary)" /> MENSAGEM TEMPORÁRIA
+                      </button>
+
                       <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.4rem 0.5rem' }} />
 
                       <button 
-                        onClick={() => { setIsMenuOpen(false); deleteConversation(); }}
-                        style={{ width: '100%', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', borderRadius: '10px', transition: 'background 0.2s' }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        onClick={() => { alert('Cria bloqueado!'); setIsChatMenuOpen(false); }}
+                        className="menu-btn-velar" style={{ color: '#ef4444' }}
                       >
-                        <Trash2 size={18} /> EXCLUIR CONVERSA
+                        <Slash size={16} /> BLOQUEAR
                       </button>
                     </div>
                   </>
