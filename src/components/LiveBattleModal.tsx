@@ -13,6 +13,7 @@ interface LiveBattleModalProps {
 export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGlobalSearch }: LiveBattleModalProps) {
   const [loading, setLoading] = useState(true);
   const [liveCreators, setLiveCreators] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -100,6 +101,27 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
 
         {/* Body */}
         <div style={{ padding: '1rem 1.5rem', flex: 1, overflowY: 'auto' }}>
+          
+          {/* Barra de Pesquisa */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <input
+              type="text"
+              placeholder="Buscar criador pelo nome..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#fff',
+                padding: '0.8rem 1.2rem',
+                borderRadius: '1rem',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '3rem 0', gap: '0.75rem' }}>
               <Loader2 size={32} color="rgba(255,255,255,0.3)" style={{ animation: 'spin 1s linear infinite' }} />
@@ -123,7 +145,12 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {liveCreators.map((creator) => {
+              {liveCreators
+                .filter(creator => 
+                  creator.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  creator.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((creator) => {
                 const profile = creator.profiles;
                 if (!profile) return null;
                 return (
@@ -172,6 +199,16 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
                   </div>
                 );
               })}
+              
+              {/* Fallback se a pesquisa não achar ninguém */}
+              {liveCreators.filter(creator => 
+                  creator.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  creator.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                ).length === 0 && liveCreators.length > 0 && (
+                 <div style={{ textAlign: 'center', padding: '2rem 0', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
+                    Nenhum criador encontrado com "{searchQuery}"
+                 </div>
+              )}
             </div>
           )}
 

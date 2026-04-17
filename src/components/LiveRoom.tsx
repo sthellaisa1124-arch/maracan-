@@ -1699,7 +1699,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                   fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: battleInviteStatus ? 'not-allowed' : 'pointer',
                   boxShadow: '0 4px 15px rgba(239,68,68,0.4)', pointerEvents: 'auto'
                }}>
-               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Batalha'}
+               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Confronto'}
             </button>
           </div>
         )}
@@ -1716,8 +1716,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                 animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)', pointerEvents: 'auto'
              }}>
                 <img src={battleInvite.profile?.avatar_url || 'https://ui-avatars.com/api/?name=Oponente'} style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: '1rem', objectFit: 'cover' }} />
-                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Oponente quer Iniciar Batalha!</h3>
-                <p style={{ margin: '0.5rem 0 1.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Se você não quer batalhar, pode apenas conversar ou sair.</p>
+                <h3 style={{ margin: 0, color: '#fff', fontSize: '1.2rem', fontWeight: 800 }}>Oponente quer Iniciar Confronto!</h3>
+                <p style={{ margin: '0.5rem 0 1.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>Se você não quer o confronto, pode apenas recusar.</p>
                 <div style={{ display: 'flex', gap: '10px' }}>
                    <button onClick={(e) => { e.stopPropagation(); handleRejectBattle(); }} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', borderRadius: '12px', fontWeight: 700, pointerEvents: 'auto' }}>Recusar</button>
                    <button onClick={(e) => { e.stopPropagation(); handleAcceptBattle(); }} style={{ flex: 1, padding: '12px', background: '#ef4444', border: 'none', color: '#fff', borderRadius: '12px', fontWeight: 800, pointerEvents: 'auto' }}>Aceitar</button>
