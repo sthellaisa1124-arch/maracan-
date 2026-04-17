@@ -47,7 +47,7 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
       
       const { data: profilesData, error: profError } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url, name')
+        .select('id, username, avatar_url')
         .in('id', hostIds);
 
       if (profError) {
@@ -182,9 +182,8 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
               {liveCreators
                 .filter(creator => {
                   const uname = creator.host_profile?.username || '';
-                  const cname = creator.host_profile?.name || '';
                   const q = searchQuery.toLowerCase();
-                  return uname.toLowerCase().includes(q) || cname.toLowerCase().includes(q);
+                  return uname.toLowerCase().includes(q);
                 })
                 .map((creator) => {
                 const profile = creator.host_profile;
@@ -239,9 +238,8 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
               {/* Fallback se a pesquisa não achar ninguém */}
               {liveCreators.filter(creator => {
                   const uname = creator.host_profile?.username || '';
-                  const cname = creator.host_profile?.name || '';
                   const q = searchQuery.toLowerCase();
-                  return uname.toLowerCase().includes(q) || cname.toLowerCase().includes(q);
+                  return uname.toLowerCase().includes(q);
                 }).length === 0 && liveCreators.length > 0 && (
                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
                     Nenhum criador encontrado com "{searchQuery}"
