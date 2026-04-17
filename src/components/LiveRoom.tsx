@@ -205,14 +205,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
      const endsAtStr = new Date(eTime).toISOString();
      
      // 1. O Banco de Dados passa a comandar a Batalha Global!
+     // Invertendo A e B localmente para satisfazer a política RLS, onde o auth.uid() deve ser = host_a_id no INSERT.
      const { error } = await supabase.from('live_battles').insert({
-        host_a_id: activeBattle.opponentId,
-        host_b_id: room.host_id,
+        host_a_id: room.host_id,
+        host_b_id: activeBattle.opponentId,
         status: 'active',
         started_at: new Date().toISOString(),
         ends_at: endsAtStr,
-        agora_channel_a: activeBattle.agora_channel,
-        agora_channel_b: room.agora_channel
+        agora_channel_a: room.agora_channel,
+        agora_channel_b: activeBattle.agora_channel
      });
      
      if (error) {
