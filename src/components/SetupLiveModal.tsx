@@ -15,21 +15,29 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
   const [description, setDescription] = useState('');
   const [is18Plus, setIs18Plus] = useState(false);
   const [selectedVibe, setSelectedVibe] = useState('RESENHA');
-  const [goalType, setGoalType] = useState<'gifts' | 'followers'>('gifts');
-  const [goalTitle, setGoalTitle] = useState('');
-  const [goalTarget, setGoalTarget] = useState<number | ''>('');
-  const [goalGiftId, setGoalGiftId] = useState<string | null>(null);
-  const [isGiftPickerOpen, setIsGiftPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // Metas de Presentes
+  const [enableGiftGoal, setEnableGiftGoal] = useState(false);
+  const [giftGoalTitle, setGiftGoalTitle] = useState('');
+  const [giftGoalTarget, setGiftGoalTarget] = useState<number | ''>('');
+  const [giftGoalId, setGiftGoalId] = useState<string | null>(null);
+
+  // Metas de Seguidores
+  const [enableFollowerGoal, setEnableFollowerGoal] = useState(false);
+  const [followerGoalTitle, setFollowerGoalTitle] = useState('');
+  const [followerGoalTarget, setFollowerGoalTarget] = useState<number | ''>('');
+
+  const [isGiftPickerOpen, setIsGiftPickerOpen] = useState(false);
 
   async function handleStart() {
     if (!title.trim() || !session?.user?.id) return;
     setLoading(true);
     onClose(); // FECHAR IMEDIATAMENTE PARA NÃO OBSTRUIR A TELA
 
-    const fullDescription = `${selectedVibe ? `[${selectedVibe}] ` : ''}${goalTarget ? `[Meta: ${goalTitle || (goalType === 'gifts' ? 'Presentes' : 'Seguidores')} (${goalTarget})] ` : ''}${description.trim()}`;
+    const fullDescription = `${selectedVibe ? `[${selectedVibe}] ` : ''}${description.trim()}`;
 
     let coverUrl = null;
     try {
@@ -58,17 +66,24 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           title: title.trim(),
           description: fullDescription,
           cover_url: coverUrl,
-          category: selectedVibe,
           is_18plus: is18Plus,
           agora_channel: channelName,
           is_live: false, 
           viewer_count: 0,
           started_at: new Date().toISOString(),
-          goal_type: goalType,
-          goal_title: goalTitle.trim() || (goalType === 'gifts' ? (goalGiftId ? `Meta: ${GIFT_CATALOG.find(g => g.id === goalGiftId)?.name}` : 'Meta de Presentes') : 'Meta de Seguidores'),
-          goal_target: Number(goalTarget) || 0,
-          goal_current: 0,
-          goal_gift_id: goalGiftId
+          
+          // Meta Presentes
+          gift_goal_title: enableGiftGoal ? (giftGoalTitle.trim() || (giftGoalId ? `Meta: ${GIFT_CATALOG.find(g => g.id === giftGoalId)?.name}` : 'Meta de Presentes')) : null,
+          gift_goal_target: enableGiftGoal ? (Number(giftGoalTarget) || 0) : 0,
+          gift_goal_current: 0,
+          gift_goal_id: enableGiftGoal ? giftGoalId : null,
+
+          // Meta Seguidores
+          follower_goal_title: enableFollowerGoal ? (followerGoalTitle.trim() || 'Meta de Seguidores') : null,
+          follower_goal_target: enableFollowerGoal ? (Number(followerGoalTarget) || 0) : 0,
+          follower_goal_current: 0,
+          
+          category: selectedVibe,
         }])
         .select('*')
         .single();
@@ -297,79 +312,78 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           </div>
 
           <div className="vellar-input-wrap">
-            <label>META DA LIVE (DETALHADA)</label>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '1rem' }}>
-              <button 
-                onClick={() => setGoalType('gifts')}
-                type="button"
-                className={`vibe-tag ${goalType === 'gifts' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem', textAlign: 'center' }}
-              >
-                🎁 PRESENTES
-              </button>
-              <button 
-                onClick={() => setGoalType('followers')}
-                type="button"
-                className={`vibe-tag ${goalType === 'followers' ? 'active' : ''}`}
-                style={{ flex: 1, padding: '0.8rem', borderRadius: '1rem', textAlign: 'center' }}
-              >
-                👤 SEGUIDORES
-              </button>
-            </div>
+            <label>METAS DA TRANSMISSÃO</label>
             
-            {goalType === 'gifts' && (
-              <div 
-                onClick={() => setIsGiftPickerOpen(true)}
-                className="vellar-field"
-                style={{ 
-                   marginBottom: '1rem', 
-                   display: 'flex', 
-                   alignItems: 'center', 
-                   gap: '12px', 
-                   padding: '12px', 
-                   background: 'rgba(255,255,255,0.03)',
-                   borderRadius: '16px',
-                   cursor: 'pointer',
-                   border: '1px dashed rgba(168,85,247,0.3)'
-                }}
-              >
-                 {goalGiftId ? (
-                   <>
-                     <div style={{ width: '40px', height: '40px', background: 'rgba(0,0,0,0.3)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {GIFT_CATALOG.find(g => g.id === goalGiftId)?.image ? (
-                           <img src={GIFT_CATALOG.find(g => g.id === goalGiftId)?.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                           <span style={{ fontSize: '1.5rem' }}>{GIFT_CATALOG.find(g => g.id === goalGiftId)?.symbol}</span>
-                        )}
-                     </div>
-                     <div>
-                       <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{GIFT_CATALOG.find(g => g.id === goalGiftId)?.name}</div>
-                       <div style={{ fontSize: '0.7rem', color: '#fbbf24' }}>🪙 {GIFT_CATALOG.find(g => g.id === goalGiftId)?.price} cada</div>
-                     </div>
-                   </>
-                 ) : (
-                   <span style={{ opacity: 0.5, fontSize: '0.85rem' }}>✨ Escolha o presente da meta...</span>
-                 )}
+            {/* PAINEL DE PRESENTES */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '1.2rem', marginBottom: '1rem', border: enableGiftGoal ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: '#fbbf24', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Coins size={18} color="#000" />
+                  </div>
+                  <span style={{ color: '#fff', fontWeight: 800 }}>Meta de Presentes</span>
+                </div>
+                <div 
+                  onClick={() => setEnableGiftGoal(!enableGiftGoal)}
+                  className={`vellar-switch ${enableGiftGoal ? 'active' : ''}`}
+                  style={{ width: '44px', height: '24px', background: enableGiftGoal ? '#fbbf24' : 'rgba(255,255,255,0.1)' }}
+                >
+                  <div className="switch-knob" style={{ width: '16px', height: '16px', top: '4px', left: enableGiftGoal ? '24px' : '4px' }} />
+                </div>
               </div>
-            )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <input 
-                type="text" 
-                placeholder="Título da Meta (ex: Para o Setup!)"
-                value={goalTitle}
-                onChange={e => setGoalTitle(e.target.value)}
-                className="vellar-field"
-                style={{ fontSize: '0.9rem' }}
-              />
-              <input 
-                type="number" 
-                placeholder={goalGiftId ? "Quantidade (ex: 10)" : "Objetivo (ex: 5000)"}
-                value={goalTarget}
-                onChange={e => setGoalTarget(e.target.value === '' ? '' : Number(e.target.value))}
-                className="vellar-field"
-                style={{ fontSize: '0.9rem' }}
-              />
+              {enableGiftGoal && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', animation: 'fadeIn 0.3s' }}>
+                  <div 
+                    onClick={() => setIsGiftPickerOpen(true)}
+                    className="vellar-field"
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '16px', cursor: 'pointer', border: '1px dashed rgba(251,191,36,0.3)' }}
+                  >
+                     {giftGoalId ? (
+                       <>
+                         <div style={{ width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {GIFT_CATALOG.find(g => g.id === giftGoalId)?.image ? (
+                               <img src={GIFT_CATALOG.find(g => g.id === giftGoalId)?.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            ) : (
+                               <span style={{ fontSize: '1.2rem' }}>{GIFT_CATALOG.find(g => g.id === giftGoalId)?.symbol}</span>
+                            )}
+                         </div>
+                         <span style={{ fontWeight: 800, fontSize: '0.8rem', color: '#fff' }}>{GIFT_CATALOG.find(g => g.id === giftGoalId)?.name}</span>
+                       </>
+                     ) : (
+                       <span style={{ opacity: 0.5, fontSize: '0.8rem' }}>✨ Todos os presentes (Morais)...</span>
+                     )}
+                  </div>
+                  <input type="text" placeholder="Título (ex: Para a Mansão!)" value={giftGoalTitle} onChange={e => setGiftGoalTitle(e.target.value)} className="vellar-field" style={{ fontSize: '0.9rem' }} />
+                  <input type="number" placeholder={giftGoalId ? "Quantidade de itens" : "Total de Morais"} value={giftGoalTarget} onChange={e => setGiftGoalTarget(e.target.value === '' ? '' : Number(e.target.value))} className="vellar-field" style={{ fontSize: '0.9rem' }} />
+                </div>
+              )}
+            </div>
+
+            {/* PAINEL DE SEGUIDORES */}
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '24px', padding: '1.2rem', border: enableFollowerGoal ? '1px solid #a855f7' : '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: '#a855f7', width: '32px', height: '32px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Users size={18} color="#fff" />
+                  </div>
+                  <span style={{ color: '#fff', fontWeight: 800 }}>Meta de Seguidores</span>
+                </div>
+                <div 
+                  onClick={() => setEnableFollowerGoal(!enableFollowerGoal)}
+                  className={`vellar-switch ${enableFollowerGoal ? 'active' : ''}`}
+                  style={{ width: '44px', height: '24px', background: enableFollowerGoal ? '#a855f7' : 'rgba(255,255,255,0.1)' }}
+                >
+                  <div className="switch-knob" style={{ width: '16px', height: '16px', top: '4px', left: enableFollowerGoal ? '24px' : '4px' }} />
+                </div>
+              </div>
+
+              {enableFollowerGoal && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', animation: 'fadeIn 0.3s' }}>
+                  <input type="text" placeholder="Título (ex: Rumo ao Topo!)" value={followerGoalTitle} onChange={e => setFollowerGoalTitle(e.target.value)} className="vellar-field" style={{ fontSize: '0.9rem' }} />
+                  <input type="number" placeholder="Objetivo de Novos Seguidores" value={followerGoalTarget} onChange={e => setFollowerGoalTarget(e.target.value === '' ? '' : Number(e.target.value))} className="vellar-field" style={{ fontSize: '0.9rem' }} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -392,10 +406,10 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
                     {GIFT_CATALOG.map(gift => (
                       <div 
                         key={gift.id}
-                        onClick={() => { setGoalGiftId(gift.id); setIsGiftPickerOpen(false); }}
+                        onClick={() => { setGiftGoalId(gift.id); setIsGiftPickerOpen(false); }}
                         style={{ 
-                          background: goalGiftId === gift.id ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)', 
-                          border: goalGiftId === gift.id ? '1px solid #d4af37' : '1px solid rgba(255,255,255,0.05)',
+                          background: giftGoalId === gift.id ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.03)', 
+                          border: giftGoalId === gift.id ? '1px solid #d4af37' : '1px solid rgba(255,255,255,0.05)',
                           borderRadius: '16px', padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', cursor: 'pointer'
                         }}
                       >

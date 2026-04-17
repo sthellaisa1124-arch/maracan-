@@ -58,11 +58,16 @@ interface LiveRoomProps {
     title: string;
     viewer_count?: number;
     host_profile?: any;
-    goal_type?: 'gifts' | 'followers';
-    goal_title?: string;
-    goal_target?: number;
-    goal_current?: number;
-    goal_gift_id?: string | null;
+    // Metas de Presentes
+    gift_goal_title?: string;
+    gift_goal_target?: number;
+    gift_goal_current?: number;
+    gift_goal_id?: string | null;
+    
+    // Metas de Seguidores
+    follower_goal_title?: string;
+    follower_goal_target?: number;
+    follower_goal_current?: number;
   };
   userProfile?: any;
   onClose: () => void;
@@ -382,12 +387,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [totalLikes, setTotalLikes] = useState(0);
   const [statsHistory, setStatsHistory] = useState<any[]>([]);
 
-  // ESTADOS DE META (REALTIME)
-  const [goalType, setGoalType] = useState<'gifts' | 'followers'>(room.goal_type || 'gifts');
-  const [goalTitle, setGoalTitle] = useState(room.goal_title || '');
-  const [goalTarget, setGoalTarget] = useState(room.goal_target || 0);
-  const [goalCurrent, setGoalCurrent] = useState(room.goal_current || 0);
-  const [goalGiftId, setGoalGiftId] = useState<string | null>(room.goal_gift_id || null);
+  // ESTADOS DE META (REALTIME) - PRESENTES
+  const [giftGoalTitle, setGiftGoalTitle] = useState(room.gift_goal_title || '');
+  const [giftGoalTarget, setGiftGoalTarget] = useState(room.gift_goal_target || 0);
+  const [giftGoalCurrent, setGiftGoalCurrent] = useState(room.gift_goal_current || 0);
+  const [giftGoalId, setGiftGoalId] = useState<string | null>(room.gift_goal_id || null);
+
+  // ESTADOS DE META (REALTIME) - SEGUIDORES
+  const [followerGoalTitle, setFollowerGoalTitle] = useState(room.follower_goal_title || '');
+  const [followerGoalTarget, setFollowerGoalTarget] = useState(room.follower_goal_target || 0);
+  const [followerGoalCurrent, setFollowerGoalCurrent] = useState(room.follower_goal_current || 0);
 
   // Estados de Aquecimento da Batalha (Confronto)
   const [battleInvite, setBattleInvite] = useState<{from: string, profile: any} | null>(null);
@@ -797,31 +806,30 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     chatChannelRef.current = chatChannel;
     
     chatChannel
-      .on('broadcast', { event: 'chat' }, ({ payload }) => {
+.on('broadcast', { event: 'chat' }, ({ payload }) => {
         setChat(prev => [...prev, payload]);
       })
-      .on('broadcast', { event: 'gift' }, ({ payload }) => {
+      .on('broadcast', { event: 'gift' }, async ({ payload }) => {
         setGiftQueue(prev => [...prev, payload]);
         setSessionGifts(prev => prev + payload.gift.price);
         
-        // Atualizar meta se for tipo presentes (na tela)
-        // Se houver um presente específico definido, só conta se for ele
+        // Atualizar meta de presentes se ativa
+        if (giftGoalTarget > 0) {
+          const isMatch = !giftGoalId || payload.gift.id === giftGoalId;
+          if (isMatch) {
+            const increment = giftGoalId ? 1 : payload.gift.price;
+            setGiftGoalCurrent((prev: number) => prev + increment);
+            
+            if (role === 'host') {
+               await supabase
+                 .from('live_sessions')
+                 .update({ gift_goal_current: (room.gift_goal_current || 0) + increment })
+                 .eq('id', room.id);
+            }
+          }
+        }
+
         const isMatch = !goalGiftId || payload.gift.id === goalGiftId;
-        if (isMatch) {
-           setGoalCurrent((prev: number) => prev + (goalGiftId ? 1 : payload.gift.price));
-        }
-
-        // Atualizar pontos do confronto — o receptor deste broadcast é sempre audiência
-        // Os pontos corretos vêm pelo score_update do host
-
-        // Se for o Host, atualizamos o banco para persistência
-        if (role === 'host') {
-           supabase.from('live_sessions')
-             .update({ goal_current: isMatch ? (goalCurrent + (goalGiftId ? 1 : payload.gift.price)) : goalCurrent })
-             .eq('id', room.id)
-             .then(() => {});
-        }
-
         setChat(prev => [...prev, { 
           username: payload.username || 'Desconhecido', 
           content: `🎁 enviou um ${payload.gift.name}!`,
@@ -842,18 +850,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           setTimeout(() => setHearts(prev => prev.filter(h => h.id !== newHeart.id)), 1500);
         }
       })
-      .on('broadcast', { event: 'follow' }, () => {
-        setSessionFollowers((prev: number) => prev + 1);
-        // Atualizar meta se for tipo seguidores
-        setGoalCurrent((prev: number) => prev + 1);
-        
-        // Se for o Host, atualiza o banco
-        if (role === 'host') {
-           supabase.from('live_sessions')
-             .update({ goal_current: goalCurrent + 1 })
-             .eq('id', room.id)
-             .then(() => {});
+      .on('broadcast', { event: 'follow' }, async ({ payload }) => {
+        if (followerGoalTarget > 0) {
+           setFollowerGoalCurrent((prev: number) => prev + 1);
+           if (role === 'host') {
+              await supabase
+                .from('live_sessions')
+                .update({ follower_goal_current: followerGoalCurrent + 1 })
+                .eq('id', room.id);
+           }
         }
+        setSessionFollowers((prev: number) => prev + 1);
       })
       .on('broadcast', { event: 'match_connected' }, ({ payload }) => {
          if (role === 'audience') {
@@ -927,11 +934,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          }
       })
       .on('broadcast', { event: 'goal_update' }, ({ payload }) => {
-        setGoalType(payload.type);
-        setGoalTitle(payload.title);
-        setGoalTarget(payload.target);
-        setGoalCurrent(payload.current);
-        setGoalGiftId(payload.giftId);
+        if (payload.gift) {
+           setGiftGoalTitle(payload.gift.title);
+           setGiftGoalTarget(payload.gift.target);
+           setGiftGoalCurrent(payload.gift.current);
+           setGiftGoalId(payload.gift.gift_id);
+        }
+        if (payload.follower) {
+           setFollowerGoalTitle(payload.follower.title);
+           setFollowerGoalTarget(payload.follower.target);
+           setFollowerGoalCurrent(payload.follower.current);
+        }
       })
       .on('presence', { event: 'sync' }, () => {
         const newState = chatChannel.presenceState();
@@ -1678,33 +1691,54 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                      <Heart size={12} fill="currentColor" /> {totalLikes}
                    </span>
                  </div>
-               </div>
-               
-               {goalTarget > 0 && (
-                <div className="goal-compact-container-sidebar">
-                  <div className="goal-host-label-sidebar">{goalTitle || (goalType === 'gifts' ? 'Meta' : 'Meta')}</div>
-                  <div className="goal-row-wrap-sidebar">
-                    <div className="goal-icon-preview-sidebar">
-                        {goalType === 'gifts' ? (
-                          goalGiftId ? (
-                              <img src={GIFT_CATALOG.find(g => g.id === goalGiftId)?.image} className="goal-gift-image" alt="gift" />
-                          ) : <span>🎁</span>
-                        ) : <span>👤</span>}
-                    </div>
-                    <div className="goal-progress-bar-sidebar">
-                        <div 
-                          className="goal-fill-sidebar"
-                          style={{ 
-                              width: `${Math.min(100, (goalCurrent / goalTarget) * 100)}%`,
-                              background: goalType === 'gifts' ? 'linear-gradient(90deg, #facc15, #fb923c)' : 'linear-gradient(90deg, #6C2BFF, #9D6BFF)'
-                          }}
-                        />
-                        <span className="goal-count-text-sidebar">{goalCurrent}/{goalTarget}</span>
-                    </div>
-                  </div>
                 </div>
-               )}
-            </div>
+                
+                {/* META DE PRESENTES */}
+                {giftGoalTarget > 0 && (
+                 <div className="goal-compact-container-sidebar">
+                   <div className="goal-host-label-sidebar">{giftGoalTitle || 'Meta de Presentes'}</div>
+                   <div className="goal-row-wrap-sidebar">
+                     <div className="goal-icon-preview-sidebar">
+                        {giftGoalId ? (
+                             <img src={GIFT_CATALOG.find(g => g.id === giftGoalId)?.image} className="goal-gift-image" alt="gift" />
+                        ) : <span>🎁</span>}
+                     </div>
+                     <div className="goal-progress-bar-sidebar">
+                         <div 
+                           className="goal-fill-sidebar"
+                           style={{ 
+                               width: `${Math.min(100, (giftGoalCurrent / giftGoalTarget) * 100)}%`,
+                               background: 'linear-gradient(90deg, #facc15, #fb923c)'
+                           }}
+                         />
+                         <span className="goal-count-text-sidebar">{giftGoalCurrent}/{giftGoalTarget}</span>
+                     </div>
+                   </div>
+                 </div>
+                )}
+
+                {/* META DE SEGUIDORES */}
+                {followerGoalTarget > 0 && (
+                 <div className="goal-compact-container-sidebar">
+                   <div className="goal-host-label-sidebar">{followerGoalTitle || 'Meta de Seguidores'}</div>
+                   <div className="goal-row-wrap-sidebar">
+                     <div className="goal-icon-preview-sidebar">
+                        <span>👤</span>
+                     </div>
+                     <div className="goal-progress-bar-sidebar">
+                         <div 
+                           className="goal-fill-sidebar"
+                           style={{ 
+                               width: `${Math.min(100, (followerGoalCurrent / followerGoalTarget) * 100)}%`,
+                               background: 'linear-gradient(90deg, #a855f7, #7c3aed)'
+                           }}
+                         />
+                         <span className="goal-count-text-sidebar">{followerGoalCurrent}/{followerGoalTarget}</span>
+                     </div>
+                   </div>
+                 </div>
+                )}
+             </div>
           </div>
           
           {/* Botão de encerrar: só mostra vermelho quando já está ao vivo */}
