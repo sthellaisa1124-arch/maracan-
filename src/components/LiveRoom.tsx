@@ -272,60 +272,67 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     async function syncOngoingBattle() {
       if (!room || !room.host_id) return;
       try {
+        // Busca batalha ativa (status = 'active' OU recente nos últimos 3min)
         const { data: activeDBMatch } = await supabase.from('live_battles')
            .select('*')
            .eq('status', 'active')
            .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
+           .order('started_at', { ascending: false })
+           .limit(1)
            .maybeSingle();
 
-        if (activeDBMatch) {
-            const opponentId = activeDBMatch.host_a_id === room.host_id ? activeDBMatch.host_b_id : activeDBMatch.host_a_id;
-            const oppChannel = activeDBMatch.host_a_id === room.host_id ? activeDBMatch.agora_channel_b : activeDBMatch.agora_channel_a;
-           
-            const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
-            const { data: oppLive } = await supabase.from('live_sessions').select('id').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
-            
-            if (oppProfile) {
-                let syncEndTime = null;
-                if (activeDBMatch?.ends_at) {
-                    syncEndTime = new Date(activeDBMatch.ends_at).getTime();
-                }
+        if (!activeDBMatch) return;
 
-                // Definir os scores corretos da perspectiva DESTE quarto
-                const isHostA = activeDBMatch.host_a_id === room.host_id;
-                const score_a = isHostA ? (activeDBMatch.score_a || 0) : (activeDBMatch.score_b || 0);
-                const score_b = isHostA ? (activeDBMatch.score_b || 0) : (activeDBMatch.score_a || 0);
+        const opponentId = activeDBMatch.host_a_id === room.host_id 
+          ? activeDBMatch.host_b_id 
+          : activeDBMatch.host_a_id;
+        const oppChannel = activeDBMatch.host_a_id === room.host_id 
+          ? activeDBMatch.agora_channel_b 
+          : activeDBMatch.agora_channel_a;
 
-                setActiveBattle({
-                  opponentId: opponentId,
-                  opponentProfile: oppProfile,
-                  agora_channel: oppChannel,
-                  opponentRoomId: oppLive?.id,
-                  endTime: syncEndTime,
-                  score_a: score_a,
-                  score_b: score_b,
-                  battleId: activeDBMatch.id
-                });
-                
-                if (syncEndTime) {
-                   setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
-                } else {
-                   setBattleTimeLeft(0);
-                }
-                
-                // Pedir pontuação real para o host da minha sala
-                supabase.channel(`live_chat:${room.id}`).send({
-                    type: 'broadcast', event: 'score_request', payload: {}
-                }).catch(()=>{});
+        const [{ data: oppProfile }, { data: oppLive }] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', opponentId).single(),
+          supabase.from('live_sessions').select('id').eq('host_id', opponentId).eq('is_live', true).maybeSingle()
+        ]);
+        
+        if (!oppProfile) return;
 
-                // Se eu sou o host e acabei de voltar de um F5, eu preciso pedir o placar pro OPONENTE
-                if (role === 'host' && oppLive?.id) {
-                    supabase.channel(`live_chat:${oppLive.id}`).send({
-                        type: 'broadcast', event: 'score_request', payload: {}
-                    }).catch(()=>{});
-                }
-            }
-        }
+        // ends_at SEMPRE vem do banco - nunca será null se a batalha foi criada corretamente
+        const syncEndTime = activeDBMatch.ends_at 
+          ? new Date(activeDBMatch.ends_at).getTime() 
+          : Date.now() + 180000; // fallback: 3 min a partir de agora
+
+        // Scores da perspectiva DESTE quarto (A = meu host, B = oponente)
+        const isHostA = activeDBMatch.host_a_id === room.host_id;
+        const score_a = isHostA ? (activeDBMatch.score_a || 0) : (activeDBMatch.score_b || 0);
+        const score_b = isHostA ? (activeDBMatch.score_b || 0) : (activeDBMatch.score_a || 0);
+
+        setActiveBattle({
+          opponentId,
+          opponentProfile: oppProfile,
+          agora_channel: oppChannel,
+          opponentRoomId: oppLive?.id ?? null,
+          endTime: syncEndTime,
+          score_a,
+          score_b,
+          battleId: activeDBMatch.id
+        });
+
+        setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
+
+        // Pedir pontuação real para sincronizar placar
+        setTimeout(() => {
+          supabase.channel(`live_chat:${room.id}`).send({
+            type: 'broadcast', event: 'score_request', payload: {}
+          }).catch(() => {});
+
+          if (role === 'host' && oppLive?.id) {
+            supabase.channel(`live_chat:${oppLive.id}`).send({
+              type: 'broadcast', event: 'score_request', payload: {}
+            }).catch(() => {});
+          }
+        }, 1500); // pequeno delay para garantir que o canal já está inscrito
+
       } catch (e) {
           console.warn('Erro syncOngoingBattle', e);
       }
