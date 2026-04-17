@@ -276,6 +276,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                 } else {
                    setBattleTimeLeft(0);
                 }
+                
+                // Pedir pontuação real para o host:
+                supabase.channel(`live_chat:${room.id}`).send({
+                    type: 'broadcast', event: 'score_request', payload: {}
+                }).catch(()=>{});
             }
         }
       } catch (e) {
@@ -843,6 +848,25 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
              return { ...prevBattle, score_a: payload.score_a };
            }
          });
+      })
+      .on('broadcast', { event: 'score_request' }, () => {
+         if (role === 'host') {
+             setActiveBattle((prevBattle: any) => {
+                 if (prevBattle) {
+                     supabase.channel(`live_chat:${room.id}`).send({
+                         type: 'broadcast',
+                         event: 'score_update',
+                         payload: {
+                             roomId: room.id,
+                             score_a: prevBattle.score_a || 0,
+                             score_b: prevBattle.score_b || 0,
+                             sender_room_id: room.id
+                         }
+                     }).catch(()=>{});
+                 }
+                 return prevBattle;
+             });
+         }
       })
       .on('broadcast', { event: 'battle_ended' }, ({ payload }) => {
          if (role === 'audience') {

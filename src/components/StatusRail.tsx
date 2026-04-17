@@ -78,28 +78,34 @@ export function StatusRail({ session, profile, onOpenStatus, onOpenCreator }: { 
     const viewedIds = new Set(views?.map(v => v.status_id) || []);
     const userMap = new Map<string, StatusGroup>();
 
-    // Injetar Lives Primeiro
+    // Injetar Lives Primeiro (apenas de quem seguimos, como pedido pelo modelo TikTok/Insta)
     if (lives) {
       lives.forEach(l => {
-        const host = l.host_profile;
-        if (host && !userMap.has(l.host_id)) {
-          userMap.set(l.host_id, {
-            user_id: l.host_id,
-            username: host.username,
-            avatar_url: host.avatar_url,
-            badges: host.badges,
-            total_donated: host.total_donated,
-            status_list: [],
-            all_viewed: false,
-            is_live: true,
-            live_id: l.id,
-            agora_channel: l.agora_channel,
-            goal_type: l.goal_type,
-            goal_title: l.goal_title,
-            goal_target: l.goal_target,
-            goal_current: l.goal_current,
-            goal_gift_id: l.goal_gift_id
-          });
+        const isSelf = l.host_id === userId;
+        const isFollowed = allowedUserIds.includes(l.host_id);
+        
+        // No story só aparece as lives de quem o usuario segue (ou de si mesmo para verificar)
+        if (isFollowed || isSelf) {
+          const host = l.host_profile;
+          if (host && !userMap.has(l.host_id)) {
+            userMap.set(l.host_id, {
+              user_id: l.host_id,
+              username: host.username,
+              avatar_url: host.avatar_url,
+              badges: host.badges,
+              total_donated: host.total_donated,
+              status_list: [],
+              all_viewed: false,
+              is_live: true,
+              live_id: l.id,
+              agora_channel: l.agora_channel,
+              goal_type: l.goal_type,
+              goal_title: l.goal_title,
+              goal_target: l.goal_target,
+              goal_current: l.goal_current,
+              goal_gift_id: l.goal_gift_id
+            });
+          }
         }
       });
     }

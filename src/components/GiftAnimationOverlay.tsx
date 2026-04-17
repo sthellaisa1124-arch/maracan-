@@ -733,9 +733,9 @@ function VideoOverlayWithFallback({
         left: 0,
         right: 0,
         bottom: 0,
-        top: isBattle ? '50%' : 0, // se for batalha, fica apenas na metade de baixo (chat)
+        top: 0, // Animação cobre toda a tela mesmo na batalha para máxima imersão
         zIndex: 2000000000,
-        background: isBattle ? 'transparent' : '#000', // não pretejar fundo se for batalha
+        background: 'transparent',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -756,7 +756,7 @@ function VideoOverlayWithFallback({
           inset: 0,
           width: '100%',
           height: '100%',
-          objectFit: isBattle ? 'contain' : 'cover', // não cortar o vídeo no modo restrito
+          objectFit: 'cover', // Preenche toda a área disponível verticalmente
         }}
         onEnded={() => { setEnded(true); onComplete(); }}
         onError={handleError}
@@ -769,7 +769,7 @@ function VideoOverlayWithFallback({
 
       {/* Info do presente — centralizado na parte inferior do vídeo */}
       <div style={{
-        position: 'absolute', bottom: isBattle ? '40px' : '80px', left: 0, right: 0,
+        position: 'absolute', bottom: '80px', left: 0, right: 0,
         textAlign: 'center', padding: '1rem', zIndex: 5,
         pointerEvents: 'none',
       }}>
