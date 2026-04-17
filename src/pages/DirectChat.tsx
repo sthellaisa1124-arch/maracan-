@@ -1,12 +1,31 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Send, MessageSquare, ArrowLeft, Loader2, ShieldCheck, User, CheckCheck, Check } from 'lucide-react';
+import { 
+  Send, 
+  MessageSquare, 
+  ArrowLeft, 
+  Loader2, 
+  ShieldCheck, 
+  User, 
+  CheckCheck, 
+  Check, 
+  Camera, 
+  Mic, 
+  Square, 
+  Image as ImageIcon, 
+  Play, 
+  Pause, 
+  X,
+  Trash2
+} from 'lucide-react';
 
 interface Message {
   id: string;
   sender_id: string;
   receiver_id: string;
   content: string;
+  image_url?: string;
+  audio_url?: string;
   read: boolean;
   created_at: string;
 }
@@ -63,8 +82,21 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [listLoading, setListLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id;
+
+  // Estados para Mídia
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const recordingIntervalRef = useRef<any>(null);
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -245,6 +277,114 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
   }
 
+  async function uploadMedia(file: File | Blob, type: 'image' | 'audio') {
+    if (!userId) return null;
+    const fileExt = type === 'image' ? 'jpg' : 'webm';
+    const fileName = `chat/${userId}-${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('media')
+      .upload(fileName, file);
+
+    if (uploadError) {
+      console.error("Erro no upload:", uploadError);
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(fileName);
+    return publicUrl;
+  }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await sendMediaMessage(audioBlob, 'audio');
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          if (prev >= 59) {
+            stopRecording();
+            return 60;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error("Erro ao acessar microfone:", err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, isCamera = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Arquivo muito grande! Máximo 10MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setMediaPreview(event.target?.result as string);
+      setSelectedFile(file);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  async function sendMediaMessage(file: File | Blob, type: 'image' | 'audio') {
+    if (!selectedUser || !userId) return;
+    setIsUploading(true);
+
+    const mediaUrl = await uploadMedia(file, type);
+    if (!mediaUrl) {
+      setIsUploading(false);
+      return;
+    }
+
+    const newMsg = {
+      sender_id: userId,
+      receiver_id: selectedUser.id,
+      content: type === 'image' ? '📷 Foto' : '🎤 Áudio',
+      [type === 'image' ? 'image_url' : 'audio_url']: mediaUrl
+    };
+
+    const { data } = await supabase.from('direct_messages').insert([newMsg]).select().single();
+    if (data) {
+      setMessages(prev => [...prev, data]);
+      fetchConversations();
+      await supabase.from('notifications').insert({
+        user_id: selectedUser.id,
+        from_user_id: userId,
+        type: 'message'
+      });
+    }
+
+    setIsUploading(false);
+    setMediaPreview(null);
+    setSelectedFile(null);
+  }
+
   async function sendMessage() {
     if (!input.trim() || !selectedUser || !userId) return;
 
@@ -261,7 +401,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       setMessages(prev => [...prev, data]);
       fetchConversations();
 
-      // Gerar notificação para o destinatário
       if (sendError) console.warn('Erro ao enviar:', sendError);
       await supabase.from('notifications').insert({
         user_id: selectedUser.id,
@@ -408,11 +547,35 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                   <ShieldCheck size={14} /> PAPO RETO & SIGILO ABSOLUTO
                 </div>
               </div>
-              
               {messages.map((m) => (
                 <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: m.sender_id === userId ? 'flex-end' : 'flex-start' }}>
                   <div className={`chat-bubble-velar ${m.sender_id === userId ? 'sent' : 'received'}`}>
-                    {m.content}
+                    {m.image_url && (
+                      <div style={{ marginBottom: m.content ? '0.5rem' : 0 }}>
+                        <img 
+                          src={m.image_url} 
+                          alt="Mídia" 
+                          style={{ maxWidth: '100%', borderRadius: '12px', display: 'block', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }} 
+                          onClick={() => window.open(m.image_url, '_blank')}
+                        />
+                      </div>
+                    )}
+                    
+                    {m.audio_url && (
+                      <div style={{ 
+                        minWidth: '200px', 
+                        padding: '0.5rem 0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px'
+                      }}>
+                        <audio src={m.audio_url} controls style={{ height: '32px', filter: 'invert(1) hue-rotate(180deg)', width: '100%' }} />
+                      </div>
+                    )}
+
+                    {m.content && m.content !== '📷 Foto' && m.content !== '🎤 Áudio' && (
+                      <div style={{ wordBreak: 'break-word' }}>{m.content}</div>
+                    )}
                   </div>
                   <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -434,26 +597,92 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               <div ref={scrollRef} />
             </div>
 
-            <div style={{ padding: '1.5rem', background: 'rgba(5,5,5,0.8)', backdropFilter: 'blur(10px)' }}>
-              <div className="chat-input-urban">
-                <input 
-                  type="text"
-                  placeholder="Manda o papo reto..." 
-                  value={input}
-                  onChange={(e) => onInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      sendMessage();
-                    }
-                  }}
-                />
-                <button 
-                  onClick={sendMessage} 
-                  disabled={!input.trim()}
-                  style={{ background: 'transparent', border: 'none', color: input.trim() ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                >
-                  <Send size={24} />
-                </button>
+            {/* Overlay de Confirmação de Imagem */}
+            {mediaPreview && (
+              <div style={{
+                position: 'fixed', inset: 0, zIndex: 999999,
+                background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(10px)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem'
+              }}>
+                <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '70vh' }}>
+                  <img src={mediaPreview} style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '20px', border: '2px solid var(--primary)' }} alt="Preview" />
+                  <button 
+                    onClick={() => { setMediaPreview(null); setSelectedFile(null); }}
+                    style={{ position: 'absolute', top: '-20px', right: '-20px', background: '#ef4444', border: 'none', color: '#fff', width: '40px', height: '40px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px' }}>
+                  <button 
+                    onClick={() => sendMediaMessage(selectedFile!, 'image')}
+                    disabled={isUploading}
+                    style={{ flex: 1, background: 'var(--primary)', border: 'none', color: '#000', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    {isUploading ? <Loader2 className="animate-spin" /> : <><Send size={20} /> ENVIAR PAPO</>}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div style={{ padding: '1rem 1.5rem', background: 'rgba(5,5,5,0.8)', backdropFilter: 'blur(10px)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* Inputs Escondidos */}
+                <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => handleFileSelect(e)} />
+                <input type="file" hidden ref={cameraInputRef} accept="image/*" capture="environment" onChange={(e) => handleFileSelect(e, true)} />
+
+                <div className="chat-input-urban" style={{ flex: 1, position: 'relative' }}>
+                  {/* Botões de Anexo */}
+                  <div style={{ display: 'flex', gap: '8px', marginRight: '10px' }}>
+                    <button 
+                      onClick={() => cameraInputRef.current?.click()}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px' }}
+                    >
+                      <Camera size={20} />
+                    </button>
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px' }}
+                    >
+                      <ImageIcon size={20} />
+                    </button>
+                  </div>
+
+                  {isRecording ? (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', color: '#ef4444' }}>
+                      <div className="animate-pulse" style={{ width: '10px', height: '10px', background: '#ef4444', borderRadius: '50%' }} />
+                      <span style={{ fontWeight: 800, fontSize: '0.9rem' }}>Gravando {recordingTime}s / 60s</span>
+                    </div>
+                  ) : (
+                    <input 
+                      type="text"
+                      placeholder="Manda o papo reto..." 
+                      value={input}
+                      onChange={(e) => onInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          sendMessage();
+                        }
+                      }}
+                    />
+                  )}
+
+                  {input.trim() ? (
+                    <button 
+                      onClick={sendMessage} 
+                      style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      <Send size={24} />
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={isRecording ? stopRecording : startRecording}
+                      style={{ background: 'transparent', border: 'none', color: isRecording ? '#ef4444' : 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                    >
+                      {isRecording ? <Square size={24} fill="#ef4444" /> : <Mic size={24} />}
+                    </button>
+                  )}
+                </div>
               </div>
               <p style={{ textAlign: 'center', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.8rem', fontWeight: 600 }}>
                 ESTE PAPO SERÁ DELETADO EM 24 HORAS PELO SISTEMA.
