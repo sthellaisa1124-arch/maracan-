@@ -1085,6 +1085,8 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         </div>
       </aside>
 
+
+
       {/* Janela de Chat */}
       <main className="dc-main">
         {selectedUser ? (
@@ -1230,87 +1232,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             </div>
 
             {/* Câmera em Tela Cheia (Overlay) */}
-             {/* Modal de Criação de Grupo */}
-             {isGroupModalOpen && (
-               <div style={{
-                 position: 'fixed', inset: 0, zIndex: 9999999,
-                 background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(20px)',
-                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-               }}>
-                 <div style={{
-                   background: '#111', width: '100%', maxWidth: '450px',
-                   borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)',
-                   padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto'
-                 }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                     <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>NOVO GRUPO</h2>
-                     <button onClick={() => setIsGroupModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#fff' }}><X /></button>
-                   </div>
-
-                   {/* Info Básica */}
-                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                      <div 
-                        onClick={() => document.getElementById('group-avatar-input')?.click()}
-                        style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}
-                      >
-                        {selectedFile ? <img src={URL.createObjectURL(selectedFile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera color="rgba(255,255,255,0.3)" />}
-                      </div>
-                      <input type="file" id="group-avatar-input" hidden accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                      <div style={{ flex: 1 }}>
-                        <input 
-                          type="text" 
-                          id="group-name"
-                          placeholder="Nome da Tropa..." 
-                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', color: '#fff', fontSize: '1rem', fontWeight: 700 }}
-                        />
-                      </div>
-                   </div>
-
-                   {/* Lista de Crias */}
-                   <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.8rem' }}>ADICIONAR CRIAS (MUTUALS)</p>
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }}>
-                      {mutualFriends.length === 0 ? (
-                        <p style={{ opacity: 0.5, fontSize: '0.85rem' }}>Nenhum cria mútuo encontrado...</p>
-                      ) : (
-                        mutualFriends.map(f => {
-                          const isSelected = selectedChats.includes(f.id);
-                          return (
-                            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '12px' }}>
-                              <img src={f.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + f.id} style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
-                              <span style={{ flex: 1, fontWeight: 700, fontSize: '0.9rem' }}>@{f.username}</span>
-                              
-                              <button 
-                                onClick={() => {
-                                  setSelectedChats(prev => prev.includes(f.id) ? prev.filter(id => id !== f.id) : [...prev, f.id]);
-                                }}
-                                style={{
-                                  padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none',
-                                  background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
-                                  color: isSelected ? '#000' : '#fff', fontWeight: 800, fontSize: '0.7rem', cursor: 'pointer'
-                                }}
-                              >
-                                {isSelected ? 'ADICIONADO' : 'ADICIONAR'}
-                              </button>
-                            </div>
-                          );
-                        })
-                      )}
-                   </div>
-
-                   <button 
-                     disabled={isUploading || selectedChats.length === 0}
-                     onClick={() => {
-                       const name = (document.getElementById('group-name') as HTMLInputElement).value;
-                       if (name) createGroup(name, selectedChats, [], selectedFile);
-                     }}
-                     style={{ width: '100%', background: 'var(--primary)', border: 'none', color: '#000', padding: '1.2rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
-                   >
-                     {isUploading ? <Loader2 className="animate-spin" /> : 'CRIAR TROPA'}
-                   </button>
-                 </div>
-               </div>
-             )}
-
              {isCameraVisible && (
               <div style={{
                 position: 'fixed', inset: 0, zIndex: 9999999,
@@ -1484,6 +1405,87 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           </div>
         )}
       </main>
+
+       {/* Modais Globais (Fora de qualquer condicional de contexto) */}
+       {isGroupModalOpen && (
+         <div style={{
+           position: 'fixed', inset: 0, zIndex: 9999999,
+           background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(20px)',
+           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+         }}>
+           <div style={{
+             background: '#111', width: '100%', maxWidth: '450px',
+             borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)',
+             padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto'
+           }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+               <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>NOVO GRUPO</h2>
+               <button onClick={() => setIsGroupModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#fff' }}><X /></button>
+             </div>
+
+             {/* Info Básica */}
+             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div 
+                  onClick={() => document.getElementById('group-avatar-input')?.click()}
+                  style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}
+                >
+                  {selectedFile ? <img src={URL.createObjectURL(selectedFile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera color="rgba(255,255,255,0.3)" />}
+                </div>
+                <input type="file" id="group-avatar-input" hidden accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                <div style={{ flex: 1 }}>
+                  <input 
+                    type="text" 
+                    id="group-name"
+                    placeholder="Nome da Tropa..." 
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', color: '#fff', fontSize: '1rem', fontWeight: 700 }}
+                  />
+                </div>
+             </div>
+
+             {/* Lista de Crias */}
+             <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.8rem' }}>ADICIONAR CRIAS (MUTUALS)</p>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }}>
+                {mutualFriends.length === 0 ? (
+                  <p style={{ opacity: 0.5, fontSize: '0.85rem' }}>Nenhum cria mútuo encontrado...</p>
+                ) : (
+                  mutualFriends.map(f => {
+                    const isSelected = selectedChats.includes(f.id);
+                    return (
+                      <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '12px' }}>
+                        <img src={f.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + f.id} style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
+                        <span style={{ flex: 1, fontWeight: 700, fontSize: '0.9rem' }}>@{f.username}</span>
+                        
+                        <button 
+                          onClick={() => {
+                            setSelectedChats(prev => prev.includes(f.id) ? prev.filter(id => id !== f.id) : [...prev, f.id]);
+                          }}
+                          style={{
+                            padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none',
+                            background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                            color: isSelected ? '#000' : '#fff', fontWeight: 800, fontSize: '0.7rem', cursor: 'pointer'
+                          }}
+                        >
+                          {isSelected ? 'ADICIONADO' : 'ADICIONAR'}
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+             </div>
+
+             <button 
+               disabled={isUploading || selectedChats.length === 0}
+               onClick={() => {
+                 const name = (document.getElementById('group-name') as HTMLInputElement).value;
+                 if (name) createGroup(name, selectedChats, [], selectedFile);
+               }}
+               style={{ width: '100%', background: 'var(--primary)', border: 'none', color: '#000', padding: '1.2rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+             >
+               {isUploading ? <Loader2 className="animate-spin" /> : 'CRIAR TROPA'}
+             </button>
+           </div>
+         </div>
+       )}
     </div>
   );
 }
