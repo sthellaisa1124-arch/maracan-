@@ -16,7 +16,8 @@ import {
   Play, 
   Pause, 
   X,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 
 interface Message {
@@ -46,13 +47,10 @@ function MessageTicks({ message }: { message: Message }) {
       return;
     }
     
-    // Calcula a idade da mensagem
     const msgTime = new Date(message.created_at).getTime();
     const ageMs = Date.now() - msgTime;
     
-    // Se foi há menos de 2.5 segundos, mostre só 1 tick e agenda o segundo
     if (ageMs < 2500) {
-      // Começa com 1 tick
       setShowDouble(false);
       const timer = setTimeout(() => {
         setShowDouble(true);
@@ -67,12 +65,10 @@ function MessageTicks({ message }: { message: Message }) {
     return <CheckCheck size={14} color="#10b981" />;
   }
 
-  // Falta ler, mas já "chegou" ao destino simuladamente
   if (showDouble) {
     return <CheckCheck size={14} color="rgba(255,255,255,0.4)" />;
   }
   
-  // Acabou de enviar (mostra só 1 tick)
   return <Check size={14} color="rgba(255,255,255,0.4)" />;
 }
 
@@ -96,6 +92,13 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const recordingIntervalRef = useRef<any>(null);
+
+  // Estados para Câmera Customizada
+  const [isCameraVisible, setIsCameraVisible] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -276,6 +279,65 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
   }
 
+  const startCamera = async (mode: 'user' | 'environment') => {
+    try {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      const newStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: mode }, 
+        audio: false 
+      });
+      setStream(newStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = newStream;
+      }
+    } catch (err) {
+      console.error("Erro ao abrir câmera:", err);
+      alert("Não foi possível acessar a câmera. Verifique as permissões.");
+      setIsCameraVisible(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraVisible(false);
+  };
+
+  const switchCamera = () => {
+    const newMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newMode);
+    startCamera(newMode);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setMediaPreview(dataUrl);
+        
+        // Converter dataUrl para File
+        fetch(dataUrl)
+          .then(res => res.blob())
+          .then(blob => {
+            const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+            setSelectedFile(file);
+          });
+        
+        stopCamera();
+      }
+    }
+  };
+
   async function uploadMedia(file: File | Blob, type: 'image' | 'audio') {
     if (!userId) return null;
     const fileExt = type === 'image' ? 'jpg' : 'webm';
@@ -349,6 +411,9 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       setSelectedFile(file);
     };
     reader.readAsDataURL(file);
+    
+    // Se veio da galeria e a câmera estava aberta, fecha a câmera
+    if (isCameraVisible) stopCamera();
   };
 
   async function sendMediaMessage(file: File | Blob, type: 'image' | 'audio') {
@@ -657,6 +722,65 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               <div ref={scrollRef} />
             </div>
 
+            {/* Câmera em Tela Cheia (Overlay) */}
+            {isCameraVisible && (
+              <div style={{
+                position: 'fixed', inset: 0, zIndex: 9999999,
+                background: '#000', display: 'flex', flexDirection: 'column'
+              }}>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <canvas ref={canvasRef} style={{ display: 'none' }} />
+                
+                {/* Botão Fechar */}
+                <button 
+                  onClick={stopCamera}
+                  style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', width: '44px', height: '44px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+                >
+                  <X size={28} />
+                </button>
+
+                {/* Controles da Base */}
+                <div style={{
+                  position: 'absolute', bottom: '40px', left: 0, right: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-evenly',
+                }}>
+                  {/* Galeria */}
+                  <button 
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                    }}
+                    style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}
+                  >
+                    <ImageIcon size={24} />
+                  </button>
+
+                  {/* Capturar */}
+                  <button 
+                    onClick={capturePhoto}
+                    style={{
+                      width: '80px', height: '80px', borderRadius: '50%', border: '6px solid #fff',
+                      background: 'rgba(255,255,255,0.2)', padding: '5px'
+                    }}
+                  >
+                    <div style={{ width: '100%', height: '100%', background: '#fff', borderRadius: '50%' }} />
+                  </button>
+
+                  {/* Trocar Câmera */}
+                  <button 
+                    onClick={switchCamera}
+                    style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(10px)' }}
+                  >
+                    <RefreshCw size={24} />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Overlay de Confirmação de Imagem */}
             {mediaPreview && (
               <div style={{
@@ -689,22 +813,18 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {/* Inputs Escondidos */}
                 <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => handleFileSelect(e)} />
-                <input type="file" hidden ref={cameraInputRef} accept="image/*" capture="camera" onChange={(e) => handleFileSelect(e, true)} />
 
                 <div className="chat-input-urban" style={{ flex: 1, position: 'relative' }}>
-                  {/* Botões de Anexo */}
-                  <div style={{ display: 'flex', gap: '8px', marginRight: '10px' }}>
+                  {/* Botão de Câmera Único */}
+                  <div style={{ marginRight: '10px', display: 'flex', alignItems: 'center' }}>
                     <button 
-                      onClick={() => cameraInputRef.current?.click()}
-                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px' }}
+                      onClick={() => {
+                        setIsCameraVisible(true);
+                        startCamera(facingMode);
+                      }}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '10px', borderRadius: '12px' }}
                     >
-                      <Camera size={20} />
-                    </button>
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '8px', borderRadius: '12px' }}
-                    >
-                      <ImageIcon size={20} />
+                      <Camera size={22} />
                     </button>
                   </div>
 
