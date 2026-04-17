@@ -21,7 +21,8 @@ import {
   MoreVertical,
   Users,
   Clock,
-  Slash
+  Slash,
+  LogOut
 } from 'lucide-react';
 
 interface Message {
@@ -36,7 +37,9 @@ interface Message {
 }
 
 interface Conversation {
-  user: any;
+  user?: any;
+  group?: any;
+  isGroup: boolean;
   lastMessage: string;
   timestamp: string;
   unreadCount: number;
@@ -107,6 +110,10 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [filterTab, setFilterTab] = useState('TODOS');
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedChats, setSelectedChats] = useState<string[]>([]);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [mutualFriends, setMutualFriends] = useState<any[]>([]);
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -239,13 +246,144 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},receiver_id.eq.${userId})`);
 
       if (error) throw error;
-
-      setMessages([]);
-      setSelectedUser(null);
-      fetchConversations();
+      markAsDeleted(userId, selectedUser.id);
     } catch (err) {
       console.error("Erro ao excluir conversa:", err);
       alert("Erro ao excluir conversa. Tente novamente.");
+    }
+  }
+
+  async function markAsDeleted(meId: string, otherId: string) {
+    // Busca todas as msgs entre os dois
+    const { data: msgs } = await supabase
+      .from('direct_messages')
+      .select('id, deleted_by')
+      .or(`and(sender_id.eq.${meId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${meId})`);
+
+    if (msgs) {
+      for (const m of msgs) {
+        const deletedBy = m.deleted_by || [];
+        if (!deletedBy.includes(meId)) {
+          await supabase
+            .from('direct_messages')
+            .update({ deleted_by: [...deletedBy, meId] })
+            .eq('id', m.id);
+        }
+      }
+    }
+    setMessages([]);
+    setSelectedUser(null);
+    fetchConversations();
+  }
+
+  async function leaveGroup() {
+    if (!selectedUser || !selectedUser.is_group || !userId) return;
+    
+    const confirmLeave = window.confirm(`Deseja realmente abandonar a tropa ${selectedUser.name}?`);
+    if (!confirmLeave) return;
+
+    try {
+      // 1. Enviar mensagem de saída
+      const leaveMsg = {
+        sender_id: userId,
+        group_id: selectedUser.id,
+        content: `@${userProfile.username} ABANDONOU A TROPA.`,
+        receiver_id: userId // receiver_id can be fixed to current user since it is a system message 
+      };
+      await supabase.from('direct_messages').insert([leaveMsg]);
+
+      // 2. Remover membro
+      await supabase.from('group_members').delete().eq('group_id', selectedUser.id).eq('user_id', userId);
+
+      setSelectedUser(null);
+      fetchConversations();
+    } catch (err) {
+      console.error("Erro ao sair:", err);
+    }
+  }
+
+  async function fetchMutualFriends() {
+    if (!userId) return;
+    try {
+      // Busca quem eu sigo
+      const { data: following } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
+      // Busca quem me segue
+      const { data: followers } = await supabase.from('follows').select('follower_id').eq('following_id', userId);
+
+      if (following && followers) {
+        const followingIds = following.map(f => f.following_id);
+        const mutualIds = followers.map(f => f.follower_id).filter(id => followingIds.includes(id));
+
+        if (mutualIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', mutualIds);
+          setMutualFriends(profiles || []);
+        } else {
+          setMutualFriends([]);
+        }
+      }
+    } catch (err) {
+      console.error("Erro busca mutual:", err);
+    }
+  }
+
+  async function deleteSelectedConversations() {
+    if (selectedChats.length === 0) return;
+    const confirmDelete = window.confirm(`Deseja apagar ${selectedChats.length} conversa(s) apenas para você?`);
+    if (!confirmDelete) return;
+
+    for (const otherId of selectedChats) {
+      await markAsDeleted(userId, otherId);
+    }
+    
+    setIsSelectionMode(false);
+    setSelectedChats([]);
+  }
+
+  async function createGroup(name: string, members: string[], admins: string[], avatarFile: File | null) {
+    if (!userId || !name) return;
+    
+    setIsUploading(true);
+    let avatarUrl = "";
+    if (avatarFile) {
+      avatarUrl = await uploadMedia(avatarFile, 'image') || "";
+    }
+
+    try {
+      const { data: group, error: gError } = await supabase
+        .from('chat_groups')
+        .insert({ name, avatar_url: avatarUrl, created_by: userId })
+        .select()
+        .single();
+
+      if (gError) throw gError;
+
+      const memberInserts = [
+        { group_id: group.id, user_id: userId, is_admin: true }, // Criador é admin
+        ...members.map(mId => ({ group_id: group.id, user_id: mId, is_admin: admins.includes(mId) }))
+      ];
+
+      const { error: mError } = await supabase.from('group_members').insert(memberInserts);
+      if (mError) throw mError;
+
+      // Notificar todos
+      for (const mId of members) {
+        await supabase.from('notifications').insert({
+          user_id: mId,
+          from_user_id: userId,
+          type: 'message',
+          title: `Te adicionou no grupo ${name}`
+        });
+      }
+
+      setIsGroupModalOpen(false);
+      fetchConversations();
+    } catch (err) {
+      console.error("Erro criar grupo:", err);
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -283,37 +421,76 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
 
   async function fetchConversations() {
     setListLoading(true);
-    const { data } = await supabase
-      .from('direct_messages')
-      .select(`
-        *,
-        sender:profiles!sender_id(id, username, avatar_url),
-        receiver:profiles!receiver_id(id, username, avatar_url)
-      `)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: false });
+    try {
+      // 1. Buscar Mensagens Privadas
+      const { data: privData } = await supabase
+        .from('direct_messages')
+        .select(`
+          *,
+          sender:profiles!sender_id(id, username, avatar_url),
+          receiver:profiles!receiver_id(id, username, avatar_url)
+        `)
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .is('group_id', null)
+        .not('deleted_by', 'cs', `{${userId}}`)
+        .order('created_at', { ascending: false });
 
-    if (data) {
-      const convMap = new Map();
-      data.forEach(m => {
-        const otherUser = m.sender_id === userId ? m.receiver : m.sender;
-        if (otherUser && !convMap.has(otherUser.id)) {
-          // Contar não lidas nesta conversa
-          const unreadCount = data.filter(msg => 
-            msg.sender_id === otherUser.id && 
-            msg.receiver_id === userId && 
-            !msg.read
-          ).length;
+      // 2. Buscar Meus Grupos
+      const { data: myGroups } = await supabase
+        .from('group_members')
+        .select(`group:chat_groups(*)`)
+        .eq('user_id', userId);
 
-          convMap.set(otherUser.id, {
-            user: otherUser,
-            lastMessage: m.content,
-            timestamp: m.created_at,
-            unreadCount
+      // 3. Buscar Mensagens de Grupos
+      const groupIds = myGroups?.map(m => m.group.id) || [];
+      const { data: groupMsgs } = await supabase
+        .from('direct_messages')
+        .select('*')
+        .in('group_id', groupIds)
+        .not('deleted_by', 'cs', `{${userId}}`)
+        .order('created_at', { ascending: false });
+
+      const convs: Conversation[] = [];
+
+      // Processar Privadas
+      if (privData) {
+        const privMap = new Map();
+        privData.forEach(m => {
+          const otherUser = m.sender_id === userId ? m.receiver : m.sender;
+          if (otherUser && !privMap.has(otherUser.id)) {
+            const unreadCount = privData.filter(msg => 
+              msg.sender_id === otherUser.id && msg.receiver_id === userId && !msg.read
+            ).length;
+            privMap.set(otherUser.id, true);
+            convs.push({
+              user: otherUser,
+              isGroup: false,
+              lastMessage: m.content,
+              timestamp: m.created_at,
+              unreadCount
+            });
+          }
+        });
+      }
+
+      // Processar Grupos
+      if (myGroups) {
+        myGroups.forEach(gm => {
+          const g = gm.group;
+          const lastM = groupMsgs?.find(m => m.group_id === g.id);
+          convs.push({
+            group: g,
+            isGroup: true,
+            lastMessage: lastM ? lastM.content : "Início da Tropa",
+            timestamp: lastM ? lastM.created_at : g.created_at,
+            unreadCount: 0 // Simplificado para agora
           });
-        }
-      });
-      setConversations(Array.from(convMap.values()));
+        });
+      }
+
+      setConversations(convs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    } catch (err) {
+      console.error("Erro fetch convs:", err);
     }
     setListLoading(false);
   }
@@ -327,24 +504,42 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       .single();
     
     if (data) {
-      setSelectedUser(data);
+      setSelectedUser({ ...data, is_group: false });
       markAsRead(data.id);
     }
   }
 
-  async function fetchMessages(otherId: string) {
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data } = await supabase
+  async function markAsRead(otherId: string) {
+    if (!userId) return;
+    await supabase
+      .from('direct_messages')
+      .update({ read: true })
+      .eq('sender_id', otherId)
+      .eq('receiver_id', userId)
+      .eq('read', false);
+    fetchConversations();
+  }
+
+  async function fetchMessages(entityId: string) {
+    if (!userId || !entityId) return;
+
+    const query = supabase
       .from('direct_messages')
       .select('*')
-      .or(`and(sender_id.eq.${userId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${userId})`)
-      .gt('created_at', yesterday)
+      .not('deleted_by', 'cs', `{${userId}}`)
       .order('created_at', { ascending: true });
-    
-    if (data) {
-      setMessages(data);
-      markAsRead(otherId); // Ler as mensagens ao abrir
+
+    if (selectedUser?.is_group) {
+      query.eq('group_id', entityId);
+    } else {
+      query
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${entityId}),and(sender_id.eq.${entityId},receiver_id.eq.${userId})`)
+        .is('group_id', null);
     }
+
+    const { data } = await query;
+    if (data) setMessages(data);
+    if (!selectedUser?.is_group) markAsRead(entityId);
   }
 
   const startCamera = async (mode: 'user' | 'environment') => {
@@ -393,7 +588,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         setMediaPreview(dataUrl);
         
-        // Converter dataUrl para File
         fetch(dataUrl)
           .then(res => res.blob())
           .then(blob => {
@@ -464,23 +658,19 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, isCamera = false) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (file.size > 10 * 1024 * 1024) {
       alert("Arquivo muito grande! Máximo 10MB.");
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (event) => {
       setMediaPreview(event.target?.result as string);
       setSelectedFile(file);
     };
     reader.readAsDataURL(file);
-    
-    // Se veio da galeria e a câmera estava aberta, fecha a câmera
     if (isCameraVisible) stopCamera();
   };
 
@@ -488,66 +678,87 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     if (!selectedUser || !userId) return;
     setIsUploading(true);
 
-    const mediaUrl = await uploadMedia(file, type);
-    if (!mediaUrl) {
-      setIsUploading(false);
-      return;
-    }
+    try {
+      const publicUrl = await uploadMedia(file, type);
+      if (!publicUrl) throw new Error("Erro upload");
 
-    const newMsg = {
-      sender_id: userId,
-      receiver_id: selectedUser.id,
-      content: mediaCaption.trim() || (type === 'image' ? '📷 Foto' : '🎤 Áudio'),
-      [type === 'image' ? 'image_url' : 'audio_url']: mediaUrl
-    };
+      const msgData: any = {
+        sender_id: userId,
+        content: mediaCaption.trim() || (type === 'image' ? '📷 Foto' : '🎤 Áudio'),
+        [type === 'image' ? 'image_url' : 'audio_url']: publicUrl
+      };
 
-    const { data } = await supabase.from('direct_messages').insert([newMsg]).select().single();
-    if (data) {
+      if (selectedUser.is_group) {
+        msgData.group_id = selectedUser.id;
+        msgData.receiver_id = userId;
+      } else {
+        msgData.receiver_id = selectedUser.id;
+      }
+
+      const { error, data } = await supabase.from('direct_messages').insert([msgData]).select().single();
+      if (error) throw error;
+
       setMessages(prev => [...prev, data]);
       fetchConversations();
-      await supabase.from('notifications').insert({
-        user_id: selectedUser.id,
-        from_user_id: userId,
-        type: 'message'
-      });
+      
+      if (!selectedUser.is_group) {
+        await supabase.from('notifications').insert({
+          user_id: selectedUser.id,
+          from_user_id: userId,
+          type: 'message'
+        });
+      }
+    } catch (err) {
+      console.error("Erro enviar mídia:", err);
+    } finally {
+      setIsUploading(false);
+      setMediaPreview(null);
+      setSelectedFile(null);
+      setMediaCaption('');
     }
-
-    setIsUploading(false);
-    setMediaPreview(null);
-    setSelectedFile(null);
-    setMediaCaption('');
   }
 
   async function sendMessage() {
     if (!input.trim() || !selectedUser || !userId) return;
 
-    const newMsg = {
+    const msgData: any = {
       sender_id: userId,
-      receiver_id: selectedUser.id,
-      content: input.trim()
+      content: input.trim(),
     };
 
-    setInput('');
-    const { data, error: sendError } = await supabase.from('direct_messages').insert([newMsg]).select().single();
-    
-    if (data) {
+    if (selectedUser.is_group) {
+      msgData.group_id = selectedUser.id;
+      msgData.receiver_id = userId;
+    } else {
+      msgData.receiver_id = selectedUser.id;
+    }
+
+    try {
+      const { data, error } = await supabase.from('direct_messages').insert([msgData]).select().single();
+      if (error) throw error;
+      
+      setInput('');
       setMessages(prev => [...prev, data]);
       fetchConversations();
 
-      if (sendError) console.warn('Erro ao enviar:', sendError);
-      await supabase.from('notifications').insert({
-        user_id: selectedUser.id,
-        from_user_id: userId,
-        type: 'message'
-      });
+      if (!selectedUser.is_group) {
+        await supabase.from('notifications').insert({
+          user_id: selectedUser.id,
+          from_user_id: userId,
+          type: 'message'
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao enviar:", err);
     }
   }
 
   const [searchTerm, setSearchTerm] = useState('');
   
-  const filteredConversations = conversations.filter(c => 
-    c.user.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(c => {
+    const name = c.isGroup ? c.group?.name : c.user?.username;
+    return name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
     <div className="direct-chat-container animate-fade-up" style={{ display: 'flex', width: '100%', height: 'calc(100vh - 70px)', overflow: 'hidden' }}>
@@ -727,32 +938,57 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             
             {/* Menu da Barra Lateral */}
             <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
-                style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px' }}
-              >
-                <MoreVertical size={20} />
-              </button>
-              {isSidebarMenuOpen && (
-                <>
-                  <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsSidebarMenuOpen(false)} />
-                  <div style={{
-                    position: 'absolute', top: '100%', right: 0, zIndex: 101,
-                    background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
-                    padding: '0.4rem', minWidth: '180px', marginTop: '8px',
-                    boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                  }}>
-                    <button onClick={() => { alert('Funcionalidade de Grupos em breve!'); setIsSidebarMenuOpen(false); }} className="menu-btn-velar">
-                      <Users size={16} color="var(--primary)" /> CRIA GRUPO
+               {isSelectionMode ? (
+                 <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={deleteSelectedConversations}
+                      disabled={selectedChats.length === 0}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: selectedChats.length === 0 ? 0.5 : 1 }}
+                    >
+                      APAGAR ({selectedChats.length})
                     </button>
-                    <button onClick={() => { setIsSidebarMenuOpen(false); deleteConversation(); }} className="menu-btn-velar" style={{ color: '#ef4444' }}>
-                      <Trash2 size={16} /> EXCLUIR CONVERSA
+                    <button 
+                      onClick={() => { setIsSelectionMode(false); setSelectedChats([]); }}
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      PRONTO
                     </button>
-                  </div>
-                </>
-              )}
-            </div>
+                 </div>
+               ) : (
+                 <button 
+                   onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
+                   style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px' }}
+                 >
+                   <MoreVertical size={20} />
+                 </button>
+               )}
+               {isSidebarMenuOpen && !isSelectionMode && (
+                 <>
+                   <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsSidebarMenuOpen(false)} />
+                   <div style={{
+                     position: 'absolute', top: '100%', right: 0, zIndex: 101,
+                     background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
+                     border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
+                     padding: '0.4rem', minWidth: '180px', marginTop: '8px',
+                     boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
+                   }}>
+                     <button 
+                       onClick={() => { 
+                         setIsSidebarMenuOpen(false); 
+                         setIsGroupModalOpen(true);
+                         fetchMutualFriends();
+                       }} 
+                       className="menu-btn-velar"
+                     >
+                       <Users size={16} color="var(--primary)" /> CRIA GRUPO
+                     </button>
+                     <button onClick={() => { setIsSidebarMenuOpen(false); setIsSelectionMode(true); }} className="menu-btn-velar" style={{ color: '#ef4444' }}>
+                       <Trash2 size={16} /> EXCLUIR CONVERSA
+                     </button>
+                   </div>
+                 </>
+               )}
+             </div>
           </div>
           <input 
             type="text" 
@@ -785,38 +1021,66 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                 Nenhum papo encontrado... <br/><span style={{ fontSize: '0.85rem' }}>Chame um cria no perfil dele!</span>
               </div>
             ) : (
-            filteredConversations.map(c => (
-              <div 
-                key={c.user.id} 
-                className={`chat-list-item-urban ${selectedUser?.id === c.user.id ? 'active' : ''}`}
-                onClick={() => setSelectedUser(c.user)}
-              >
-                <img 
-                  src={c.user.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + c.user.id} 
-                  style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid var(--separator)', objectFit: 'cover' }}
-                  alt="Avatar" 
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                    <strong style={{ fontSize: '0.95rem' }}>@{c.user.username}</strong>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {c.unreadCount > 0 && (
-                        <span style={{ background: 'var(--primary)', color: '#000', fontSize: '0.65rem', fontWeight: 900, padding: '0.1rem 0.4rem', borderRadius: '1rem', minWidth: '18px', textAlign: 'center' }}>
-                          {c.unreadCount}
-                        </span>
-                      )}
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                        {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+             filteredConversations.map((c, idx) => {
+               const entityId = c.isGroup ? c.group.id : c.user.id;
+               const entityName = c.isGroup ? c.group.name : c.user.username;
+               const entityAvatar = c.isGroup ? c.group.avatar_url : c.user.avatar_url;
+               
+               return (
+                <div 
+                  key={entityId || idx} 
+                  className={`chat-list-item-urban ${((c.isGroup && selectedUser?.id === c.group.id) || (!c.isGroup && selectedUser?.id === c.user.id)) ? 'active' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
+                  onClick={() => {
+                    if (isSelectionMode) {
+                      setSelectedChats(prev => prev.includes(entityId) ? prev.filter(id => id !== entityId) : [...prev, entityId]);
+                    } else {
+                      if (c.isGroup) {
+                        setSelectedUser({ ...c.group, is_group: true });
+                      } else {
+                        setSelectedUser({ ...c.user, is_group: false });
+                      }
+                    }
+                  }}
+                >
+                  {isSelectionMode && (
+                    <div style={{ marginRight: '12px' }}>
+                      <div style={{ 
+                        width: '20px', height: '20px', borderRadius: '50%', 
+                        border: `2px solid ${selectedChats.includes(entityId) ? 'var(--primary)' : 'rgba(255,255,255,0.2)'}`,
+                        background: selectedChats.includes(entityId) ? 'var(--primary)' : 'transparent',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                      }}>
+                        {selectedChats.includes(entityId) && <Check size={12} color="#000" strokeWidth={4} />}
+                      </div>
                     </div>
+                  )}
+                  <img 
+                    src={entityAvatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + entityId} 
+                    style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid var(--separator)', objectFit: 'cover' }}
+                    alt="Avatar" 
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                      <strong style={{ fontSize: '0.95rem' }}>{c.isGroup ? entityName : `@${entityName}`}</strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {c.unreadCount > 0 && (
+                          <span style={{ background: 'var(--primary)', color: '#000', fontSize: '0.65rem', fontWeight: 900, padding: '0.1rem 0.4rem', borderRadius: '1rem', minWidth: '18px', textAlign: 'center' }}>
+                            {c.unreadCount}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'var(--text-muted)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.lastMessage}
+                    </p>
                   </div>
-                  <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'var(--text-muted)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {c.lastMessage}
-                  </p>
                 </div>
-              </div>
-            ))
-          )}
+               );
+             })
+           )}
           </div>
         </div>
       </aside>
@@ -838,8 +1102,12 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                   </div>
                 )}
                 <div>
-                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>@{selectedUser.username}</h4>
-                  <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.5px' }}>NA PISTA AGORA</p>
+                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>
+                    {selectedUser.is_group ? selectedUser.name : `@${selectedUser.username}`}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.5px' }}>
+                    {selectedUser.is_group ? 'TROPA ATIVA' : 'NA PISTA AGORA'}
+                  </p>
                 </div>
               </div>
 
@@ -866,28 +1134,39 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                       boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
                       animation: 'slideUp 0.2s ease'
                     }}>
-                      <button 
-                        onClick={() => { setIsChatMenuOpen(false); clearConversation(); }}
-                        className="menu-btn-velar"
-                      >
-                        <Trash2 size={16} color="var(--primary)" /> LIMPAR CONVERSA
-                      </button>
-                      
-                      <button 
-                        onClick={() => { alert('Ativando Mensagens Temporárias...'); setIsChatMenuOpen(false); }}
-                        className="menu-btn-velar"
-                      >
-                        <Clock size={16} color="var(--primary)" /> MENSAGEM TEMPORÁRIA
-                      </button>
+                      {selectedUser?.is_group ? (
+                        <button 
+                          onClick={() => { setIsChatMenuOpen(false); leaveGroup(); }}
+                          className="menu-btn-velar" style={{ color: '#ef4444' }}
+                        >
+                          <LogOut size={16} /> SAIR DO GRUPO
+                        </button>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={() => { setIsChatMenuOpen(false); clearConversation(); }}
+                            className="menu-btn-velar"
+                          >
+                            <Trash2 size={16} color="var(--primary)" /> LIMPAR CONVERSA
+                          </button>
+                          
+                          <button 
+                            onClick={() => { alert('Ativando Mensagens Temporárias...'); setIsChatMenuOpen(false); }}
+                            className="menu-btn-velar"
+                          >
+                            <Clock size={16} color="var(--primary)" /> MENSAGEM TEMPORÁRIA
+                          </button>
 
-                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.4rem 0.5rem' }} />
+                          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.4rem 0.5rem' }} />
 
-                      <button 
-                        onClick={() => { alert('Cria bloqueado!'); setIsChatMenuOpen(false); }}
-                        className="menu-btn-velar" style={{ color: '#ef4444' }}
-                      >
-                        <Slash size={16} /> BLOQUEAR
-                      </button>
+                          <button 
+                            onClick={() => { alert('Cria bloqueado!'); setIsChatMenuOpen(false); }}
+                            className="menu-btn-velar" style={{ color: '#ef4444' }}
+                          >
+                            <Slash size={16} /> BLOQUEAR
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}
@@ -951,7 +1230,88 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             </div>
 
             {/* Câmera em Tela Cheia (Overlay) */}
-            {isCameraVisible && (
+             {/* Modal de Criação de Grupo */}
+             {isGroupModalOpen && (
+               <div style={{
+                 position: 'fixed', inset: 0, zIndex: 9999999,
+                 background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(20px)',
+                 display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+               }}>
+                 <div style={{
+                   background: '#111', width: '100%', maxWidth: '450px',
+                   borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)',
+                   padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto'
+                 }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                     <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>NOVO GRUPO</h2>
+                     <button onClick={() => setIsGroupModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#fff' }}><X /></button>
+                   </div>
+
+                   {/* Info Básica */}
+                   <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <div 
+                        onClick={() => document.getElementById('group-avatar-input')?.click()}
+                        style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(255,255,255,0.05)', border: '2px dashed rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}
+                      >
+                        {selectedFile ? <img src={URL.createObjectURL(selectedFile)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Camera color="rgba(255,255,255,0.3)" />}
+                      </div>
+                      <input type="file" id="group-avatar-input" hidden accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                      <div style={{ flex: 1 }}>
+                        <input 
+                          type="text" 
+                          id="group-name"
+                          placeholder="Nome da Tropa..." 
+                          style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '1rem', borderRadius: '12px', color: '#fff', fontSize: '1rem', fontWeight: 700 }}
+                        />
+                      </div>
+                   </div>
+
+                   {/* Lista de Crias */}
+                   <p style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.8rem' }}>ADICIONAR CRIAS (MUTUALS)</p>
+                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto', paddingRight: '5px' }}>
+                      {mutualFriends.length === 0 ? (
+                        <p style={{ opacity: 0.5, fontSize: '0.85rem' }}>Nenhum cria mútuo encontrado...</p>
+                      ) : (
+                        mutualFriends.map(f => {
+                          const isSelected = selectedChats.includes(f.id);
+                          return (
+                            <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '0.8rem', borderRadius: '12px' }}>
+                              <img src={f.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + f.id} style={{ width: '38px', height: '38px', borderRadius: '50%' }} />
+                              <span style={{ flex: 1, fontWeight: 700, fontSize: '0.9rem' }}>@{f.username}</span>
+                              
+                              <button 
+                                onClick={() => {
+                                  setSelectedChats(prev => prev.includes(f.id) ? prev.filter(id => id !== f.id) : [...prev, f.id]);
+                                }}
+                                style={{
+                                  padding: '0.4rem 0.8rem', borderRadius: '8px', border: 'none',
+                                  background: isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+                                  color: isSelected ? '#000' : '#fff', fontWeight: 800, fontSize: '0.7rem', cursor: 'pointer'
+                                }}
+                              >
+                                {isSelected ? 'ADICIONADO' : 'ADICIONAR'}
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                   </div>
+
+                   <button 
+                     disabled={isUploading || selectedChats.length === 0}
+                     onClick={() => {
+                       const name = (document.getElementById('group-name') as HTMLInputElement).value;
+                       if (name) createGroup(name, selectedChats, [], selectedFile);
+                     }}
+                     style={{ width: '100%', background: 'var(--primary)', border: 'none', color: '#000', padding: '1.2rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                   >
+                     {isUploading ? <Loader2 className="animate-spin" /> : 'CRIAR TROPA'}
+                   </button>
+                 </div>
+               </div>
+             )}
+
+             {isCameraVisible && (
               <div style={{
                 position: 'fixed', inset: 0, zIndex: 9999999,
                 background: '#000', display: 'flex', flexDirection: 'column'
