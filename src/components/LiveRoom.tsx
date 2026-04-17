@@ -231,10 +231,42 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
      setBattleInvite(null);
   }
 
-  // SINCRONIZAR AUDIÊNCIA (ENTRADAS TARDIAS)
+  async function handleSurrenderBattle() {
+     if (!activeBattle) return;
+     if (!confirm("Tem certeza que deseja desistir? A vitória será concedida ao seu oponente.")) return;
+     
+     const opponentId = activeBattle.opponentId;
+     
+     const payload = {
+         score_a: 0,
+         score_b: 999999,
+         winner_id: opponentId,
+         surrender: true
+     };
+
+     supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_ended', payload }).catch(()=>{});
+     if (activeBattle.opponentRoomId) {
+         supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_ended', payload }).catch(()=>{});
+     }
+     
+     if (activeBattle.battleId) {
+         await supabase.from('live_battles').update({
+             status: 'finished',
+             score_a: 0,
+             score_b: Math.max(activeBattle.score_b || 0, activeBattle.score_a || 0) + 100,
+             winner_id: opponentId,
+             ends_at: new Date().toISOString()
+         }).eq('id', activeBattle.battleId);
+     }
+     
+     setActiveBattle((prev: any) => prev ? { ...prev, endTime: Date.now() } : null);
+     setBattleTimeLeft(0);
+  }
+
+  // SINCRONIZAR AUDIÊNCIA OU HOST RETORNANTE (ENTRADAS TARDIAS/REFRESH)
   useEffect(() => {
     async function syncOngoingBattle() {
-      if (!room || !room.host_id || role !== 'audience') return;
+      if (!room || !room.host_id) return;
       try {
         const { data: activeDBMatch } = await supabase.from('live_battles')
            .select('*')
@@ -277,10 +309,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
                    setBattleTimeLeft(0);
                 }
                 
-                // Pedir pontuação real para o host:
+                // Pedir pontuação real para o host da minha sala
                 supabase.channel(`live_chat:${room.id}`).send({
                     type: 'broadcast', event: 'score_request', payload: {}
                 }).catch(()=>{});
+
+                // Se eu sou o host e acabei de voltar de um F5, eu preciso pedir o placar pro OPONENTE
+                if (role === 'host' && oppLive?.id) {
+                    supabase.channel(`live_chat:${oppLive.id}`).send({
+                        type: 'broadcast', event: 'score_request', payload: {}
+                    }).catch(()=>{});
+                }
             }
         }
       } catch (e) {
@@ -853,16 +892,21 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
          if (role === 'host') {
              setActiveBattle((prevBattle: any) => {
                  if (prevBattle) {
+                     const payload = {
+                         roomId: room.id,
+                         score_a: prevBattle.score_a || 0,
+                         score_b: prevBattle.score_b || 0,
+                         sender_room_id: room.id
+                     };
                      supabase.channel(`live_chat:${room.id}`).send({
-                         type: 'broadcast',
-                         event: 'score_update',
-                         payload: {
-                             roomId: room.id,
-                             score_a: prevBattle.score_a || 0,
-                             score_b: prevBattle.score_b || 0,
-                             sender_room_id: room.id
-                         }
+                         type: 'broadcast', event: 'score_update', payload
                      }).catch(()=>{});
+
+                     if (prevBattle.opponentRoomId) {
+                         supabase.channel(`live_chat:${prevBattle.opponentRoomId}`).send({
+                             type: 'broadcast', event: 'score_update', payload
+                         }).catch(()=>{});
+                     }
                  }
                  return prevBattle;
              });
@@ -2057,14 +2101,25 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
             <div className="live-controls">
               {role === 'host' && (
                  <>
-                   <button 
-                     onClick={() => setIsBattleModalOpen(true)}
-                     className="control-btn"
-                     style={{ background: 'linear-gradient(to right, #dc2626, #ea580c)' }}
-                     title="CONFRONTO"
-                   >
-                     <Swords size={20} color="#fff" />
-                   </button>
+                   {!activeBattle ? (
+                     <button 
+                       onClick={() => setIsBattleModalOpen(true)}
+                       className="control-btn"
+                       style={{ background: 'linear-gradient(to right, #dc2626, #ea580c)' }}
+                       title="CONFRONTO"
+                     >
+                       <Swords size={20} color="#fff" />
+                     </button>
+                   ) : (
+                     <button 
+                       onClick={handleSurrenderBattle}
+                       className="control-btn"
+                       style={{ background: 'linear-gradient(to right, #991b1b, #7f1d1d)', display: 'flex', flexDirection: 'column', padding: '4px' }}
+                       title="Desistir do Confronto"
+                     >
+                       <span style={{ fontSize: '14px', lineHeight: 1 }}>🏳️</span>
+                     </button>
+                   )}
                    <button 
                      onClick={() => setIsBeautyMenuOpen(!isBeautyMenuOpen)}
                      className="control-btn"
