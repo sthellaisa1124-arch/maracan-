@@ -434,6 +434,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const beautyProcessorRef = useRef<any>(null);
   const vbgProcessorRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Refs ESTÁVEIS para os containers de vídeo remoto — evita pisca-pisca ao re-renderizar
+  const hostVideoRef = useRef<HTMLDivElement>(null);
+  const opponentVideoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchFreshProfile() {
@@ -593,12 +596,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   }, [activeGift, giftQueue]);
 
   // GARANTIR QUE A TRACK DE VÍDEO RODE MESMO DEPOIS DE ROTAS DE RENDERIZAÇÃO
+  // Usando refs estáveis (hostVideoRef / opponentVideoRef) para evitar parar o vídeo em re-renders
   useEffect(() => {
     // 1. Toca o host se o usuário for audiência
     if (role === 'audience') {
       const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
-      if (hostUser?.videoTrack) {
-        const el = document.getElementById(`remote-video-${room.host_id}`);
+      if (hostUser?.videoTrack && isActive) {
+        const el = hostVideoRef.current;
         if (el && el.childElementCount === 0) {
           hostUser.videoTrack.play(el);
         }
@@ -609,13 +613,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     if (activeBattle && activeBattle.opponentId) {
       const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
       if (opponentUser?.videoTrack) {
-        const elOp = document.getElementById('remote-video-opponent');
-        if (elOp && elOp.childElementCount === 0) {
-          opponentUser.videoTrack.play(elOp);
+        const el = opponentVideoRef.current;
+        if (el && el.childElementCount === 0) {
+          opponentUser.videoTrack.play(el);
         }
       }
     }
-  }, [remoteUsers, role, room.host_id, activeBattle]);
+  }, [remoteUsers, role, room.host_id, activeBattle, isActive]);
 
   async function initAgora() {
     const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
@@ -1521,23 +1525,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           <div 
             style={{ width: activeBattle ? '50%' : '100%', height: '100%', background: '#000', transition: 'width 0.3s', position: 'relative' }}
           >
-            {/* CONTAINER EXCLUSIVO PARA O AGORA RTC */}
+            {/* CONTAINER EXCLUSIVO PARA O AGORA RTC — ref ESTÁVEL para evitar pisca-pisca */}
             <div
               id={`remote-video-${room.host_id}`}
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-              ref={(el) => {
-                if (el) {
-                  const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
-                  if (hostUser?.videoTrack && isActive) {
-                    if (el.childElementCount === 0) {
-                      hostUser.videoTrack.play(el);
-                    }
-                  }
-                } else {
-                  const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
-                  if (hostUser?.videoTrack) hostUser.videoTrack.stop();
-                }
-              }}
+              ref={hostVideoRef}
             />
             {/* PLACEHOLDER REACT */}
             {!remoteUsers.find(u => String(u.uid) === String(room.host_id))?.videoTrack && (
@@ -1551,23 +1543,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         {/* Vídeo do Oponente na Batalha */}
         {activeBattle && (
            <div style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
-              {/* CONTAINER EXCLUSIVO AGORA RTC */}
+              {/* CONTAINER EXCLUSIVO AGORA RTC — ref ESTÁVEL para evitar pisca-pisca */}
               <div 
                  id={`remote-video-opponent`} 
                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-                 ref={(el) => {
-                    if (el) {
-                       const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
-                       if (opponentUser?.videoTrack) {
-                          if (el.childElementCount === 0) {
-                             opponentUser.videoTrack.play(el);
-                          }
-                       }
-                    } else {
-                       const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
-                       if (opponentUser?.videoTrack) opponentUser.videoTrack.stop();
-                    }
-                 }}
+                 ref={opponentVideoRef}
               />
               {/* PLACEHOLDER REACT */}
               {!remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId))?.videoTrack && (
