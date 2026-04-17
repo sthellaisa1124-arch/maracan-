@@ -11,6 +11,7 @@ import {
   Compass,
   Users,
   X,
+  Search,
   Eye,
   Bell,
   Zap,
@@ -24,7 +25,7 @@ import { UserBadges } from '../components/Badges';
 
 const POST_COST = 10000; // 10mil moral por post
 
-export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive, onOpenStatusCreator }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void, onOpenStatusCreator?: () => void }) {
+export function Community({ profile, session, unreadCount = 0, onViewProfile, onTabChange, isCreateModalOpen, onCloseCreateModal, onJoinLive, onOpenStatusCreator, onOpenSearch }: { profile: any, session: any, unreadCount?: number, onViewProfile: (username: string) => void, onTabChange: (tab: string) => void, isCreateModalOpen?: boolean, onCloseCreateModal?: () => void, onJoinLive?: (live: any) => void, onOpenStatusCreator?: () => void, onOpenSearch?: () => void }) {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
@@ -579,6 +580,21 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
 
       {/* --- HEADER FIXO MODERNO --- */}
       <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default', gap: '8px' }}>
+        {/* Lupa de Pesquisa à Esquerda */}
+        <button 
+          onClick={onOpenSearch}
+          style={{ 
+            background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.4rem', flexShrink: 0,
+            color: 'rgba(255,255,255,0.7)', transition: 'all 0.2s'
+          }}
+          className="hover:text-primary-glow"
+        >
+          <Search size={24} />
+        </button>
+
+        {/* Espaçador flexível para empurrar a logo para a direita */}
+        <div style={{ flex: 1 }} />
+
         <h3 className="vellar-neon-logo" style={{ margin: 0, flexShrink: 0 }}>
           <span className="logo-v">V</span>ELL<span className="logo-r">Λ</span>R
         </h3>

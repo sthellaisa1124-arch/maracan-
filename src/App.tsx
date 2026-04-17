@@ -318,6 +318,7 @@ function App() {
                     onTabChange={(tab: any) => handleTabChange(tab)}
                     onJoinLive={(live) => setActiveLiveRoom(live)}
                     onOpenStatusCreator={() => setIsCreatingStatus(true)}
+                    onOpenSearch={() => setShowSearch(true)}
                   />
                 )}
                 {/* O chat foi movido para o top-level (Portals) para resolver conflitos de position:fixed */}
