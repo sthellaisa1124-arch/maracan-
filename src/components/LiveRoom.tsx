@@ -408,6 +408,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [battleInviteStatus, setBattleInviteStatus] = useState<'pending' | 'rejected' | null>(null);
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false);
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const [hasFollowed, setHasFollowed] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
@@ -1659,6 +1660,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                   <UserPlus size={14} strokeWidth={3} /> SEGUIR
                 </button>
               )}
+
+              {/* BOTÃO COMPARTILHAR */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }}
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  border: 'none', borderRadius: '50%',
+                  width: '32px', height: '32px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', backdropFilter: 'blur(8px)', flexShrink: 0
+                }}
+              >
+                <Share2 size={15} color="#fff" />
+              </button>
             </div>
 
             <div className="live-badge-column">
@@ -1669,14 +1684,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                    margin: 0
                  }}>
                    {isBroadcasting ? '🔴 AO VIVO' : '🎬 PREPARAÇÃO'}
-                 </div>
-                 <div className="live-header-metrics" style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', padding: '2px 8px', borderRadius: '12px' }}>
-                   <span className="header-count-neon">
-                     <Users size={12} color="var(--primary)" /> {sessionViewers}
-                   </span>
-                   <span className="header-count-neon mini-likes" style={{ marginLeft: '8px' }}>
-                     <Heart size={12} fill="currentColor" /> {totalLikes}
-                   </span>
                  </div>
                 </div>
                 
@@ -2288,6 +2295,123 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               >
                 ENCERRAR AGORA
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE SHEET */}
+      {isShareOpen && (
+        <div
+          onClick={() => setIsShareOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1200000,
+            background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: 480,
+              background: 'linear-gradient(180deg, #111118 0%, #0a0a0f 100%)',
+              borderRadius: '24px 24px 0 0',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderBottom: 'none',
+              padding: '1.5rem 1.5rem 2.5rem',
+              animation: 'slideUpSheet 0.3s cubic-bezier(0.16,1,0.3,1)'
+            }}
+          >
+            {/* Handle */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 1.5rem' }} />
+
+            {/* Título */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <Share2 size={18} color="var(--primary)" />
+              <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Compartilhar Live</span>
+            </div>
+
+            {/* Preview da live */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '14px', marginBottom: '1.5rem' }}>
+              <img
+                src={room.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username}`}
+                style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }}
+              />
+              <div>
+                <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.9rem' }}>@{room.host_profile?.username || 'criador'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>🔴 Ao vivo agora • {sessionViewers} assistindo</div>
+              </div>
+            </div>
+
+            {/* Ações */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+
+              {/* Copiar link */}
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/live/${room.id}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    alert('Link copiado! ✅');
+                  }).catch(() => {
+                    // fallback para dispositivos sem clipboard API
+                    const el = document.createElement('textarea');
+                    el.value = url;
+                    document.body.appendChild(el);
+                    el.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(el);
+                    alert('Link copiado! ✅');
+                  });
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.85rem 1rem', borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🔗</span> Copiar Link
+              </button>
+
+              {/* WhatsApp */}
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/live/${room.id}`;
+                  const msg = encodeURIComponent(`🔴 Entra na live do @${room.host_profile?.username || 'criador'} agora! ${url}`);
+                  window.open(`https://wa.me/?text=${msg}`, '_blank');
+                }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.85rem 1rem', borderRadius: '14px',
+                  background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.25)',
+                  color: '#25D366', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>💬</span> Compartilhar no WhatsApp
+              </button>
+
+              {/* Share nativo (iOS/Android) */}
+              {navigator.share && (
+                <button
+                  onClick={async () => {
+                    try {
+                      await navigator.share({
+                        title: `Live de @${room.host_profile?.username || 'criador'}`,
+                        text: `🔴 Entra na live do @${room.host_profile?.username || 'criador'} agora!`,
+                        url: `${window.location.origin}/live/${room.id}`
+                      });
+                    } catch (e) { /* usuário cancelou */ }
+                  }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    padding: '0.85rem 1rem', borderRadius: '14px',
+                    background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(168,85,247,0.3)',
+                    color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📤</span> Mais opções de compartilhar
+                </button>
+              )}
             </div>
           </div>
         </div>
