@@ -114,6 +114,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [isGlobalMatchmakerOpen, setIsGlobalMatchmakerOpen] = useState(false);
   const [activeBattle, setActiveBattle] = useState<any | null>(null);
   const [battleTimeLeft, setBattleTimeLeft] = useState(180); // 3 minutes
+  const [showOpponentMiniProfile, setShowOpponentMiniProfile] = useState(false);
+  const [opponentSocialData, setOpponentSocialData] = useState({ followers: 0, following: 0, isFollowing: false });
+  const [isFollowingOpponentLoading, setIsFollowingOpponentLoading] = useState(false);
 
   useEffect(() => {
     if (activeBattle && battleTimeLeft > 0) {
@@ -121,6 +124,51 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       return () => clearTimeout(timer);
     }
   }, [activeBattle, battleTimeLeft]);
+
+  // Busca dados sociais do oponente quando o mini-perfil abre
+  useEffect(() => {
+    if (showOpponentMiniProfile && activeBattle?.opponentId) {
+       fetchOpponentSocialData(activeBattle.opponentId);
+    }
+  }, [showOpponentMiniProfile, activeBattle?.opponentId]);
+
+  async function fetchOpponentSocialData(targetId: string) {
+    if (!session?.user?.id || !targetId) return;
+    try {
+      const [{ count: followers }, { count: following }, { data: followData }] = await Promise.all([
+        supabase.from('follows').select('id', { count: 'exact' }).eq('following_id', targetId),
+        supabase.from('follows').select('id', { count: 'exact' }).eq('follower_id', targetId),
+        supabase.from('follows').select('id').eq('follower_id', session.user.id).eq('following_id', targetId).maybeSingle()
+      ]);
+      setOpponentSocialData({
+        followers: followers || 0,
+        following: following || 0,
+        isFollowing: !!followData
+      });
+    } catch (err) {
+      console.error("Erro social oponente:", err);
+    }
+  }
+
+  async function toggleFollowOpponent() {
+    if (!session?.user?.id || !activeBattle?.opponentId || isFollowingOpponentLoading) return;
+    setIsFollowingOpponentLoading(true);
+    const targetId = activeBattle.opponentId;
+    try {
+      if (opponentSocialData.isFollowing) {
+        await supabase.from('follows').delete().eq('follower_id', session.user.id).eq('following_id', targetId);
+        setOpponentSocialData(prev => ({ ...prev, isFollowing: false, followers: Math.max(0, prev.followers - 1) }));
+      } else {
+        await supabase.from('follows').insert([{ follower_id: session.user.id, following_id: targetId }]);
+        setOpponentSocialData(prev => ({ ...prev, isFollowing: true, followers: prev.followers + 1 }));
+        await supabase.from('notifications').insert({ user_id: targetId, from_user_id: session.user.id, type: 'follow' });
+      }
+    } catch (err) {
+      console.error("Erro toggle follow oponente:", err);
+    } finally {
+      setIsFollowingOpponentLoading(false);
+    }
+  }
 
   async function handleInviteOpponent(opponent: any) {
     setIsBattleModalOpen(false);
@@ -1583,23 +1631,30 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
         {/* Vídeo do Oponente na Batalha */}
         {activeBattle && (
-           <div style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
+           <div 
+             style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative', cursor: role === 'audience' ? 'pointer' : 'default' }}
+             onClick={() => {
+                if (role === 'audience' && activeBattle.opponentProfile) {
+                   setShowOpponentMiniProfile(true);
+                }
+             }}
+           >
               {/* CONTAINER EXCLUSIVO AGORA RTC — ref ESTÁVEL para evitar pisca-pisca */}
               <div 
                  id={`remote-video-opponent`} 
                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
                  ref={opponentVideoRef}
               />
-              {/* PLACEHOLDER REACT */}
+              {/* PLACEHOLDER REACT - Visível até o vídeo estabilizar */}
               {!remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId))?.videoTrack && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none' }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', background: '#000' }}>
                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <img 
                         src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} 
-                        style={{ width: '64px', height: '64px', borderRadius: '50%', marginBottom: '8px', opacity: 0.5, objectFit: 'cover' }} 
+                        style={{ width: '84px', height: '84px', borderRadius: '50%', marginBottom: '12px', opacity: 0.8, objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} 
                         alt="Opponent"
                       />
-                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+                      <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', fontWeight: 600, animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
                         Conectando oponente...
                       </div>
                    </div>
@@ -2405,6 +2460,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               </div>
            </div>
         </div>
+      )}
+
+      {/* ABA FLUTUANTE DO OPONENTE */}
+      {showOpponentMiniProfile && activeBattle?.opponentProfile && (
+        <OpponentMiniProfile 
+          profile={activeBattle.opponentProfile}
+          socialData={opponentSocialData}
+          onClose={() => setShowOpponentMiniProfile(false)}
+          onFollow={toggleFollowOpponent}
+          onViewFullProfile={() => {
+            window.dispatchEvent(new CustomEvent('openProfile', { detail: { username: activeBattle.opponentProfile.username } }));
+            if (onClose) onClose();
+          }}
+        />
       )}
 
       {isBattleModalOpen && (
@@ -3539,3 +3608,105 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   if (inline) return content;
   return createPortal(content, document.body);
 }
+
+// COMPONENTE MINI PERFIL (ABA FLUTUANTE - ESTILO TIKTOK)
+function OpponentMiniProfile({ profile, socialData, onClose, onFollow, onViewFullProfile }: any) {
+  const [startY, setStartY] = useState(0);
+  const [currentY, setCurrentY] = useState(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => setStartY(e.touches[0].clientY);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const deltaY = e.touches[0].clientY - startY;
+    if (deltaY < 0) setCurrentY(deltaY);
+  };
+  const handleTouchEnd = () => {
+    if (currentY < -50) onClose();
+    else setCurrentY(0);
+  };
+
+  const rankLevel = getGifterLevel(profile.total_donated || 0);
+
+  return (
+    <div 
+      className="mini-profile-backdrop"
+      style={{ position: 'fixed', inset: 0, zIndex: 600000, display: 'flex', flexDirection: 'column', outline: 'none' }}
+      onClick={onClose}
+    >
+      <div 
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ 
+          width: '100%', 
+          background: 'rgba(15, 15, 20, 0.95)', 
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(168, 85, 247, 0.2)',
+          borderRadius: '0 0 24px 24px',
+          padding: '1.5rem',
+          paddingTop: '3rem',
+          transform: `translateY(${currentY}px)`,
+          transition: currentY === 0 ? 'transform 0.3s ease-out' : 'none',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+          animation: 'slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+          position: 'relative'
+        }}
+      >
+        <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', width: '36px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }} />
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem', marginBottom: '1.5rem' }}>
+          <img 
+            src={profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`} 
+            style={{ width: '70px', height: '70px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+          />
+          <div style={{ flex: 1 }}>
+            <h2 onClick={onViewFullProfile} style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 800, margin: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              @{profile.username}
+              <ChevronRight size={18} color="rgba(255,255,255,0.4)" />
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 900, background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                RANK {rankLevel}
+              </div>
+              <UserBadges badges={profile.badges} donatedAmount={profile.total_donated} size={14} />
+            </div>
+          </div>
+          <button 
+            onClick={onFollow}
+            style={{ 
+              background: socialData.isFollowing ? 'rgba(255,255,255,0.1)' : 'var(--primary)', 
+              color: socialData.isFollowing ? '#fff' : '#000',
+              border: 'none', padding: '0.6rem 1.25rem', borderRadius: '12px', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer'
+            }}
+          >
+            {socialData.isFollowing ? 'Seguindo' : 'Seguir'}
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '2rem', padding: '1rem 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>{socialData.followers}</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Seguidores</div>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 800 }}>{socialData.following}</div>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Seguindo</div>
+          </div>
+        </div>
+
+        <button 
+          onClick={onViewFullProfile}
+          style={{ 
+            width: '100%', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+            color: '#fff', padding: '1rem', borderRadius: '14px', marginTop: '0.5rem', fontWeight: 700, cursor: 'pointer'
+          }}
+        >
+          Ir para o perfil completo
+        </button>
+      </div>
+      <div style={{ flex: 1 }} />
+    </div>
+  );
+}
+
+export default LiveRoom;
