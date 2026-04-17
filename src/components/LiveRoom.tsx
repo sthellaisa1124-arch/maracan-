@@ -468,6 +468,28 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         if (data?.likes_count) setTotalLikes(data.likes_count);
       });
 
+    // Carregar histórico de mensagens (não quebra caso a tabela ainda não exista)
+    supabase
+      .from('live_chat_messages')
+      .select('content, is_system, profiles(username, avatar_url, total_donated, badges)')
+      .eq('room_id', room.id)
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+           const formatted = data.reverse().map((msg: any) => ({
+              username: msg.profiles?.username || 'Cria',
+              content: msg.content,
+              isSystem: msg.is_system,
+              badges: msg.profiles?.badges || [],
+              donated_amount: msg.profiles?.total_donated || 0
+           }));
+           setChat(formatted);
+        }
+      })
+      .catch(() => {}); // Ignora se o usuário ainda não rodou a migration
+
+
     const timer = setTimeout(() => {
       // Se for desmontado prematuramente pelo React (ex: modo estrito no dev), não abre a câmera dupla!
       if (!active) return;
@@ -867,18 +889,21 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       })
       .on('broadcast', { event: 'like' }, ({ payload }) => {
         setSessionLikes(prev => prev + 1);
-        setTotalLikes(payload.totalCount || (totalLikes + 1));
         
-        // Host persiste no banco as curtidas vindas da rede (contornando o RLS da audiência)
-        if (role === 'host' && payload.userId !== session.user.id) {
-           if (payload.totalCount % 5 === 0 || payload.totalCount <= 3) {
-              supabase
-                 .from('live_sessions')
-                 .update({ likes_count: payload.totalCount })
-                 .eq('id', room.id)
-                 .then(() => {});
+        setTotalLikes(prev => {
+           const updatedTotal = prev + 1;
+           // Host persiste no banco as curtidas vindas da rede (incremento puro)
+           if (role === 'host' && payload.userId !== session.user.id) {
+              if (updatedTotal % 5 === 0 || updatedTotal <= 3) {
+                 supabase
+                    .from('live_sessions')
+                    .update({ likes_count: updatedTotal })
+                    .eq('id', room.id)
+                    .then(() => {});
+              }
            }
-        }
+           return updatedTotal;
+        });
 
         // Se não fui eu que curti, mostro um coração flutuante vindo da rede
         if (payload.userId !== session.user.id) {
@@ -1112,6 +1137,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
     setChat(prev => [...prev, msgData]);
     setMessage('');
+
+    // Salvar silenciosamente no banco para histórico
+    supabase.from('live_chat_messages').insert({
+       room_id: room.id,
+       profile_id: session.user.id,
+       content: message
+    }).then(() => {}).catch(() => {});
   }
 
   async function handleSendGift(gift: any) {
@@ -1173,6 +1205,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       badges: giftData.badges,
       donated_amount: giftData.donated_amount
     }]);
+
+    // Persistir o presente no histórico do chat silenciosamente
+    supabase.from('live_chat_messages').insert({
+       room_id: room.id,
+       profile_id: session.user.id,
+       content: `🎁 enviou um ${gift.name}!`,
+       is_system: true,
+       gift_data: gift
+    }).then(() => {}).catch(() => {});
 
     // Contagem da meta para o próprio host (visual local)
     const isMatch = !giftGoalId || gift.id === giftGoalId;
@@ -1245,7 +1286,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       event: 'like',
       payload: { 
         userId: session.user.id,
-        totalCount: newLikes
+        increment: 1
       }
     });
 
