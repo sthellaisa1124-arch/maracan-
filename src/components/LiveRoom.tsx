@@ -1637,8 +1637,13 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                   @{room.host_profile?.username || 'criador'}
                   <UserBadges badges={room.host_profile?.badges} donatedAmount={room.host_profile?.total_donated} size={14} />
                 </span>
-                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '120px', display: 'block' }}>
-                  {room.title || 'Live'}
+                <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Users size={11} color="var(--primary)" /> {sessionViewers}
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px', color: '#f87171' }}>
+                    <Heart size={11} fill="#f87171" color="#f87171" /> {totalLikes}
+                  </span>
                 </span>
               </div>
               

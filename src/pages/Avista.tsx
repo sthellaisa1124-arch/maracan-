@@ -27,6 +27,7 @@ export function Avista({
   const [currentTab, setCurrentTab] = useState<'avista' | 'lives'>('avista');
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
+  const [activeLiveRoom, setActiveLiveRoom] = useState<any | null>(null);
   const [showSetupLive, setShowSetupLive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('TUDO');
@@ -108,7 +109,10 @@ export function Avista({
               <div 
                 key={live.id} 
                 className="live-card-elite"
-                onClick={() => setActiveLiveId(live.id)}
+                onClick={() => {
+                  setActiveLiveId(live.id);
+                  setActiveLiveRoom(live);
+                }}
               >
                 <img 
                   src={live.cover_url || live.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${live.user_id}`} 
@@ -191,6 +195,7 @@ export function Avista({
       } else {
          setLiveSessions([]);
          setActiveLiveId(null);
+         setActiveLiveRoom(null);
       }
     } catch (e) { console.error('Erro fetching lives:', e); }
   }
@@ -626,16 +631,17 @@ export function Avista({
         {currentTab === 'lives' && renderLiveHub()}
 
         {/* Modal de Live Selecionada */}
-        {activeLiveId && currentTab === 'lives' && (
+        {activeLiveRoom && currentTab === 'lives' && (
           <LiveRoom 
              session={session}
              userProfile={null}
              role="audience"
-             room={liveSessions.find(l => l.id === activeLiveId)}
+             room={activeLiveRoom}
              inline={false}
              isActive={true}
              onClose={() => {
                 setActiveLiveId(null);
+                setActiveLiveRoom(null);
                 fetchActiveLives();
              }}
           />
