@@ -1387,7 +1387,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
     <div 
       className={`live-room-container ${inline ? 'is-inline' : ''}`}
       style={inline ? {
-        position: 'absolute', inset: 0, backgroundColor: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+        position: 'absolute', inset: 0, backgroundColor: '#000', display: 'flex', flexDirection: 'column', overflow: 'visible', touchAction: 'pan-y'
       } : { 
         position: 'fixed', inset: 0, zIndex: 20000, backgroundColor: '#000000', display: 'flex', flexDirection: 'column', visibility: 'visible', opacity: 1
       }}
@@ -1456,6 +1456,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
         className="live-overlay"
         onTouchEnd={role === 'audience' ? handleDoubleTap : undefined}
         onDoubleClick={role === 'audience' ? handleDoubleTap : undefined}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, touchAction: 'pan-y' }}
       >
 
         {activeBattle && activeBattle.endTime && (
