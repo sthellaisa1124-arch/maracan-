@@ -689,7 +689,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {/* Inputs Escondidos */}
                 <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => handleFileSelect(e)} />
-                <input type="file" hidden ref={cameraInputRef} accept="image/*" capture="environment" onChange={(e) => handleFileSelect(e, true)} />
+                <input type="file" hidden ref={cameraInputRef} accept="image/*" capture="camera" onChange={(e) => handleFileSelect(e, true)} />
 
                 <div className="chat-input-urban" style={{ flex: 1, position: 'relative' }}>
                   {/* Botões de Anexo */}
