@@ -821,7 +821,8 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           group={activeStatusGroup} 
           viewerId={session?.user?.id}
           onRefresh={() => setStatusRefreshKey(prev => prev + 1)}
-          onClose={() => setActiveStatusGroup(null)} 
+          onClose={() => setActiveStatusGroup(null)}
+          onViewProfile={onViewProfile}
         />
       )}
 

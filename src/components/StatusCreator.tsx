@@ -1,6 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Camera, Type, Video, Loader2, Send, Image as ImageIcon, RotateCcw, ChevronLeft } from 'lucide-react';
+import { X, Type, Loader2, Send, Image as ImageIcon, RotateCcw, ChevronLeft, UserPlus, Tag, Search, Move } from 'lucide-react';
+
+interface TaggedUser {
+  user_id: string;
+  username: string;
+  avatar_url: string;
+  position_x: number; // 0.0 a 1.0
+  position_y: number; // 0.0 a 1.0
+}
 
 export function StatusCreator({ session, onClose, onRefresh }: { session: any, onClose: () => void, onRefresh: () => void }) {
   const [type, setType] = useState<'text' | 'image' | 'video'>('image');
@@ -9,6 +17,16 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
   const [preview, setPreview] = useState<string | null>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null);
+
+  // Estado de marcações
+  const [showTagSearch, setShowTagSearch] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [tagResults, setTagResults] = useState<any[]>([]);
+  const [searchingTags, setSearchingTags] = useState(false);
+  const [taggedUsers, setTaggedUsers] = useState<TaggedUser[]>([]);
+  const [draggingTag, setDraggingTag] = useState<string | null>(null);
+  const [showTagsOverlay, setShowTagsOverlay] = useState(true);
+  const mediaContainerRef = useRef<HTMLDivElement>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -26,6 +44,83 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
   useEffect(() => {
     return () => stopCamera();
   }, []);
+
+  // Buscar usuários para marcar
+  useEffect(() => {
+    if (!tagSearch.trim()) {
+      setTagResults([]);
+      return;
+    }
+    const timer = setTimeout(searchUsers, 400);
+    return () => clearTimeout(timer);
+  }, [tagSearch]);
+
+  async function searchUsers() {
+    if (!tagSearch.trim()) return;
+    setSearchingTags(true);
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .ilike('username', `%${tagSearch}%`)
+        .neq('id', userId)
+        .limit(8);
+      
+      // Filtrar usuários já marcados
+      const alreadyTagged = new Set(taggedUsers.map(t => t.user_id));
+      setTagResults((data || []).filter(u => !alreadyTagged.has(u.id)));
+    } finally {
+      setSearchingTags(false);
+    }
+  }
+
+  function addTag(user: any) {
+    setTaggedUsers(prev => [...prev, {
+      user_id: user.id,
+      username: user.username,
+      avatar_url: user.avatar_url || '',
+      position_x: 0.5,
+      position_y: 0.5
+    }]);
+    setTagSearch('');
+    setTagResults([]);
+    setShowTagSearch(false);
+    setShowTagsOverlay(true);
+  }
+
+  function removeTag(userId: string) {
+    setTaggedUsers(prev => prev.filter(t => t.user_id !== userId));
+  }
+
+  function handleTagDragStart(e: React.TouchEvent | React.MouseEvent, tagUserId: string) {
+    e.stopPropagation();
+    setDraggingTag(tagUserId);
+  }
+
+  function handleContainerDrag(e: React.TouchEvent | React.MouseEvent) {
+    if (!draggingTag || !mediaContainerRef.current) return;
+    const rect = mediaContainerRef.current.getBoundingClientRect();
+    
+    let clientX: number, clientY: number;
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
+    }
+    
+    const x = Math.max(0.05, Math.min(0.95, (clientX - rect.left) / rect.width));
+    const y = Math.max(0.05, Math.min(0.95, (clientY - rect.top) / rect.height));
+    
+    setTaggedUsers(prev => prev.map(t => 
+      t.user_id === draggingTag ? { ...t, position_x: x, position_y: y } : t
+    ));
+  }
+
+  function handleDragEnd() {
+    setDraggingTag(null);
+  }
 
   async function startCamera() {
     try {
@@ -114,7 +209,7 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
     const fileToUpload = capturedBlob || galleryFile;
 
     if (type !== 'text' && !fileToUpload && !preview) {
-      alert("Selecione uma mídia, cria!");
+      alert("Seleciona uma mídia, cria!");
       return;
     }
 
@@ -134,14 +229,35 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
         mediaUrl = publicUrl;
       }
 
-      const { error: insertError } = await supabase.from('status_posts').insert([{
+      const { data: newStatus, error: insertError } = await supabase.from('status_posts').insert([{
         user_id: userId,
         content: type === 'text' ? content : '',
         media_url: mediaUrl,
         media_type: type
-      }]);
+      }]).select('id').single();
 
       if (insertError) throw insertError;
+
+      // Salvar marcações
+      if (newStatus && taggedUsers.length > 0) {
+        const tagsToInsert = taggedUsers.map(tag => ({
+          status_id: newStatus.id,
+          tagged_user_id: tag.user_id,
+          position_x: tag.position_x,
+          position_y: tag.position_y
+        }));
+        
+        await supabase.from('status_tags').insert(tagsToInsert);
+
+        // Notificar os marcados
+        const notifs = taggedUsers.map(tag => ({
+          user_id: tag.user_id,
+          from_user_id: userId,
+          type: 'status_tag',
+          post_id: newStatus.id
+        }));
+        await supabase.from('notifications').insert(notifs);
+      }
 
       onRefresh();
       onClose();
@@ -152,6 +268,8 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
       setUploading(false);
     }
   }
+
+  const canTag = (preview || type === 'image' || type === 'video') && !isCameraActive;
 
   return (
     <div className="instagram-story-mode" style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9999999, display: 'flex', flexDirection: 'column' }}>
@@ -171,6 +289,12 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
           transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           box-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
           border: 4px solid #fff;
+          animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(168, 85, 247, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
         }
         .capture-circle:active { transform: scale(0.85); filter: brightness(1.2); }
         .inner-circle { width: 62px; height: 62px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
@@ -184,6 +308,7 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
           box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .story-header-btn:active { transform: scale(0.9); background: rgba(168, 85, 247, 0.4); }
+        .story-header-btn.active { background: rgba(168, 85, 247, 0.6); border-color: rgba(168, 85, 247, 0.9); }
 
         .story-footer-btn {
           background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(15px);
@@ -218,10 +343,62 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
         }
         .send-pill:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(168, 85, 247, 0.6); }
         .send-pill:active { transform: scale(0.95); }
+
+        .tag-search-panel {
+          position: absolute; bottom: 120px; left: 16px; right: 16px;
+          background: rgba(10,10,10,0.95); backdrop-filter: blur(20px);
+          border: 1px solid rgba(168,85,247,0.4); border-radius: 20px;
+          padding: 1rem; z-index: 100;
+          animation: slideUp 0.2s ease;
+        }
+        .tag-input {
+          width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; padding: 0.7rem 1rem; color: #fff; font-size: 0.95rem;
+          outline: none; box-sizing: border-box;
+        }
+        .tag-result-item {
+          display: flex; align-items: center; gap: 10px;
+          padding: 0.7rem 0.5rem; border-radius: 12px; cursor: pointer;
+          transition: background 0.15s;
+        }
+        .tag-result-item:hover { background: rgba(168,85,247,0.15); }
+
+        .tag-overlay-pill {
+          position: absolute;
+          transform: translate(-50%, -50%);
+          background: rgba(0,0,0,0.65);
+          backdrop-filter: blur(8px);
+          border: 2px solid rgba(168,85,247,0.9);
+          border-radius: 24px;
+          padding: 5px 10px 5px 6px;
+          display: flex; align-items: center; gap: 6px;
+          color: #fff; font-size: 0.82rem; font-weight: 800;
+          cursor: grab; white-space: nowrap;
+          user-select: none; touch-action: none;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+          animation: tagPulse 2s ease-in-out infinite;
+        }
+        .tag-overlay-pill:active { cursor: grabbing; transform: translate(-50%,-50%) scale(1.05); }
+        @keyframes tagPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,0.5); }
+          50% { box-shadow: 0 0 0 8px rgba(168,85,247,0); }
+        }
+        .tag-remove-btn {
+          background: rgba(239,68,68,0.8); border: none; border-radius: 50%;
+          width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+          cursor: pointer; color: #fff; font-size: 10px; padding: 0; flex-shrink: 0;
+        }
       `}</style>
       
-      {/* 🟢 LAYER DE FUNDO (CÂMERA, PREVIEW OU TEXTO) */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+      {/* 🟢 LAYER DE FUNDO */}
+      <div 
+        ref={mediaContainerRef}
+        style={{ position: 'absolute', inset: 0, zIndex: 1 }}
+        onMouseMove={draggingTag ? handleContainerDrag : undefined}
+        onTouchMove={draggingTag ? handleContainerDrag : undefined}
+        onMouseUp={handleDragEnd}
+        onTouchEnd={handleDragEnd}
+      >
         {type === 'text' && !preview ? (
           <div className="text-story-bg" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
             <textarea 
@@ -241,7 +418,7 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
               width: '100%', 
               height: '100%', 
               objectFit: 'cover',
-              transform: 'scaleX(-1)' // Espelha a câmera selfie
+              transform: 'scaleX(-1)'
             }} 
           />
         ) : (
@@ -253,7 +430,7 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
                   width: '100%', 
                   height: '100%', 
                   objectFit: 'cover',
-                  transform: capturedBlob ? 'scaleX(-1)' : 'none' // Espelha preview se for captura direta
+                  transform: capturedBlob ? 'scaleX(-1)' : 'none'
                 }} 
                 alt="Preview" 
               />
@@ -261,41 +438,156 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
             {type === 'video' && <video src={preview!} style={{ width: '100%', height: '100%', objectFit: 'contain' }} controls autoPlay />}
           </div>
         )}
+
+        {/* OVERLAY DE TAGS ARRASTÁVEIS */}
+        {showTagsOverlay && preview && taggedUsers.map(tag => (
+          <div
+            key={tag.user_id}
+            className="tag-overlay-pill"
+            style={{
+              left: `${tag.position_x * 100}%`,
+              top: `${tag.position_y * 100}%`,
+            }}
+            onMouseDown={(e) => handleTagDragStart(e, tag.user_id)}
+            onTouchStart={(e) => handleTagDragStart(e, tag.user_id)}
+          >
+            <Move size={12} style={{ opacity: 0.7 }} />
+            <img 
+              src={tag.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tag.user_id}`}
+              alt={tag.username}
+              style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover' }}
+            />
+            @{tag.username}
+            <button 
+              className="tag-remove-btn"
+              onClick={(e) => { e.stopPropagation(); removeTag(tag.user_id); }}
+            >
+              ×
+            </button>
+          </div>
+        ))}
       </div>
 
-      {/* ⚪ LAYER DE CONTROLES (HEADER) */}
+      {/* ⚪ HEADER */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, padding: 'calc(env(safe-area-inset-top, 20px) + 20px) 25px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <button className="story-header-btn" onClick={() => { stopCamera(); onClose(); }} title="Voltar">
           <ChevronLeft size={28} />
         </button>
         
-        <div style={{ display: 'flex', gap: '15px' }}>
+        <div style={{ display: 'flex', gap: '12px' }}>
           {type !== 'text' && !preview && (
             <button className="story-header-btn" onClick={() => { stopCamera(); setType('text'); }} title="Escrever">
               <Type size={24} />
             </button>
           )}
           {preview && (
-            <button className="story-header-btn" onClick={() => { setPreview(null); setCapturedBlob(null); setType('image'); }} title="Resetar">
-              <RotateCcw size={24} />
-            </button>
+            <>
+              {/* Botão de Marcar Usuário */}
+              <button 
+                className={`story-header-btn ${showTagSearch ? 'active' : ''}`}
+                onClick={() => setShowTagSearch(p => !p)} 
+                title="Marcar usuário"
+              >
+                <UserPlus size={24} />
+              </button>
+              
+              {/* Indicador de quantos foram marcados */}
+              {taggedUsers.length > 0 && (
+                <button 
+                  className={`story-header-btn ${showTagsOverlay ? 'active' : ''}`}
+                  onClick={() => setShowTagsOverlay(p => !p)}
+                  title="Ver/ocultar marcações"
+                  style={{ position: 'relative' }}
+                >
+                  <Tag size={22} />
+                  <span style={{
+                    position: 'absolute', top: '-4px', right: '-4px',
+                    background: '#a855f7', color: '#fff',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    fontSize: '0.7rem', fontWeight: 900,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}>
+                    {taggedUsers.length}
+                  </span>
+                </button>
+              )}
+
+              <button className="story-header-btn" onClick={() => { setPreview(null); setCapturedBlob(null); setType('image'); setTaggedUsers([]); }} title="Resetar">
+                <RotateCcw size={24} />
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      {/* 🔘 LAYER DE CONTROLES (FOOTER) */}
+      {/* PAINEL DE BUSCA DE USUÁRIOS PARA MARCAR */}
+      {showTagSearch && preview && (
+        <div className="tag-search-panel" style={{ zIndex: 100 }}>
+          <p style={{ margin: '0 0 0.8rem', fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: '1px' }}>
+            <Tag size={12} style={{ display: 'inline', marginRight: '4px' }} />
+            MARCAR ALGUÉM
+          </p>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="tag-input"
+              placeholder="Buscar por @username..."
+              value={tagSearch}
+              onChange={e => setTagSearch(e.target.value)}
+              autoFocus
+            />
+            {searchingTags && (
+              <Loader2 className="animate-spin" size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)' }} />
+            )}
+          </div>
+
+          {tagResults.length > 0 && (
+            <div style={{ marginTop: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+              {tagResults.map(user => (
+                <div
+                  key={user.id}
+                  className="tag-result-item"
+                  onClick={() => addTag(user)}
+                >
+                  <img 
+                    src={user.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`}
+                    alt={user.username}
+                    style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(168,85,247,0.4)' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>@{user.username}</div>
+                  </div>
+                  <UserPlus size={16} style={{ marginLeft: 'auto', color: 'rgba(168,85,247,0.8)' }} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {tagSearch && !searchingTags && tagResults.length === 0 && (
+            <p style={{ textAlign: 'center', fontSize: '0.85rem', color: 'rgba(255,255,255,0.3)', padding: '1rem 0 0' }}>
+              Nenhum usuário encontrado 😕
+            </p>
+          )}
+
+          {/* Lista de já marcados */}
+          {taggedUsers.length > 0 && (
+            <div style={{ marginTop: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.8rem' }}>
+              <p style={{ margin: '0 0 0.5rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>MARCADOS:</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {taggedUsers.map(tag => (
+                  <div key={tag.user_id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)', borderRadius: '12px', padding: '4px 10px 4px 6px', fontSize: '0.8rem', fontWeight: 700 }}>
+                    <img src={tag.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${tag.user_id}`} style={{ width: '18px', height: '18px', borderRadius: '50%' }} alt={tag.username} />
+                    @{tag.username}
+                    <button onClick={() => removeTag(tag.user_id)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', padding: 0, fontSize: '14px', lineHeight: 1 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 🔘 FOOTER */}
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10, padding: '0 30px calc(env(safe-area-inset-bottom, 40px) + 60px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <style>{`
-          @keyframes pulse-ring {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(168, 85, 247, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); }
-          }
-          .capture-circle {
-            animation: pulse-ring 2s infinite;
-          }
-        `}</style>
-        
         {/* GALERIA */}
         {!preview ? (
           <button className="story-footer-btn" onClick={() => galleryInputRef.current?.click()}>

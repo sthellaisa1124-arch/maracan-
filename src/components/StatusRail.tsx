@@ -40,8 +40,18 @@ export function StatusRail({ session, profile, onOpenStatus, onOpenCreator }: { 
       .eq('is_live', true)
       .is('ended_at', null);
 
+    let allowedUserIds: string[] = [];
+    if (userId) {
+       const { data: follows } = await supabase
+         .from('follows')
+         .select('following_id')
+         .eq('follower_id', userId);
+       allowedUserIds = (follows?.map(f => f.following_id) || []);
+       allowedUserIds.push(userId); // Mostrar os próprios stories
+    }
+
     // 2. Buscar status ativos (24h)
-    const { data: statuses } = await supabase
+    let statusQuery = supabase
       .from('status_posts')
       .select(`
         *,
@@ -49,6 +59,15 @@ export function StatusRail({ session, profile, onOpenStatus, onOpenCreator }: { 
       `)
       .gt('created_at', yesterday)
       .order('created_at', { ascending: false });
+
+    if (userId && allowedUserIds.length > 0) {
+      statusQuery = statusQuery.in('user_id', allowedUserIds);
+    } else {
+      // Usuário não logado, não carrega stories
+      statusQuery = statusQuery.eq('user_id', '00000000-0000-0000-0000-000000000000');
+    }
+
+    const { data: statuses } = await statusQuery;
 
     // 3. Buscar visualizações do usuário logado
     const { data: views } = await supabase
