@@ -101,7 +101,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           .select('following_id')
           .eq('follower_id', session.user.id);
 
-        const followingIds = followingData?.map(f => f.following_id) || [];
+        const followingIds = [session.user.id, ...(followingData?.map(f => f.following_id) || [])];
 
         if (followingIds.length > 0) {
             const { data: socialPosts } = await supabase
