@@ -2514,7 +2514,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         .live-room-container {
           position: fixed !important; 
           inset: 0 !important; 
-          z-index: 5000 !important;
+          z-index: 500000 !important;
           background: #000000 !important; 
           color: #fff;
           display: flex; 
