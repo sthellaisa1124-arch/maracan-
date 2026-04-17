@@ -25,8 +25,9 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
     try {
       const { data, error } = await supabase
         .from('live_sessions')
-        .select(`id, host_id, agora_channel, title, viewer_count, profiles:host_id(username, avatar_url, name)`)
+        .select(`id, host_id, agora_channel, title, viewer_count, host_profile:profiles(username, avatar_url, name)`)
         .eq('is_live', true)
+        .is('ended_at', null)
         .neq('host_id', currentHostId)
         .order('viewer_count', { ascending: false });
 
@@ -147,11 +148,11 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {liveCreators
                 .filter(creator => 
-                  creator.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                  creator.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                  creator.host_profile?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  creator.host_profile?.name?.toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((creator) => {
-                const profile = creator.profiles;
+                const profile = creator.host_profile;
                 if (!profile) return null;
                 return (
                   <div key={creator.id} style={{
@@ -202,8 +203,8 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
               
               {/* Fallback se a pesquisa não achar ninguém */}
               {liveCreators.filter(creator => 
-                  creator.profiles?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                  creator.profiles?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                  creator.host_profile?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  creator.host_profile?.name?.toLowerCase().includes(searchQuery.toLowerCase())
                 ).length === 0 && liveCreators.length > 0 && (
                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
                     Nenhum criador encontrado com "{searchQuery}"
