@@ -1845,20 +1845,23 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                ✖ SAIR
             </button>
             <button
-               onClick={(e) => { e.stopPropagation(); toggleBattleReady(); }}
-               style={{
-                  background: myBattleReady 
-                    ? 'rgba(255,255,255,0.1)' 
-                    : 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                  border: myBattleReady ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                  borderRadius: '20px', padding: '10px 24px', color: myBattleReady ? '#fff' : '#000', 
-                  fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer',
-                  boxShadow: myBattleReady ? 'none' : '0 4px 15px rgba(245,158,11,0.4)'
-               }}>
-               {myBattleReady 
-                 ? (opponentBattleReady ? '🚀 INICIANDO...' : '⏳ AGUARDANDO...') 
-                 : '⚔️ INICIAR CONFRONTO'}
-            </button>
+                onClick={(e) => { e.stopPropagation(); toggleBattleReady(); }}
+                style={{
+                   background: myBattleReady 
+                     ? 'rgba(255,255,255,0.1)' 
+                     : (opponentBattleReady 
+                         ? 'linear-gradient(135deg, #10b981, #059669)' // Verde se o outro está pronto
+                         : 'linear-gradient(135deg, #fbbf24, #f59e0b)'),
+                   border: myBattleReady ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                   borderRadius: '20px', padding: '10px 24px', color: '#fff', 
+                   fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer',
+                   boxShadow: myBattleReady ? 'none' : '0 4px 15px rgba(245,158,11,0.4)',
+                   animation: (opponentBattleReady && !myBattleReady) ? 'pulse 1.5s infinite' : 'none'
+                }}>
+                {myBattleReady 
+                  ? (opponentBattleReady ? '🚀 INICIANDO...' : '⏳ AGUARDANDO...') 
+                  : (opponentBattleReady ? '✅ OPONENTE PRONTO! ACEITAR?' : '⚔️ INICIAR CONFRONTO')}
+             </button>
           </div>
         )}
 
