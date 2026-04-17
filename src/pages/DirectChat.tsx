@@ -99,6 +99,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [stream, setStream] = useState<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [mediaCaption, setMediaCaption] = useState('');
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -429,7 +430,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     const newMsg = {
       sender_id: userId,
       receiver_id: selectedUser.id,
-      content: type === 'image' ? '📷 Foto' : '🎤 Áudio',
+      content: mediaCaption.trim() || (type === 'image' ? '📷 Foto' : '🎤 Áudio'),
       [type === 'image' ? 'image_url' : 'audio_url']: mediaUrl
     };
 
@@ -447,6 +448,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     setIsUploading(false);
     setMediaPreview(null);
     setSelectedFile(null);
+    setMediaCaption('');
   }
 
   async function sendMessage() {
@@ -797,14 +799,33 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                     <X size={24} />
                   </button>
                 </div>
-                <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px' }}>
-                  <button 
-                    onClick={() => sendMediaMessage(selectedFile!, 'image')}
-                    disabled={isUploading}
-                    style={{ flex: 1, background: 'var(--primary)', border: 'none', color: '#000', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                  >
-                    {isUploading ? <Loader2 className="animate-spin" /> : <><Send size={20} /> ENVIAR PAPO</>}
-                  </button>
+                <div style={{ marginTop: '1.5rem', width: '100%', maxWidth: '350px' }}>
+                  <input 
+                    type="text"
+                    placeholder="Escreva uma legenda..."
+                    value={mediaCaption}
+                    onChange={(e) => setMediaCaption(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      color: '#fff',
+                      fontSize: '1rem',
+                      outline: 'none',
+                      marginBottom: '1rem'
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button 
+                      onClick={() => sendMediaMessage(selectedFile!, 'image')}
+                      disabled={isUploading}
+                      style={{ flex: 1, background: 'var(--primary)', border: 'none', color: '#000', padding: '1rem', borderRadius: '16px', fontWeight: 900, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      {isUploading ? <Loader2 className="animate-spin" /> : <><Send size={20} /> ENVIAR PAPO</>}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
