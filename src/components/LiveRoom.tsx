@@ -234,56 +234,51 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
   useEffect(() => {
     async function syncOngoingBattle() {
       if (!room || !room.host_id || role !== 'audience') return;
-      const { data, error } = await supabase
-        .from('battle_queue')
-        .select('*')
-        .eq('status', 'matched')
-        .or(`host_id.eq.${room.host_id},opponent_id.eq.${room.host_id}`)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      try {
+        const { data: activeDBMatch } = await supabase.from('live_battles')
+           .select('*')
+           .eq('status', 'active')
+           .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
+           .maybeSingle();
 
-      if (data && !error) {
-        const opponentId = data.host_id === room.host_id ? data.opponent_id : data.host_id;
-        try {
-           const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
-           const { data: oppLive } = await supabase.from('live_sessions').select('id, agora_channel').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
+        if (activeDBMatch) {
+            const opponentId = activeDBMatch.host_a_id === room.host_id ? activeDBMatch.host_b_id : activeDBMatch.host_a_id;
+            const oppChannel = activeDBMatch.host_a_id === room.host_id ? activeDBMatch.agora_channel_b : activeDBMatch.agora_channel_a;
            
-           if (oppProfile && oppLive) {
-              const { data: activeDBMatch } = await supabase.from('live_battles')
-                 .select('id, ends_at')
-                 .eq('status', 'active')
-                 .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
-                 .maybeSingle();
+            const { data: oppProfile } = await supabase.from('profiles').select('*').eq('id', opponentId).single();
+            const { data: oppLive } = await supabase.from('live_sessions').select('id').eq('host_id', opponentId).eq('is_live', true).maybeSingle();
+            
+            if (oppProfile) {
+                let syncEndTime = null;
+                if (activeDBMatch?.ends_at) {
+                    syncEndTime = new Date(activeDBMatch.ends_at).getTime();
+                }
 
-              let syncEndTime = null;
-              if (activeDBMatch?.ends_at) {
-                 syncEndTime = new Date(activeDBMatch.ends_at).getTime();
-              }
+                // Definir os scores corretos da perspectiva DESTE quarto
+                const isHostA = activeDBMatch.host_a_id === room.host_id;
+                const score_a = isHostA ? (activeDBMatch.score_a || 0) : (activeDBMatch.score_b || 0);
+                const score_b = isHostA ? (activeDBMatch.score_b || 0) : (activeDBMatch.score_a || 0);
 
-              setActiveBattle({
-                opponentId: opponentId,
-                opponentProfile: oppProfile,
-                agora_channel: oppLive.agora_channel,
-                opponentRoomId: oppLive.id,
-                endTime: syncEndTime,
-                score_a: 0,
-                score_b: 0,
-                battleId: activeDBMatch?.id
-              });
-              
-              if (syncEndTime) {
-                 setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
-              } else {
-                 setBattleTimeLeft(0);
-                 // Avisa a audiência que ainda está no aquecimento para abrir câmera dividida localmente
-                 await supabase.channel(`live_chat:${room.id}`).send({
-                   type: 'broadcast', event: 'match_connected',
-                   payload: { opponentId, opponentProfile: oppProfile, agora_channel: oppLive.agora_channel, opponentRoomId: oppLive.id, endTime: null, score_a: 0, score_b: 0 }
-                 }).catch(() => {});
-              }
-           }
-        } catch (e) {}
+                setActiveBattle({
+                  opponentId: opponentId,
+                  opponentProfile: oppProfile,
+                  agora_channel: oppChannel,
+                  opponentRoomId: oppLive?.id,
+                  endTime: syncEndTime,
+                  score_a: score_a,
+                  score_b: score_b,
+                  battleId: activeDBMatch.id
+                });
+                
+                if (syncEndTime) {
+                   setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
+                } else {
+                   setBattleTimeLeft(0);
+                }
+            }
+        }
+      } catch (e) {
+          console.warn('Erro syncOngoingBattle', e);
       }
     }
     syncOngoingBattle();
@@ -1017,7 +1012,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline }: 
 
     // Se estiver em batalha (e a batalha já tiver começado = endTime presente)
     setActiveBattle((prevBattle: any) => {
-      if (!prevBattle || !prevBattle.endTime) return prevBattle;
+      // Se a batalha não iniciou OU já acabou o tempo, NÃO computar pontuação
+      if (!prevBattle || !prevBattle.endTime || Date.now() >= prevBattle.endTime) return prevBattle;
+      
       const newScoreA = prevBattle.score_a + gift.price;
       const updated = { ...prevBattle, score_a: newScoreA };
       
