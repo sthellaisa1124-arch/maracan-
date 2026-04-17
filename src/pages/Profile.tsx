@@ -218,10 +218,6 @@ export function Profile({
     const file = e.target.files?.[0];
     if (!file || !profile || !isOwnProfile) return;
 
-    if (cooldownDays > 0 && !profile?.is_admin) {
-      return notify(`Segura a onda, cria! Você só pode mudar a foto em ${cooldownDays} dias.`, "error");
-    }
-
     setSaving(true);
     const fileExt = file.name.split('.').pop();
     const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
@@ -251,17 +247,30 @@ export function Profile({
       return notify("Nome de usuário não pode ter emojis, espaços ou símbolos! Só letras, números, ponto e underline.", "error");
     }
 
+    const isUsernameChanged = newUsername.toLowerCase() !== profile.username?.toLowerCase();
+    
+    // Check cooldown exclusively for username change
+    if (isUsernameChanged && cooldownDays > 0 && !profile?.is_admin) {
+        return notify(`Segura a onda, cria! Você só pode mudar de nome daqui a ${cooldownDays} dias.`, "error");
+    }
+
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        username: newUsername,
+    
+    const updatePayload: any = {
+        username: newUsername.toLowerCase(),
         avatar_url: avatarUrl,
         bio: bio,
         website: website,
-        show_suggestions: showSuggestions,
-        last_profile_update: new Date().toISOString()
-      })
+        show_suggestions: showSuggestions
+    };
+    
+    if (isUsernameChanged) {
+        updatePayload.last_profile_update = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updatePayload)
       .eq('id', profile.id);
 
     if (error) {
@@ -461,7 +470,7 @@ export function Profile({
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{profile?.first_name || 'Usuário'}</span>
                   </div>
                </div>
-               <button onClick={() => cooldownDays > 0 && !profile?.is_admin ? notify("Aguarde " + cooldownDays + " dias", "error") : fileInputRef.current?.click()} style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
+               <button onClick={() => fileInputRef.current?.click()} style={{ background: 'var(--primary)', color: '#000', border: 'none', padding: '0.5rem 1rem', borderRadius: '0.5rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer' }}>
                   Mudar foto
                </button>
                <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleAvatarUpload} />
@@ -469,6 +478,23 @@ export function Profile({
 
             {/* Form Fields */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div>
+                  <label style={{ display: 'block', color: '#fff', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.95rem' }}>Nome de Usuário</label>
+                  <input 
+                    type="text" 
+                    placeholder="Seu @username"
+                    value={newUsername}
+                    onChange={e => setNewUsername(e.target.value.toLowerCase())}
+                    disabled={cooldownDays > 0 && !profile?.is_admin}
+                    style={{ width: '100%', background: 'transparent', border: '1px solid var(--separator)', borderRadius: '0.5rem', padding: '0.8rem 1rem', color: '#fff', fontSize: '0.95rem', outline: 'none', opacity: (cooldownDays > 0 && !profile?.is_admin) ? 0.5 : 1 }} 
+                  />
+                  {(cooldownDays > 0 && !profile?.is_admin) ? (
+                    <span style={{ display: 'block', marginTop: '0.5rem', color: '#ff4444', fontSize: '0.75rem' }}>Aguarde {cooldownDays} dias para alterar o nome novamente.</span>
+                  ) : (
+                    <span style={{ display: 'block', marginTop: '0.5rem', color: 'var(--text-muted)', fontSize: '0.75rem' }}>Atenção: nome de usuário só pode ser alterado 1 vez por mês!</span>
+                  )}
+               </div>
+
                <div>
                   <label style={{ display: 'block', color: '#fff', fontWeight: 700, marginBottom: '0.5rem', fontSize: '0.95rem' }}>Site</label>
                   <input 
@@ -511,22 +537,14 @@ export function Profile({
                   </div>
                </div>
 
-               {/* Warning Cooldown */}
-               {(cooldownDays > 0 && !profile?.is_admin) && (
-                  <div style={{ padding: '1rem', border: '1px solid var(--separator)', color: '#ff4444', borderRadius: '0.5rem', fontSize: '0.85rem', display: 'flex', gap: '0.8rem', alignItems: 'center', marginTop: '1rem' }}>
-                    <AlertCircle size={20} />
-                    <span>Por medida de segurança, o perfil está bloqueado para edições. Aguarde <strong>{cooldownDays} dias</strong>.</span>
-                  </div>
-               )}
-
                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2rem' }}>
                   <button onClick={() => setIsEditing(false)} style={{ background: 'transparent', color: '#fff', border: 'none', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer', opacity: 0.7 }}>
                      &lt; Cancelar
                   </button>
                   <button 
-                    onClick={cooldownDays > 0 && !profile?.is_admin ? undefined : handleSave} 
-                    disabled={saving || (cooldownDays > 0 && !profile?.is_admin)}
-                    style={{ background: '#0095f6', color: '#fff', border: 'none', padding: '0.6rem 2rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.95rem', cursor: (cooldownDays > 0 && !profile?.is_admin) ? 'not-allowed' : 'pointer', opacity: (cooldownDays > 0 && !profile?.is_admin) ? 0.5 : 1 }}
+                    onClick={handleSave} 
+                    disabled={saving}
+                    style={{ background: '#0095f6', color: '#fff', border: 'none', padding: '0.6rem 2rem', borderRadius: '0.5rem', fontWeight: 600, fontSize: '0.95rem', cursor: 'pointer' }}
                   >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : 'Enviar'}
                   </button>
