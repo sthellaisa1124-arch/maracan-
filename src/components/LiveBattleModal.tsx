@@ -25,15 +25,21 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
     try {
       const { data, error } = await supabase
         .from('live_sessions')
-        .select(`id, host_id, agora_channel, title, viewer_count, host_profile:profiles(username, avatar_url, name)`)
+        .select(`*, host_profile:profiles(username, avatar_url, name)`)
         .eq('is_live', true)
         .is('ended_at', null)
         .neq('host_id', currentHostId)
         .order('viewer_count', { ascending: false });
 
-      if (data && !error) setLiveCreators(data);
+      if (error) {
+        console.error("Erro explícito no fetchLiveOpponents:", error);
+      }
+      
+      if (data && !error) {
+        setLiveCreators(data);
+      }
     } catch (err) {
-      console.error(err);
+      console.error("TryCatch err fetchLiveOpponents:", err);
     } finally {
       setLoading(false);
     }
