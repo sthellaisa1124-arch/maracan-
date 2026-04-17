@@ -224,7 +224,11 @@ function App() {
 
   const handleTabChange = (newTab: TabType) => {
     setActiveTab(newTab);
-    setViewingUsername(null);
+    // Não limpa o viewingUsername se estivermos indo para o chat, 
+    // pois ele é usado como initialRecipient
+    if (newTab !== 'messages') {
+      setViewingUsername(null);
+    }
   };
 
   // ── RENDERIZAÇÃO ──────────────────────────────────────────────
