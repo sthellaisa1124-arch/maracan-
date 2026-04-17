@@ -39,6 +39,9 @@ function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [isSetupLiveOpen, setIsSetupLiveOpen] = useState(false);
   const [isCreatingStatus, setIsCreatingStatus] = useState(false);
+  const [avistaInitialPostId, setAvistaInitialPostId] = useState<string | null>(null);
+  const [globalStatusGroup, setGlobalStatusGroup] = useState<any>(null);
+  const [globalStatusInitialId, setGlobalStatusInitialId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
@@ -77,9 +80,55 @@ function App() {
     };
     window.addEventListener('openProfile', handleOpenProfile);
 
+    const handleNotificationAction = async (e: any) => {
+      const notif = e.detail;
+      const t = notif.type;
+      
+      if (t === 'live') {
+        const { data } = await supabase.from('live_sessions')
+          .select('*, host_profile:profiles(username, avatar_url, badges, total_donated)')
+          .eq('host_id', notif.from_user_id)
+          .eq('is_live', true)
+          .is('ended_at', null)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) setActiveLiveRoom(data);
+        else alert('Esta live já encerrou ou não foi encontrada. 🛑');
+      } else if (t && t.includes('avista')) {
+        setAvistaInitialPostId(notif.post_id);
+        setActiveTab('avista');
+      } else if (t === 'like' || t === 'comment' || t === 'post_like' || t === 'post_comment') {
+        setActiveTab('community');
+      } else if (t === 'status_tag') {
+        const { data: statuses } = await supabase.from('status_posts')
+          .select('*, author:user_id(username, avatar_url, badges, total_donated)')
+          .eq('user_id', notif.from_user_id)
+          .gt('created_at', new Date(Date.now() - 24*60*60*1000).toISOString())
+          .order('created_at', {ascending: true});
+        if (statuses && statuses.length > 0) {
+           const group = {
+             user_id: notif.from_user_id,
+             username: statuses[0].author?.username,
+             avatar_url: statuses[0].author?.avatar_url,
+             badges: statuses[0].author?.badges,
+             total_donated: statuses[0].author?.total_donated,
+             status_list: statuses,
+             all_viewed: false
+           };
+           setGlobalStatusInitialId(notif.post_id);
+           setGlobalStatusGroup(group);
+        } else {
+           alert("Este story não está mais disponível ou expirou. ⏳");
+        }
+      }
+    };
+    window.addEventListener('handleNotificationAction', handleNotificationAction);
+
     return () => {
       authSubs.unsubscribe();
       window.removeEventListener('openProfile', handleOpenProfile);
+      window.removeEventListener('handleNotificationAction', handleNotificationAction);
     };
   }, []);
 
@@ -265,7 +314,7 @@ function App() {
                 )}
                 {/* O chat foi movido para o top-level (Portals) para resolver conflitos de position:fixed */}
                 {activeTab === 'avista' && (
-                  <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} />
+                  <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} initialPostId={avistaInitialPostId} />
                 )}
                 {activeTab === 'profile' && (
                   <Profile
@@ -443,6 +492,18 @@ function App() {
             setIsCreatingStatus(false);
             window.location.reload(); // Forma bruta, mas garante o refresh dos stories em todas as abas
           }}
+        />
+      )}
+
+      {/* ── STATUS VIEWER GLOBAL (para abrir via notificação) ── */}
+      {globalStatusGroup && (
+        <StatusViewer
+          group={globalStatusGroup}
+          onClose={() => setGlobalStatusGroup(null)}
+          viewerId={session?.user?.id}
+          onRefresh={() => {}}
+          onViewProfile={onViewProfile}
+          initialStatusId={globalStatusInitialId}
         />
       )}
     </>

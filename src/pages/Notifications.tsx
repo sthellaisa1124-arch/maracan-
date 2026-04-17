@@ -76,7 +76,8 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
       .eq('read', false);
   }
 
-  async function deleteNotification(notifObj: any) {
+  async function deleteNotification(notifObj: any, e?: React.MouseEvent) {
+    if (e) e.stopPropagation();
     if (notifObj.isGroup) {
       const ids = notifObj.items.map((i: any) => i.id);
       const { error } = await supabase.from('notifications').delete().in('id', ids);
@@ -90,6 +91,26 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
       }
     }
   }
+
+  const handleNotifClick = (notif: any) => {
+    // 1. Mark as read immediately in the DB if not read
+    if (!notif.read) {
+       supabase.from('notifications').update({ read: true }).eq('id', notif.id).then();
+       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+    }
+
+    // 2. Dispatch events
+    const t = notif.type;
+    if (t === 'status_tag') {
+        window.dispatchEvent(new CustomEvent('handleNotificationAction', { detail: notif }));
+    } else if (t && t.includes('avista')) {
+        window.dispatchEvent(new CustomEvent('handleNotificationAction', { detail: notif }));
+    } else if (t === 'like' || t === 'comment' || t === 'post_like' || t === 'post_comment') {
+        window.dispatchEvent(new CustomEvent('handleNotificationAction', { detail: notif }));
+    } else if (t === 'live') {
+        window.dispatchEvent(new CustomEvent('handleNotificationAction', { detail: notif }));
+    }
+  };
 
   const groupNotifications = (notifs: any[]) => {
     const groups: any[] = [];
@@ -196,6 +217,8 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
         return <span>{notif.message || 'Atualização no seu status de criador.'}</span>;
       case 'live':
         return <span><strong>{name}</strong> abriu uma LIVE agora! 🔥 Vem fechar com o cria! 🏙️</span>;
+      case 'status_tag':
+        return <span><strong>{name}</strong> te marcou em um story! 📸🔥</span>;
       default: return <span>{notif.message || 'Nova notificação do sistema.'}</span>;
     }
   };
@@ -230,7 +253,12 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
               : (notif.from_user?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + notif.from_user_id);
 
             return (
-              <div key={notif.id} className={`notification-item ${notif.read ? 'read' : 'unread'}`} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1.25rem 1rem', background: notif.read ? 'transparent' : 'rgba(108,43,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px', transition: 'background 0.3s' }}>
+              <div 
+                key={notif.id} 
+                onClick={() => handleNotifClick(notif)}
+                className={`notification-item ${notif.read ? 'read' : 'unread'}`} 
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '1.25rem 1rem', background: notif.read ? 'transparent' : 'rgba(108,43,255,0.08)', borderBottom: '1px solid rgba(255,255,255,0.05)', gap: '12px', transition: 'background 0.3s' }}
+              >
                 
                 {/* Lado Esquerdo + Central (Avatar e Textos) */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: 0 }}>
@@ -263,7 +291,7 @@ export function Notifications({ userId, onBack }: { userId: string, onBack: () =
                 {/* Lado Direito (Ações) */}
                 <div className="notif-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: '12px', flexShrink: 0 }}>
                   {!notif.read && <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--primary)', boxShadow: '0 0 8px rgba(108,43,255,0.8)' }}></span>}
-                  <button onClick={() => deleteNotification(notif)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '4px', display: 'flex' }}>
+                  <button onClick={(e) => deleteNotification(notif, e)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '4px', display: 'flex' }}>
                     <Trash2 size={18} />
                   </button>
                 </div>

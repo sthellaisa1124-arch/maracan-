@@ -34,14 +34,16 @@ interface StatusGroup {
   all_viewed: boolean;
 }
 
-export function StatusViewer({ group, onClose, viewerId, onRefresh, onViewProfile }: { 
+export function StatusViewer({ group, onClose, viewerId, onRefresh, onViewProfile, initialStatusId }: { 
   group: StatusGroup, 
   onClose: () => void, 
   viewerId: string | undefined,
   onRefresh: () => void,
-  onViewProfile?: (username: string) => void
+  onViewProfile?: (username: string) => void,
+  initialStatusId?: string | null
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const initIndex = initialStatusId ? Math.max(0, group.status_list.findIndex(s => s.id === initialStatusId)) : 0;
+  const [currentIndex, setCurrentIndex] = useState(initIndex);
   const [progress, setProgress] = useState(0);
   const [muted, setMuted] = useState(true);
   const [deleting, setDeleting] = useState(false);
