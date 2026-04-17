@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Heart, MessageCircle, Eye, Loader2, Trash2, Send, X, MoreVertical, Trophy, ArrowLeft, Radio, Video, BarChart2, UserPlus } from 'lucide-react';
+import { Heart, MessageCircle, Eye, Loader2, Trash2, Send, X, MoreVertical, Trophy, ArrowLeft, Radio, Video, BarChart2, UserPlus, Search, Users } from 'lucide-react';
 import { GiftPanel, type Gift } from '../components/GiftPanel';
 import { UserBadges } from '../components/Badges';
 import { GiftIconRenderer, GIFT_ICON_MAP } from '../components/GiftIcons';
@@ -28,7 +28,7 @@ export function Avista({
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [showSetupLive, setShowSetupLive] = useState(false);
-
+  const [searchTerm, setSearchTerm] = useState('');
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
@@ -54,6 +54,83 @@ export function Avista({
     fetchAvistaPosts();
     runPassiveCleanup();
     fetchActiveLives(true);
+  }, [filterUserId]);
+
+  const filteredLives = liveSessions.filter(live => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      live.host_profile?.username?.toLowerCase().includes(searchLower) ||
+      live.title?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const renderLiveHub = () => {
+    return (
+      <div className="live-hub-container" style={{ position: 'relative', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="live-hub-header">
+          <h1 className="live-hub-title">Explorar Lives</h1>
+          <div className="live-hub-search-wrapper">
+            <Search className="live-hub-search-icon" size={18} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar criador ou título..." 
+              className="live-hub-search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {filteredLives.length === 0 ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: 0.5, padding: '2rem', textAlign: 'center' }}>
+            <Radio size={48} style={{ marginBottom: '1rem' }} />
+            <p style={{ fontWeight: 600 }}>{searchTerm ? 'Nenhuma live encontrada para sua busca' : 'Nenhuma live rolando no momento'}</p>
+          </div>
+        ) : (
+          <div className="live-hub-grid" style={{ flex: 1 }}>
+            {filteredLives.map((live) => (
+              <div 
+                key={live.id} 
+                className="live-card-elite"
+                onClick={() => setActiveLiveId(live.id)}
+              >
+                <img 
+                  src={live.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${live.user_id}`} 
+                  className="live-card-thumb"
+                  alt={live.host_profile?.username}
+                />
+                
+                <div className="live-card-overlay">
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <div className="live-card-badge-live">
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} /> AO VIVO
+                    </div>
+                    <div className="live-card-viewers">
+                      <Users size={10} /> {live.viewer_count || 0}
+                    </div>
+                  </div>
+
+                  <div className="live-card-info">
+                    <div className="live-card-host">
+                      <img src={live.host_profile?.avatar_url} className="live-card-avatar" />
+                      <span className="live-card-username">@{live.host_profile?.username}</span>
+                    </div>
+                    {live.title && <p className="live-card-title">{live.title}</p>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+          {renderNavigationTabsHUD()}
+        </div>
+      </div>
+    );
+  };
+
+  useEffect(() => {
     if (session?.user?.id) fetchFollowingList();
 
     // Radar Realtime: Atualiza a lista de lives instantaneamente
@@ -88,7 +165,6 @@ export function Avista({
          setLiveSessions(prev => {
            if (prev.length === 0 || isInitial) {
              const shuffled = [...data].sort(() => Math.random() - 0.5);
-             setActiveLiveId(shuffled[0].id);
              return shuffled;
            } else {
              const updated = prev.map(existing => data.find(d => d.id === existing.id)).filter(Boolean);
@@ -531,36 +607,22 @@ export function Avista({
           backgroundColor: '#000'
         }}
       >
-        {currentTab === 'lives' && (
-           liveSessions.length === 0 ? (
-              <div className="avista-empty-state" style={{ position: 'relative', height: '100%', width: '100%' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                  <Radio size={64} style={{ opacity: 0.3, marginBottom: '1rem' }} />
-                  <h2>NENHUMA LIVE ROLANDO</h2>
-                  <p>Seja o primeiro a abrir uma live!</p>
-                </div>
-                {renderNavigationTabsHUD()}
-              </div>
-           ) : (
-             liveSessions.map((live) => (
-                <div key={live.id} id={live.id} className="avista-item" style={{ position: 'relative', height: '100dvh', width: '100%', scrollSnapAlign: 'start', flexShrink: 0, backgroundColor: '#000', margin: 0, padding: 0 }}>
-                    <LiveRoom 
-                       session={session}
-                       userProfile={null}
-                       role="audience"
-                       room={live}
-                       inline={true}
-                       isActive={activeLiveId === live.id}
-                       onClose={() => {
-                          setActiveLiveId(null);
-                          setCurrentTab('avista');
-                          fetchActiveLives();
-                       }}
-                    />
-                    {renderNavigationTabsHUD()}
-                </div>
-             ))
-           )
+        {currentTab === 'lives' && renderLiveHub()}
+
+        {/* Modal de Live Selecionada */}
+        {activeLiveId && currentTab === 'lives' && (
+          <LiveRoom 
+             session={session}
+             userProfile={null}
+             role="audience"
+             room={liveSessions.find(l => l.id === activeLiveId)}
+             inline={false}
+             isActive={true}
+             onClose={() => {
+                setActiveLiveId(null);
+                fetchActiveLives();
+             }}
+          />
         )}
         {currentTab === 'avista' && (
            posts.length === 0 ? (
