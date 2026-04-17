@@ -43,6 +43,7 @@ function App() {
   const [avistaInitialPostId, setAvistaInitialPostId] = useState<string | null>(null);
   const [globalStatusGroup, setGlobalStatusGroup] = useState<any>(null);
   const [globalStatusInitialId, setGlobalStatusInitialId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
@@ -95,7 +96,10 @@ function App() {
           .limit(1)
           .maybeSingle();
         if (data) setActiveLiveRoom(data);
-        else alert('Esta live já encerrou ou não foi encontrada. 🛑');
+        else {
+          setToast({ msg: 'Esta live já encerrou ou não foi encontrada. 🛑', typ: 'error' });
+          setTimeout(() => setToast(null), 3500);
+        }
       } else if (t && t.includes('avista')) {
         setAvistaInitialPostId(notif.post_id);
         setActiveTab('avista');
@@ -120,7 +124,8 @@ function App() {
            setGlobalStatusInitialId(notif.post_id);
            setGlobalStatusGroup(group);
         } else {
-           alert("Este story não está mais disponível ou expirou. ⏳");
+           setToast({ msg: 'Este story não está mais disponível ou expirou. ⏳', typ: 'error' });
+           setTimeout(() => setToast(null), 3500);
         }
       }
     };
@@ -506,6 +511,13 @@ function App() {
           onViewProfile={onViewProfile}
           initialStatusId={globalStatusInitialId}
         />
+      )}
+
+      {/* ── TOAST GLOBAL ── */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', background: toast.typ === 'error' ? '#ef4444' : '#a855f7', color: '#fff', padding: '0.8rem 1.5rem', borderRadius: '24px', fontWeight: 800, zIndex: 999999, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s ease', whiteSpace: 'nowrap' }}>
+          {toast.msg}
+        </div>
       )}
     </>
   );
