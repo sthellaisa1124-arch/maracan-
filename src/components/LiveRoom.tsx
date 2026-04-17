@@ -299,6 +299,14 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      };
      setActiveBattle(mappedBattle);
 
+     // Notifica o convidador (Host A) via broadcast direto para ser instantâneo
+     if (battleInvite.fromRoomId) {
+        doBroadcast(battleInvite.fromRoomId, 'battle_accepted', { 
+           battle: mappedBattle,
+           battleId: null // será preenchido pelo sync do banco
+        });
+     }
+
      setBattleInvite(null);
   }
 
@@ -1165,6 +1173,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
             setRematchRequestedBy(payload.fromId);
          }
       })
+      .on('broadcast', { event: 'battle_accepted' }, ({ payload }) => {
+         // Resposta instantânea para o Host A (o convidador)
+         if (payload.battle) {
+            const syncTime = payload.battle.endTime || (Date.now() + 180000);
+            setActiveBattle({ ...payload.battle, endTime: syncTime });
+            setBattleStatus('waiting');
+            setBattleTimeLeft(180);
+            setBattleInviteStatus(null);
+            setBattleInvite(null);
+         }
+      })
       .on('broadcast', { event: 'match_disconnected' }, () => {
          setActiveBattle(null);
          setBattleStatus('waiting');
@@ -1249,7 +1268,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          
          const belongsToRoom = match.host_a_id === room.host_id || match.host_b_id === room.host_id;
          if (belongsToRoom) {
-            const endsAt = new Date(match.ends_at).getTime();
+            const endsAt = match.ends_at ? new Date(match.ends_at).getTime() : (Date.now() + 180000);
 
             const isHostA = match.host_a_id === room.host_id;
             const oppId = isHostA ? match.host_b_id : match.host_a_id;
