@@ -302,8 +302,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      // Notifica o convidador (Host A) via broadcast direto para ser instantâneo
      if (battleInvite.fromRoomId) {
         doBroadcast(battleInvite.fromRoomId, 'battle_accepted', { 
-           battle: mappedBattle,
-           battleId: null // será preenchido pelo sync do banco
+           opponentProfile: userProfile || activeUserProfile,
+           opponentId: room.host_id,
+           agora_channel: room.agora_channel,
+           fromRoomId: room.id
         });
      }
 
@@ -330,12 +332,22 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
   async function handleConfirmStartBattle() {
      if (!activeBattle?.opponentRoomId) return;
-     const payload = { duration: 180 };
-     doBroadcast(room.id, 'battle_start', payload);
-     doBroadcast(activeBattle.opponentRoomId, 'battle_start', payload);
      
-     // Atualiza status no banco
-     await supabase.from('live_battles').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', activeBattle.battleId);
+     // Notifica o oponente que estamos prontos
+     doBroadcast(activeBattle.opponentRoomId, 'battle_ready_status', { hostId: room.host_id, ready: true });
+
+     // Se ambos estiverem prontos, a batalha começa de verdade no banco
+     if (opponentBattleReady) {
+        await supabase.from('live_battles').update({ 
+           status: 'active',
+           started_at: new Date().toISOString(),
+           ends_at: new Date(Date.now() + 180000).toISOString()
+        }).eq('id', activeBattle.battleId);
+        
+        doBroadcast(activeBattle.opponentRoomId, 'battle_start', { 
+           endTime: Date.now() + 180000 
+        });
+     }
   }
 
   async function handleRequestRematch() {
@@ -668,8 +680,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   }, [activeEntrance, entranceQueue]);
 
   // Timer da Batalha (Global Sync)
-  useEffect(() => {
-    if (!activeBattle?.endTime) return;
+   useEffect(() => {
+    if (!activeBattle?.endTime || battleStatus !== 'active') {
+       if (battleStatus === 'waiting') setBattleTimeLeft(180);
+       return;
+    }
     const interval = setInterval(async () => {
       const remaining = Math.max(0, Math.floor((activeBattle.endTime - Date.now()) / 1000));
       setBattleTimeLeft(remaining);
@@ -1174,10 +1189,19 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          }
       })
       .on('broadcast', { event: 'battle_accepted' }, ({ payload }) => {
-         // Resposta instantânea para o Host A (o convidador)
-         if (payload.battle) {
-            const syncTime = payload.battle.endTime || (Date.now() + 180000);
-            setActiveBattle({ ...payload.battle, endTime: syncTime });
+         // Resposta instantânea para o Host A (o convidador) com a perspectiva correta
+         if (payload.opponentId) {
+            const mapped = {
+               opponentId: payload.opponentId,
+               opponentProfile: payload.opponentProfile || null,
+               agora_channel: payload.agora_channel,
+               opponentRoomId: payload.fromRoomId || null,
+               score_a: 0,
+               score_b: 0,
+               endTime: Date.now() + 180000,
+               battleId: null
+            };
+            setActiveBattle(mapped);
             setBattleStatus('waiting');
             setBattleTimeLeft(180);
             setBattleInviteStatus(null);
@@ -1285,8 +1309,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                opponentProfile: oppProfile || null,
                agora_channel: oppChannel,
                opponentRoomId: oppLive?.id ?? null,
-               score_a: 0,
-               score_b: 0,
+               score_a: isHostA ? (match.score_a || 0) : (match.score_b || 0),
+               score_b: isHostA ? (match.score_b || 0) : (match.score_a || 0),
                endTime: endsAt,
                battleId: match.id 
             };
