@@ -117,6 +117,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [showOpponentMiniProfile, setShowOpponentMiniProfile] = useState(false);
   const [opponentSocialData, setOpponentSocialData] = useState({ followers: 0, following: 0, isFollowing: false });
   const [isFollowingOpponentLoading, setIsFollowingOpponentLoading] = useState(false);
+  const [isOpponentConnected, setIsOpponentConnected] = useState(false);
+  const [currentHostProfile, setCurrentHostProfile] = useState<any>(room.host_profile);
+
+  useEffect(() => {
+    if (!room.host_profile && room.host_id) {
+       const fetchHost = async () => {
+         const { data } = await supabase.from('profiles').select('*').eq('id', room.host_id).single();
+         if (data) setCurrentHostProfile(data);
+       };
+       fetchHost();
+    } else {
+       setCurrentHostProfile(room.host_profile);
+    }
+  }, [room.host_id, room.host_profile]);
 
   useEffect(() => {
     if (activeBattle && battleTimeLeft > 0) {
@@ -427,6 +441,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       await opponentClient.subscribe(user, mediaType);
       
       if (mediaType === 'video' && isMounted) {
+        setIsOpponentConnected(true);
         setTimeout(() => {
           const el = document.getElementById(`remote-video-opponent`);
           if (el) {
@@ -1646,8 +1661,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                  ref={opponentVideoRef}
               />
               {/* PLACEHOLDER REACT - Visível até o vídeo estabilizar */}
-              {!remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId))?.videoTrack && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none', background: '#000' }}>
+              {!isOpponentConnected && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none' }}>
                    <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <img 
                         src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} 
@@ -1677,7 +1692,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               scoreA={activeBattle.score_a} 
               scoreB={activeBattle.score_b}
               timeRemainingSec={battleTimeLeft}
-              hostAvatar={room.host_profile?.avatar_url}
+              hostAvatar={currentHostProfile?.avatar_url}
               opponentAvatar={activeBattle.opponentProfile?.avatar_url}
             />
 
@@ -1849,14 +1864,14 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div className="live-host-info" style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)', padding: '4px 12px 4px 4px', borderRadius: '40px', alignItems: 'center', gap: '8px' }}>
               <img 
-                src={room.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username || 'user'}`} 
+                src={currentHostProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username || 'user'}`} 
                 alt="Host" 
                 style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.8)' }} 
               />
               <div className="host-meta" style={{ flex: 1, paddingRight: '8px' }}>
                 <span className="host-name" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', lineHeight: 1.2 }}>
-                  @{room.host_profile?.username || 'criador'}
-                  <UserBadges badges={room.host_profile?.badges} donatedAmount={room.host_profile?.total_donated} size={14} />
+                  @{currentHostProfile?.username || 'criador'}
+                  <UserBadges badges={currentHostProfile?.badges} donatedAmount={currentHostProfile?.total_donated} size={14} />
                 </span>
                 <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -2606,11 +2621,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
             {/* Preview da live */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '14px', marginBottom: '1.5rem' }}>
               <img
-                src={room.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username}`}
+                src={currentHostProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${room.host_profile?.username}`}
                 style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--primary)' }}
               />
               <div>
-                <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.9rem' }}>@{room.host_profile?.username || 'criador'}</div>
+                <div style={{ fontWeight: 800, color: '#fff', fontSize: '0.9rem' }}>@{currentHostProfile?.username || 'criador'}</div>
                 <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>🔴 Ao vivo agora • {sessionViewers} assistindo</div>
               </div>
             </div>
