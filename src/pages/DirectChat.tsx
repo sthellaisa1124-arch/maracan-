@@ -219,6 +219,20 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     fetchConversations(); // Atualizar badges
   }
 
+  async function loadSpecificUser(username: string) {
+    if (!username) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .eq('username', username)
+      .single();
+    
+    if (data) {
+      setSelectedUser(data);
+      markAsRead(data.id);
+    }
+  }
+
   async function fetchConversations() {
     setListLoading(true);
     const { data } = await supabase
