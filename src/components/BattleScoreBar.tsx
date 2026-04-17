@@ -7,9 +7,10 @@ interface BattleScoreBarProps {
   hostAvatar: string | undefined;
   opponentAvatar: string | undefined;
   timeRemainingSec: number;
+  onOpponentClick?: () => void;
 }
 
-export function BattleScoreBar({ scoreA, scoreB, hostAvatar, opponentAvatar, timeRemainingSec }: BattleScoreBarProps) {
+export function BattleScoreBar({ scoreA, scoreB, hostAvatar, opponentAvatar, timeRemainingSec, onOpponentClick }: BattleScoreBarProps) {
   const total = scoreA + scoreB;
   
   // Se total = 0, divide 50/50.
@@ -42,7 +43,11 @@ export function BattleScoreBar({ scoreA, scoreB, hostAvatar, opponentAvatar, tim
           <img 
             src={opponentAvatar || `https://ui-avatars.com/api/?name=Op&background=random`} 
             alt="Oponente" 
-            style={{ width: '42px', height: '42px', borderRadius: '50%', border: '2px solid #ef4444', objectFit: 'cover', boxShadow: '0 4px 10px rgba(0,0,0,0.5)' }} 
+            onClick={onOpponentClick}
+            style={{ 
+              width: '42px', height: '42px', borderRadius: '50%', border: '2px solid #ef4444', 
+              objectFit: 'cover', boxShadow: '0 4px 10px rgba(0,0,0,0.5)', cursor: onOpponentClick ? 'pointer' : 'default' 
+            }} 
           />
         </div>
 

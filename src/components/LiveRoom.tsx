@@ -119,6 +119,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [isFollowingOpponentLoading, setIsFollowingOpponentLoading] = useState(false);
   const [isOpponentConnected, setIsOpponentConnected] = useState(false);
   const [currentHostProfile, setCurrentHostProfile] = useState<any>(room.host_profile);
+  const [battleStatus, setBattleStatus] = useState<'waiting' | 'active' | 'result'>('waiting');
+  const [myBattleReady, setMyBattleReady] = useState(false);
+  const [opponentBattleReady, setOpponentBattleReady] = useState(false);
+  const [rematchRequestedBy, setRematchRequestedBy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!room.host_profile && room.host_id) {
@@ -133,11 +137,11 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   }, [room.host_id, room.host_profile]);
 
   useEffect(() => {
-    if (activeBattle && battleTimeLeft > 0) {
+    if (activeBattle && battleStatus === 'active' && battleTimeLeft > 0) {
       const timer = setTimeout(() => setBattleTimeLeft(prev => prev - 1), 1000);
       return () => clearTimeout(timer);
     }
-  }, [activeBattle, battleTimeLeft]);
+  }, [activeBattle, battleStatus, battleTimeLeft]);
 
   // Busca dados sociais do oponente quando o mini-perfil abre
   useEffect(() => {
@@ -246,6 +250,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      setBattleTimeLeft(0);
      setBattleInvite(null);
      setBattleInviteStatus(null);
+     setBattleStatus('waiting');
+     setMyBattleReady(false);
+     setOpponentBattleReady(false);
   }
 
   async function handleRequestBattleStart() {
@@ -262,27 +269,63 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   async function handleAcceptBattle() {
      console.log("Accepting battle from:", battleInvite);
      if (!battleInvite?.fromRoomId) return; 
-     const eTime = Date.now() + 180000;
-     const endsAtStr = new Date(eTime).toISOString();
-     
-     // 1. O Banco de Dados passa a comandar a Batalha Global!
+
+     // Cria o registro no banco agora, mas com status 'waiting' ou apenas reservado
      const { error } = await supabase.from('live_battles').insert({
         host_a_id: room.host_id,
         host_b_id: battleInvite.fromId || battleInvite.from,
-        status: 'active',
-        started_at: new Date().toISOString(),
-        ends_at: endsAtStr,
+        status: 'waiting',
         agora_channel_a: room.agora_channel,
         agora_channel_b: battleInvite.agora_channel
      });
+
+     if (error) console.error("Erro ao registrar batalha:", error);
      
-     if (error) {
-        console.error("Erro ao iniciar DB Battle", error);
-     } else {
-        console.log("DB Battle inserted! The postgres_changes listener should trigger now.");
-     }
-     
+     // Inicia o estado de espera local
+     setBattleStatus('waiting');
+     setMyBattleReady(false);
+     setOpponentBattleReady(false);
      setBattleInvite(null);
+  }
+
+  async function toggleBattleReady() {
+    if (!activeBattle?.opponentRoomId) return;
+    const nextReady = !myBattleReady;
+    setMyBattleReady(nextReady);
+    
+    doBroadcast(room.id, 'battle_ready_status', { hostId: room.host_id, ready: nextReady });
+    if (activeBattle.opponentRoomId) {
+      doBroadcast(activeBattle.opponentRoomId, 'battle_ready_status', { hostId: room.host_id, ready: nextReady });
+    }
+    
+    // Se ambos ficarem prontos, inicia automaticamente?
+    // O usuário disse: "quando um clica em iniciar o outro deve confirmar"
+    // Então se eu clico e o outro já clicou, vamos de START.
+    if (nextReady && opponentBattleReady) {
+       handleConfirmStartBattle();
+    }
+  }
+
+  async function handleConfirmStartBattle() {
+     if (!activeBattle?.opponentRoomId) return;
+     const payload = { duration: 180 };
+     doBroadcast(room.id, 'battle_start', payload);
+     doBroadcast(activeBattle.opponentRoomId, 'battle_start', payload);
+     
+     // Atualiza status no banco
+     await supabase.from('live_battles').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', activeBattle.battleId);
+  }
+
+  async function handleRequestRematch() {
+     if (!activeBattle?.opponentRoomId) return;
+     doBroadcast(activeBattle.opponentRoomId, 'battle_rematch_request', { fromId: room.host_id });
+  }
+
+  async function handleAcceptRematch() {
+     if (!activeBattle?.opponentRoomId) return;
+     setRematchRequestedBy(null);
+     // Reseta placares via broadcast START (que zera tudo)
+     handleConfirmStartBattle();
   }
 
   async function handleRejectBattle() {
@@ -1089,22 +1132,46 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
              });
          }
       })
+      .on('broadcast', { event: 'battle_ready_status' }, ({ payload }) => {
+         // Se o payload vier do oponente
+         if (payload.hostId !== room.host_id) {
+            setOpponentBattleReady(payload.ready);
+         }
+      })
+      .on('broadcast', { event: 'battle_start' }, ({ payload }) => {
+         setBattleStatus('active');
+         setBattleTimeLeft(payload.duration || 180);
+         // Se for o host, garante que os placares estão zerados
+         if (role === 'host') {
+            setActiveBattle((prev: any) => prev ? { ...prev, score_a: 0, score_b: 0 } : prev);
+         }
+      })
+      .on('broadcast', { event: 'battle_rematch_request' }, ({ payload }) => {
+         if (payload.fromId !== room.host_id) {
+            setRematchRequestedBy(payload.fromId);
+         }
+      })
+      .on('broadcast', { event: 'match_disconnected' }, () => {
+         setActiveBattle(null);
+         setBattleStatus('waiting');
+         setMyBattleReady(false);
+         setOpponentBattleReady(false);
+         setRematchRequestedBy(null);
+      })
       .on('broadcast', { event: 'battle_ended' }, ({ payload }) => {
-         // Processa para TODOS: audiência E host oponente (que recebe o evento de surrender)
-         // Atualiza placar final antes de limpar
+         // Muda status para RESULT em vez de fechar
+         setBattleStatus('result');
+         setBattleTimeLeft(0);
+         setMyBattleReady(false);
+         setOpponentBattleReady(false);
+         
          if (payload?.score_a !== undefined) {
            setActiveBattle((prev: any) => prev ? {
              ...prev,
              score_a: payload.score_a,
-             score_b: payload.score_b,
-             endTime: Date.now()   // força o placar final aparecer
+             score_b: payload.score_b
            } : prev);
          }
-         setBattleTimeLeft(0); // mostra a tela de resultado imediatamente
-         setTimeout(() => {
-           setActiveBattle(null);
-           setBattleTimeLeft(0);
-         }, payload?.surrender ? 4000 : 5000); // abandono some um pouco mais rápido
       })
       .on('broadcast', { event: 'goal_update' }, ({ payload }) => {
         if (payload.gift) {
@@ -1646,14 +1713,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
         {/* Vídeo do Oponente na Batalha */}
         {activeBattle && (
-           <div 
-             style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative', cursor: role === 'audience' ? 'pointer' : 'default' }}
-             onClick={() => {
-                if (role === 'audience' && activeBattle.opponentProfile) {
-                   setShowOpponentMiniProfile(true);
-                }
-             }}
-           >
+            <div 
+              style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}
+            >
               {/* CONTAINER EXCLUSIVO AGORA RTC — ref ESTÁVEL para evitar pisca-pisca */}
               <div 
                  id={`remote-video-opponent`} 
@@ -1694,99 +1756,96 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               timeRemainingSec={battleTimeLeft}
               hostAvatar={currentHostProfile?.avatar_url}
               opponentAvatar={activeBattle.opponentProfile?.avatar_url}
+              onOpponentClick={() => {
+                if (role === 'audience' && activeBattle.opponentProfile) {
+                  setShowOpponentMiniProfile(true);
+                }
+              }}
             />
+          </>
+        )}
 
-            {/* OVERLAY FINALE DE BATALHA (TÍTULO) */}
-            {battleTimeLeft === 0 && (
-              <div style={{
-                position: 'absolute', top: '15%', left: 0, right: 0, zIndex: 100000,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                animation: 'fadeIn 0.5s ease', textAlign: 'center', pointerEvents: 'none'
-              }}>
-                <div style={{ fontSize: '4rem', marginBottom: '0.5rem', animation: 'bounce 1s infinite', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
-                  {activeBattle.score_a > activeBattle.score_b ? '👑' : activeBattle.score_a < activeBattle.score_b ? '💀' : '🤝'}
-                </div>
-                <h2 style={{
-                  color: '#fff', fontSize: '1.8rem', fontWeight: 900,
-                  background: activeBattle.score_a > activeBattle.score_b ? 'linear-gradient(to right, #facc15, #f59e0b)' : 'linear-gradient(to right, #ef4444, #dc2626)',
-                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.8))'
-                }}>
-                  {role === 'host'
-                    ? (activeBattle.score_a > activeBattle.score_b ? 'VITÓRIA É SUA!' : activeBattle.score_a < activeBattle.score_b ? 'VOCÊ FOI DERROTADO' : 'EMPATE!')
-                    : (activeBattle.score_a > activeBattle.score_b ? '🏆 VENCEDOR!' : activeBattle.score_a < activeBattle.score_b ? '💔 DERROTADO' : '🤝 EMPATE!')
-                  }
-                </h2>
-              </div>
-            )}
+        {/* --- CONTROLES DE PREPARAÇÃO / ESPERA (HOST) --- */}
+        {activeBattle && battleStatus === 'waiting' && role === 'host' && (
+          <div style={{
+            position: 'absolute', bottom: '22%', left: 0, right: 0,
+            display: 'flex', justifyContent: 'center', gap: '12px', zIndex: 1000000, pointerEvents: 'auto'
+          }}>
+            <button 
+               onClick={(e) => { e.stopPropagation(); handleDisconnectMatch(); }}
+               style={{
+                 background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                 borderRadius: '20px', padding: '10px 24px', color: '#fff', fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer'
+               }}>
+               ✖ SAIR
+            </button>
+            <button
+               onClick={(e) => { e.stopPropagation(); toggleBattleReady(); }}
+               style={{
+                  background: myBattleReady 
+                    ? 'rgba(255,255,255,0.1)' 
+                    : 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                  border: myBattleReady ? '1px solid rgba(255,255,255,0.2)' : 'none',
+                  borderRadius: '20px', padding: '10px 24px', color: myBattleReady ? '#fff' : '#000', 
+                  fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer',
+                  boxShadow: myBattleReady ? 'none' : '0 4px 15px rgba(245,158,11,0.4)'
+               }}>
+               {myBattleReady 
+                 ? (opponentBattleReady ? '🚀 INICIANDO...' : '⏳ AGUARDANDO...') 
+                 : '⚔️ INICIAR CONFRONTO'}
+            </button>
+          </div>
+        )}
 
-            {/* OVERLAY FINALE DE BATALHA (BOTÕES NO RODAPÉ) */}
-            {battleTimeLeft === 0 && role === 'host' && (
-              <div style={{
-                position: 'absolute', bottom: '15%', left: 0, right: 0, zIndex: 100000,
-                display: 'flex', gap: '1rem', justifyContent: 'center', padding: '0 2rem'
-              }}>
+        {/* --- PAINEL DE RESULTADO E REVANCHE --- */}
+        {activeBattle && battleStatus === 'result' && role === 'host' && (
+           <div style={{
+             position: 'absolute', bottom: '20%', left: 0, right: 0,
+             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', zIndex: 1000000, pointerEvents: 'auto'
+           }}>
+              <div style={{ display: 'flex', gap: '12px', width: '100%', padding: '0 2rem' }}>
                 <button 
-                  onClick={() => {
-                    setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
-                    setBattleTimeLeft(180);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); handleRequestRematch(); }}
                   style={{
                     flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-                    color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1rem',
-                    cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
-                    transition: 'all 0.2s',
+                    color: '#fff', padding: '1rem', borderRadius: '14px', fontWeight: 900, 
+                    fontSize: '1rem', cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)'
                   }}
                 >
                   🔁 REVANCHE
                 </button>
                 <button 
-                  onClick={() => setActiveBattle(null)}
+                  onClick={(e) => { e.stopPropagation(); handleDisconnectMatch(); }}
                   style={{
-                    flex: 1, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)',
-                    color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
-                    cursor: 'pointer', transition: 'all 0.2s',
+                    flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', padding: '1rem', borderRadius: '14px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer'
                   }}
                 >
                   ✖ SAIR FORA
                 </button>
               </div>
-            )}
-          </>
+           </div>
         )}
 
-        {activeBattle && !activeBattle.endTime && role === 'host' && (
-          <div style={{
-            position: 'absolute',
-            bottom: '22%', // Fica acima da barra de controles do host
-            left: 0, right: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '12px',
-            zIndex: 10000000,
-            pointerEvents: 'auto'
-          }}>
-            <button 
-               onClick={(e) => { e.stopPropagation(); handleDisconnectMatch(); }}
-               style={{
-                 background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-                 borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 700, fontSize: '0.9rem',
-                 display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', pointerEvents: 'auto'
-               }}>
-               ❌ Sair
-            </button>
-            <button
-               onClick={(e) => { e.stopPropagation(); handleRequestBattleStart(); }}
-               disabled={battleInviteStatus === 'pending'}
-               style={{
-                  background: battleInviteStatus === 'pending' ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #ef4444, #f97316)',
-                  border: 'none', borderRadius: '20px', padding: '10px 20px', color: '#fff', fontWeight: 900, 
-                  fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px', cursor: battleInviteStatus ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 15px rgba(239,68,68,0.4)', pointerEvents: 'auto'
-               }}>
-               {battleInviteStatus === 'pending' ? '⏳ Aguardando Aceite...' : '⚔️ Iniciar Confronto'}
-            </button>
-          </div>
+        {/* --- POPUP DE CONVITE DE REVANCHE --- */}
+        {rematchRequestedBy && role === 'host' && (
+           <div style={{
+             position: 'fixed', inset: 0, zIndex: 2000000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+             background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)'
+           }}>
+             <div style={{
+                background: '#1a1a20', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: '24px',
+                padding: '2rem', textAlign: 'center', maxWidth: '320px', animation: 'scaleUp 0.3s ease-out'
+             }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔥</div>
+                <h3 style={{ color: '#fff', margin: 0, fontSize: '1.4rem' }}>PEDIDO DE REVANCHE!</h3>
+                <p style={{ color: 'rgba(255,255,255,0.6)', margin: '1rem 0 2rem' }}>O oponente quer lutar de novo. Você aceita o desafio?</p>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                   <button onClick={() => handleDisconnectMatch()} style={{ flex: 1, padding: '12px', background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 700 }}>Recusar</button>
+                   <button onClick={() => handleAcceptRematch()} style={{ flex: 1, padding: '12px', background: 'var(--primary)', color: '#000', border: 'none', borderRadius: '12px', fontWeight: 900 }}>REVANCHE!</button>
+                </div>
+             </div>
+           </div>
         )}
 
         {/* Modal de Convite Recebido (Sobre a câmera do host B) */}
