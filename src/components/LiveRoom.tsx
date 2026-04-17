@@ -125,60 +125,50 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   async function handleInviteOpponent(opponent: any) {
     setIsBattleModalOpen(false);
     
-    const { data: oppLive } = await supabase.from('live_sessions').select('id').eq('host_id', opponent.host_id).eq('is_live', true).maybeSingle();
+    // Mostra que estamos aguardando a resposta
+    setBattleInviteStatus('pending');
 
-    const startPayload = {
-       opponentId: opponent.host_id,
-       opponentProfile: opponent.profiles || opponent.host_profiles || opponent,
-       agora_channel: opponent.agora_channel,
-       opponentRoomId: oppLive?.id,
-       endTime: null,
-       score_a: 0,
-       score_b: 0
-    };
-    
-    setActiveBattle(startPayload);
-    setBattleTimeLeft(0);
-    
-    // Broadcast helper robusto para evitar que chamadas de send travem os botões
-    const safeCrossBroadcast = (targetRoomId: string, eventName: string, p: any) => {
-       const chId = `live_chat:${targetRoomId}`;
-       // Se for a sala atual que já estamos ouvindo, pode só enviar... mas um canal de evento rápido garante.
-       const quickCh = supabase.channel(`quick_broadcast_${Date.now()}_${Math.random()}`);
-       quickCh.subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-             // O canal real precisa ser a sala para bater no listener deles
-             await supabase.channel(chId).send({ type: 'broadcast', event: eventName, payload: p }).catch(()=>null);
-             supabase.removeChannel(quickCh);
-          }
-       });
-       // Mas o send do Supabase js trava se for nulo, vamos resolver com o send não bloqueante sem await!
-       supabase.channel(chId).send({ type: 'broadcast', event: eventName, payload: p }).catch(()=>null);
-    };
-
-    // Sincroniza a audiência local (apenas câmera dividida, sem barra)
-    safeCrossBroadcast(room.id, 'match_connected', startPayload);
-
-    // Sincroniza a sala do oponente! Fala pra ele ligar a câmera dividida lá também.
-    if (oppLive?.id) {
-       safeCrossBroadcast(oppLive.id, 'match_connected', {
-          opponentId: room.host_id,
-          opponentProfile: room.host_profile || session.user.user_metadata,
-          agora_channel: room.agora_channel,
-          opponentRoomId: room.id,
-          endTime: null,
-          score_a: 0,
-          score_b: 0
-       });
-    }
+    // Manda o convite formal (popup BATTLE_INVITE) para o oponente em vez de forçar a conexão da câmera
+    doBroadcast(opponent.id, 'battle_invite_request', { 
+       from: room.host_id, 
+       fromRoomId: room.id,
+       profile: room.host_profile || session.user.user_metadata,
+       agora_channel: room.agora_channel
+    });
   }
 
   // Função helper puramente não bloqueante para oponente e cross channel
-  const doBroadcast = (roomId: string, event: string, payload: any = {}) => {
+  const doBroadcast = (targetRoomId: string, event: string, payload: any = {}) => {
      try {
-       // Fire and forget sem travar componente do react
-       supabase.channel(`live_chat:${roomId}`).send({ type: 'broadcast', event, payload }).catch(() => null);
-     } catch(e) {}
+       if (targetRoomId === room.id && chatChannelRef.current) {
+         chatChannelRef.current.send({ type: 'broadcast', event, payload }).catch(()=>null);
+       } else {
+         console.log(`[doBroadcast] Connecting to foreign room: live_chat:${targetRoomId} for event ${event}`);
+         const tempCh = supabase.channel(`live_chat:${targetRoomId}`, { config: { broadcast: { ack: true } } });
+         
+         tempCh.subscribe(async (status) => {
+            console.log(`[doBroadcast] Foreign channel status:`, status);
+            if (status === 'SUBSCRIBED') {
+               try {
+                 // Try to send immediately with ack
+                 const resp = await tempCh.send({ type: 'broadcast', event, payload });
+                 console.log(`[doBroadcast] Sent ${event} to ${targetRoomId}, response:`, resp);
+                 
+                 // Fallback re-transmit (helps if socket wasn't fully ready)
+                 setTimeout(() => tempCh.send({ type: 'broadcast', event, payload }).catch(()=>null), 300);
+                 setTimeout(() => tempCh.send({ type: 'broadcast', event, payload }).catch(()=>null), 800);
+                 
+                 // Clean up later
+                 setTimeout(() => { supabase.removeChannel(tempCh) }, 3000);
+               } catch (err) {
+                 console.error("[doBroadcast] failed to send:", err);
+               }
+            }
+         });
+       }
+     } catch(e) {
+       console.error("[doBroadcast] Setup error:", e);
+     }
   };
 
   async function handleDisconnectMatch() {
@@ -208,6 +198,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   }
 
   async function handleAcceptBattle() {
+     console.log("Accepting battle from:", battleInvite);
      if (!battleInvite?.fromRoomId) return; 
      const eTime = Date.now() + 180000;
      const endsAtStr = new Date(eTime).toISOString();
@@ -225,6 +216,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      
      if (error) {
         console.error("Erro ao iniciar DB Battle", error);
+     } else {
+        console.log("DB Battle inserted! The postgres_changes listener should trigger now.");
      }
      
      setBattleInvite(null);
