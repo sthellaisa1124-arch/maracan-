@@ -756,7 +756,9 @@ function VideoOverlayWithFallback({
           inset: 0,
           width: '100%',
           height: '100%',
-          objectFit: 'cover', // Preenche toda a área disponível verticalmente
+          maxHeight: '60dvh', // Limita o tamanho para não invadir o celular inteiro
+          margin: 'auto', // Centraliza
+          objectFit: 'contain', // Mostra o vídeo no formato original sem cortar rostos ao fundo
         }}
         onEnded={() => { setEnded(true); onComplete(); }}
         onError={handleError}

@@ -636,6 +636,18 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     try {
       await agoraClient.join(APP_ID, room.agora_channel, null, session.user.id);
       
+      // Sincronizar participantes que já estavam lá antes de nós
+      agoraClient.remoteUsers.forEach(async (user) => {
+         if (user.hasVideo) {
+             await agoraClient.subscribe(user, 'video');
+             setRemoteUsers(prev => [...prev.filter(u => u.uid !== user.uid), user]);
+         }
+         if (user.hasAudio) {
+             await agoraClient.subscribe(user, 'audio');
+             user.audioTrack?.play();
+         }
+      });
+
       if (role === 'host') {
         const audio = await AgoraRTC.createMicrophoneAudioTrack();
         const video = await AgoraRTC.createCameraVideoTrack({
@@ -1495,20 +1507,29 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           <div ref={videoContainerRef} className="live-video-element" style={{ width: activeBattle ? '50%' : '100%', height: '100%', transition: 'width 0.3s' }} />
         ) : (
           <div 
-            id={`remote-video-${room.host_id}`} 
-            className="live-video-element"
-            style={{ width: activeBattle ? '50%' : '100%', height: '100%', background: '#000', transition: 'width 0.3s' }}
-            ref={(el) => {
-              if (el) {
-                const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
-                if (hostUser?.videoTrack && isActive) {
-                  hostUser.videoTrack.play(el);
-                }
-              }
-            }}
+            style={{ width: activeBattle ? '50%' : '100%', height: '100%', background: '#000', transition: 'width 0.3s', position: 'relative' }}
           >
+            {/* CONTAINER EXCLUSIVO PARA O AGORA RTC */}
+            <div
+              id={`remote-video-${room.host_id}`}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+              ref={(el) => {
+                if (el) {
+                  const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
+                  if (hostUser?.videoTrack && isActive) {
+                    if (el.childElementCount === 0) {
+                      hostUser.videoTrack.play(el);
+                    }
+                  }
+                } else {
+                  const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
+                  if (hostUser?.videoTrack) hostUser.videoTrack.stop();
+                }
+              }}
+            />
+            {/* PLACEHOLDER REACT */}
             {!remoteUsers.find(u => String(u.uid) === String(room.host_id))?.videoTrack && (
-               <div className="live-waiting">
+               <div className="live-waiting" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}>
                  <div className="animate-pulse">📺 Aguardando sinal do Host...</div>
                </div>
             )}
@@ -1517,19 +1538,40 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
         {/* Vídeo do Oponente na Batalha */}
         {activeBattle && (
-           <div id={`remote-video-opponent`} style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                 <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <img 
-                      src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} 
-                      style={{ width: '64px', height: '64px', borderRadius: '50%', marginBottom: '8px', opacity: 0.5, objectFit: 'cover' }} 
-                    />
-                    <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
-                      Conectando oponente...
-                    </div>
-                 </div>
-              </div>
-              {/* Onde a track de vídeo do oponente seria ejetada no futuro */}
+           <div style={{ width: '50%', height: '100%', background: '#111', borderLeft: '2px solid #ef4444', position: 'relative' }}>
+              {/* CONTAINER EXCLUSIVO AGORA RTC */}
+              <div 
+                 id={`remote-video-opponent`} 
+                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                 ref={(el) => {
+                    if (el) {
+                       const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
+                       if (opponentUser?.videoTrack) {
+                          if (el.childElementCount === 0) {
+                             opponentUser.videoTrack.play(el);
+                          }
+                       }
+                    } else {
+                       const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
+                       if (opponentUser?.videoTrack) opponentUser.videoTrack.stop();
+                    }
+                 }}
+              />
+              {/* PLACEHOLDER REACT */}
+              {!remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId))?.videoTrack && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, pointerEvents: 'none' }}>
+                   <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <img 
+                        src={activeBattle.opponentProfile?.avatar_url || 'https://ui-avatars.com/api/?name=Op'} 
+                        style={{ width: '64px', height: '64px', borderRadius: '50%', marginBottom: '8px', opacity: 0.5, objectFit: 'cover' }} 
+                        alt="Opponent"
+                      />
+                      <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}>
+                        Conectando oponente...
+                      </div>
+                   </div>
+                </div>
+              )}
            </div>
         )}
       </div>
@@ -1551,63 +1593,60 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               opponentAvatar={activeBattle.opponentProfile?.avatar_url}
             />
 
-            {/* OVERLAY FINALE DE BATALHA */}
+            {/* OVERLAY FINALE DE BATALHA (TÍTULO) */}
             {battleTimeLeft === 0 && (
               <div style={{
-                position: 'absolute', inset: 0, zIndex: 100000,
-                background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+                position: 'absolute', top: '15%', left: 0, right: 0, zIndex: 100000,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                animation: 'fadeIn 0.5s ease', textAlign: 'center', padding: '2rem'
+                animation: 'fadeIn 0.5s ease', textAlign: 'center', pointerEvents: 'none'
               }}>
-                <div style={{ fontSize: '5rem', marginBottom: '1rem', animation: 'bounce 1s infinite' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '0.5rem', animation: 'bounce 1s infinite', filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}>
                   {activeBattle.score_a > activeBattle.score_b ? '👑' : activeBattle.score_a < activeBattle.score_b ? '💀' : '🤝'}
                 </div>
                 <h2 style={{
-                  color: '#fff', fontSize: '2rem', fontWeight: 900, marginBottom: '0.5rem',
+                  color: '#fff', fontSize: '1.8rem', fontWeight: 900,
                   background: activeBattle.score_a > activeBattle.score_b ? 'linear-gradient(to right, #facc15, #f59e0b)' : 'linear-gradient(to right, #ef4444, #dc2626)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.8))'
                 }}>
                   {role === 'host'
                     ? (activeBattle.score_a > activeBattle.score_b ? 'VITÓRIA É SUA!' : activeBattle.score_a < activeBattle.score_b ? 'VOCÊ FOI DERROTADO' : 'EMPATE!')
                     : (activeBattle.score_a > activeBattle.score_b ? '🏆 VENCEDOR!' : activeBattle.score_a < activeBattle.score_b ? '💔 DERROTADO' : '🤝 EMPATE!')
                   }
                 </h2>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', marginBottom: '3rem' }}>
-                  A pista pegou fogo! {activeBattle.score_a} vs {activeBattle.score_b} pontos.
-                </p>
+              </div>
+            )}
 
-                {/* Botões apenas para o HOST */}
-                {role === 'host' ? (
-                  <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px', flexDirection: 'column' }}>
-                    <button 
-                      onClick={() => {
-                        setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
-                        setBattleTimeLeft(180);
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-                        color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1.1rem',
-                        cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      🔁 PEDIR REVANCHE
-                    </button>
-                    <button 
-                      onClick={() => setActiveBattle(null)}
-                      style={{
-                        background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                        color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
-                        cursor: 'pointer', transition: 'all 0.2s',
-                      }}
-                    >
-                      ✖ FECHAR
-                    </button>
-                  </div>
-                ) : (
-                  // Audiência: fecha automaticamente após 5s (sem botões)
-                  <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '-2rem' }}>Encerrando batalha...</p>
-                )}
+            {/* OVERLAY FINALE DE BATALHA (BOTÕES NO RODAPÉ) */}
+            {battleTimeLeft === 0 && role === 'host' && (
+              <div style={{
+                position: 'absolute', bottom: '15%', left: 0, right: 0, zIndex: 100000,
+                display: 'flex', gap: '1rem', justifyContent: 'center', padding: '0 2rem'
+              }}>
+                <button 
+                  onClick={() => {
+                    setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
+                    setBattleTimeLeft(180);
+                  }}
+                  style={{
+                    flex: 1, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                    color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1rem',
+                    cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  🔁 REVANCHE
+                </button>
+                <button 
+                  onClick={() => setActiveBattle(null)}
+                  style={{
+                    flex: 1, background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(5px)',
+                    color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
+                    cursor: 'pointer', transition: 'all 0.2s',
+                  }}
+                >
+                  ✖ SAIR FORA
+                </button>
               </div>
             )}
           </>
