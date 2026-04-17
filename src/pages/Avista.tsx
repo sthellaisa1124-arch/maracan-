@@ -237,7 +237,7 @@ export function Avista({
           }
         });
       },
-      { threshold: 0.6 }
+      { threshold: 0.5 }
     );
 
     const items = document.querySelectorAll('.avista-item');

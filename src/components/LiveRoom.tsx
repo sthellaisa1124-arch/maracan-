@@ -1394,14 +1394,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         position: 'fixed', inset: 0, zIndex: 20000, backgroundColor: '#000000', display: 'flex', flexDirection: 'column', visibility: 'visible', opacity: 1
       }}
     >
-      {!isActive ? (
-          <div className="avista-skeleton" style={{ background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', width: '100%' }}>
-              <img src={room.host_profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + room.host_id} style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem', opacity: 0.5, objectFit: 'cover' }} />
-              <Loader2 className="animate-spin" color="var(--primary)" size={32} />
-              <p style={{ marginTop: '1rem', fontWeight: 700, color: '#fff' }}>Conectando com @{room.host_profile?.username}...</p>
-          </div>
-      ) : (
-        <>
           <div 
             className="live-video-layer" 
         style={{ 
@@ -1429,7 +1421,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
             ref={(el) => {
               if (el) {
                 const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
-                if (hostUser?.videoTrack) {
+                if (hostUser?.videoTrack && isActive) {
                   hostUser.videoTrack.play(el);
                 }
               }
@@ -3187,8 +3179,6 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          }
          .confirm-btn:active { transform: scale(0.95); }
       `}</style>
-        </>
-      )}
     </div>
   );
 
