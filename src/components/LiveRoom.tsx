@@ -8,7 +8,7 @@ import AgoraRTC, {
   type IMicrophoneAudioTrack, 
   type IAgoraRTCRemoteUser 
 } from 'agora-rtc-sdk-ng';
-import { Heart, Users, UserPlus, Mic, MicOff, Camera, X, ChevronRight, ChevronLeft, Gift, Video, Share2, BarChart2, Zap, Power, Sparkles, Swords } from 'lucide-react';
+import { Heart, Users, UserPlus, Mic, MicOff, Camera, X, ChevronRight, ChevronLeft, Gift, Video, Share2, BarChart2, Zap, Power, Sparkles, Swords, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { GiftAnimationOverlay } from './GiftAnimationOverlay';
 import { GiftPanel } from './GiftPanel';
