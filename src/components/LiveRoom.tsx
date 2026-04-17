@@ -281,10 +281,24 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
      if (error) console.error("Erro ao registrar batalha:", error);
      
-     // Inicia o estado de espera local
+     // Inicia o estado de espera local instantaneamente
      setBattleStatus('waiting');
      setMyBattleReady(false);
      setOpponentBattleReady(false);
+     setBattleTimeLeft(180);
+
+     const mappedBattle = {
+        opponentId: battleInvite.fromId || battleInvite.from,
+        opponentProfile: battleInvite.profile || null,
+        agora_channel: battleInvite.agora_channel,
+        opponentRoomId: battleInvite.fromRoomId || null,
+        score_a: 0,
+        score_b: 0,
+        endTime: Date.now() + 180000, // Tempo visual inicial parado
+        battleId: null 
+     };
+     setActiveBattle(mappedBattle);
+
      setBattleInvite(null);
   }
 
@@ -394,7 +408,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         // Busca batalha ativa (status = 'active' OU recente nos últimos 3min)
         const { data: activeDBMatch } = await supabase.from('live_battles')
            .select('*')
-           .eq('status', 'active')
+           .or('status.eq.active,status.eq.waiting')
            .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
            .order('started_at', { ascending: false })
            .limit(1)
@@ -1229,9 +1243,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       
     // DB Listener para ativar batalhas do aquecimento para ativas
     const dbChannel = supabase.channel(`public:live_battles:${room.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_battles' }, async (payload) => {
-         const match = payload.new as any;
-         if (!match || match.status !== 'active') return;
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'live_battles' }, async (payload) => {
+         const match = (payload.new || payload.old) as any;
+         if (!match || (match.status !== 'active' && match.status !== 'waiting')) return;
          
          const belongsToRoom = match.host_a_id === room.host_id || match.host_b_id === room.host_id;
          if (belongsToRoom) {
@@ -1259,7 +1273,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
             };
 
             setActiveBattle((prev: any) => prev ? { ...prev, ...mappedBattle } : mappedBattle);
-            setBattleTimeLeft(Math.max(0, Math.floor((endsAt - Date.now()) / 1000)));
+            setBattleStatus(match.status);
+             
+            if (match.status === 'waiting') {
+               setBattleTimeLeft(180);
+               setMyBattleReady(false);
+               setOpponentBattleReady(false);
+            } else {
+               setBattleTimeLeft(Math.max(0, Math.floor((endsAt - Date.now()) / 1000)));
+            }
 
             if (role === 'host') {
                setBattleInviteStatus(null);
@@ -1748,7 +1770,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, touchAction: 'pan-y' }}
       >
 
-        {activeBattle && activeBattle.endTime && (
+        {activeBattle && (
           <>
             <BattleScoreBar 
               scoreA={activeBattle.score_a} 
