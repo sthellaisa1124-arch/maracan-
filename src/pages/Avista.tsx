@@ -95,7 +95,7 @@ export function Avista({
                 onClick={() => setActiveLiveId(live.id)}
               >
                 <img 
-                  src={live.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${live.user_id}`} 
+                  src={live.cover_url || live.host_profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${live.user_id}`} 
                   className="live-card-thumb"
                   alt={live.host_profile?.username}
                 />

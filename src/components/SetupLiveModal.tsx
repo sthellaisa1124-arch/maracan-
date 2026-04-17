@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Video, ShieldAlert, Loader2, Coins } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GIFT_CATALOG } from '../lib/gifts';
+import { Image as ImageIcon, Plus } from 'lucide-react';
 
 interface SetupLiveModalProps {
   session: any;
@@ -20,6 +21,8 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
   const [goalGiftId, setGoalGiftId] = useState<string | null>(null);
   const [isGiftPickerOpen, setIsGiftPickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   async function handleStart() {
     if (!title.trim() || !session?.user?.id) return;
@@ -28,7 +31,25 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
 
     const fullDescription = `${selectedVibe ? `[${selectedVibe}] ` : ''}${goalTarget ? `[Meta: ${goalTitle || (goalType === 'gifts' ? 'Presentes' : 'Seguidores')} (${goalTarget})] ` : ''}${description.trim()}`;
 
+    let coverUrl = null;
     try {
+      if (coverFile) {
+        const fileExt = coverFile.name.split('.').pop();
+        const fileName = `live_covers/${session.user.id}-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(fileName, coverFile);
+          
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('media')
+          .getPublicUrl(fileName);
+          
+        coverUrl = publicUrl;
+      }
+
       const channelName = `live_${session.user.id}_${Date.now()}`;
       const { data, error } = await supabase
         .from('live_sessions')
@@ -36,6 +57,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           host_id: session.user.id,
           title: title.trim(),
           description: fullDescription,
+          cover_url: coverUrl,
           is_18plus: is18Plus,
           agora_channel: channelName,
           is_live: false, 
@@ -220,6 +242,57 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
               className="vellar-field"
               autoFocus
             />
+          </div>
+
+          <div className="vellar-input-wrap">
+            <label>FOTO DE CAPA (OPCIONAL)</label>
+            <div 
+              onClick={() => document.getElementById('cover-input')?.click()}
+              style={{
+                width: '100%',
+                height: '140px',
+                borderRadius: '20px',
+                background: coverPreview ? `url(${coverPreview}) center/cover no-repeat` : 'rgba(255,255,255,0.03)',
+                border: '1.5px dashed rgba(168,85,247,0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                overflow: 'hidden',
+                position: 'relative',
+                transition: 'all 0.3s'
+              }}
+            >
+              {!coverPreview ? (
+                <>
+                  <ImageIcon size={32} color="#a855f7" style={{ opacity: 0.5, marginBottom: '8px' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', fontWeight: 700 }}>ESCOLHER FOTO DA CAPA</span>
+                </>
+              ) : (
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <div style={{ background: '#a855f7', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                      <Plus size={24} color="#fff" />
+                   </div>
+                </div>
+              )}
+              <input 
+                id="cover-input"
+                type="file" 
+                accept="image/*" 
+                hidden 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setCoverFile(file);
+                    setCoverPreview(URL.createObjectURL(file));
+                  }
+                }}
+              />
+            </div>
+            <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', marginTop: '8px', textAlign: 'center' }}>
+              Dica: Use fotos verticais para ficar brabo no Explorer! 🔥
+            </p>
           </div>
 
           <div className="vellar-input-wrap">
