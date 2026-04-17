@@ -354,12 +354,12 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           }).eq('id', activeBattle.battleId);
         }
         
-        // Notifica o oponente
+        // Notifica o oponente e a audiência da sala dele
         doBroadcast(activeBattle.opponentRoomId, 'battle_start', { 
            endTime: endTime 
         });
         
-        // Notifica as audiências deste quarto
+        // Notifica a própria audiência desta sala
         doBroadcast(room.id, 'battle_start', { 
            endTime: endTime 
         });
@@ -444,9 +444,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         // Busca batalha ativa (status = 'active' OU recente nos últimos 3min)
         const { data: activeDBMatch } = await supabase.from('live_battles')
            .select('*')
-           .or('status.eq.active,status.eq.waiting')
            .or(`host_a_id.eq.${room.host_id},host_b_id.eq.${room.host_id}`)
-           .order('started_at', { ascending: false })
+           .or('status.eq.active,status.eq.waiting')
+           .order('created_at', { ascending: false })
            .limit(1)
            .maybeSingle();
 
@@ -499,6 +499,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         });
 
         setBattleTimeLeft(Math.max(0, Math.floor((syncEndTime - Date.now()) / 1000)));
+        setBattleStatus(activeDBMatch.status); // CRÍTICO: Define se é 'waiting' ou 'active' para a audiência ver o timer rodar
 
         // Pedir pontuação real para sincronizar placar
         setTimeout(() => {
