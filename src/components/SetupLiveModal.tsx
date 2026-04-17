@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { X, Video, ShieldAlert, Loader2, Coins } from 'lucide-react';
+import { X, Video, ShieldAlert, Loader2, Coins, Users, Image as ImageIcon, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { GIFT_CATALOG } from '../lib/gifts';
-import { Image as ImageIcon, Plus } from 'lucide-react';
 
 interface SetupLiveModalProps {
   session: any;
