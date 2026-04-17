@@ -14,6 +14,7 @@ import { LiveRoom } from './components/LiveRoom';
 import { LiveRail } from './components/LiveRail';
 import { SetupLiveModal } from './components/SetupLiveModal';
 import { StatusCreator } from './components/StatusCreator';
+import { StatusViewer } from './components/StatusViewer';
 import type { Session } from '@supabase/supabase-js';
 import { 
   MessageSquare, LogOut, User, Bell, Hash, Search, 
