@@ -447,6 +447,16 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     let active = true;
     if (!isActive) return;
 
+    // Carregar contagem de likes da live do banco ao iniciar
+    supabase
+      .from('live_sessions')
+      .select('likes_count')
+      .eq('id', room.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.likes_count) setTotalLikes(data.likes_count);
+      });
+
     const timer = setTimeout(() => {
       // Se for desmontado prematuramente pelo React (ex: modo estrito no dev), não abre a câmera dupla!
       if (!active) return;
@@ -1216,6 +1226,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         totalCount: newLikes
       }
     });
+
+    // Persistir o total no banco (throttled: apenas a cada 5 curtidas para não sobrecarregar)
+    if (newLikes % 5 === 0 || newLikes <= 3) {
+      supabase
+        .from('live_sessions')
+        .update({ likes_count: newLikes })
+        .eq('id', room.id)
+        .then(() => {});
+    }
   }
   async function checkFollowStatus() {
     if (role !== 'audience' || !session?.user?.id || !room?.host_id) return;
@@ -1483,38 +1502,47 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                   background: activeBattle.score_a > activeBattle.score_b ? 'linear-gradient(to right, #facc15, #f59e0b)' : 'linear-gradient(to right, #ef4444, #dc2626)',
                   WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 }}>
-                  {activeBattle.score_a > activeBattle.score_b ? 'VITÓRIA É SUA!' : activeBattle.score_a < activeBattle.score_b ? 'VOCÊ FOI DERROTADO' : 'EMPATE!'}
+                  {role === 'host'
+                    ? (activeBattle.score_a > activeBattle.score_b ? 'VITÓRIA É SUA!' : activeBattle.score_a < activeBattle.score_b ? 'VOCÊ FOI DERROTADO' : 'EMPATE!')
+                    : (activeBattle.score_a > activeBattle.score_b ? '🏆 VENCEDOR!' : activeBattle.score_a < activeBattle.score_b ? '💔 DERROTADO' : '🤝 EMPATE!')
+                  }
                 </h2>
                 <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '1rem', marginBottom: '3rem' }}>
                   A pista pegou fogo! {activeBattle.score_a} vs {activeBattle.score_b} pontos.
                 </p>
 
-                <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px', flexDirection: 'column' }}>
-                  <button 
-                    onClick={() => {
-                      setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
-                      setBattleTimeLeft(180);
-                    }}
-                    style={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-                      color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1.1rem',
-                      cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    🔁 PEDIR REVANCHE
-                  </button>
-                  <button 
-                    onClick={() => setActiveBattle(null)}
-                    style={{
-                      background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
-                      color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
-                      cursor: 'pointer', transition: 'all 0.2s',
-                    }}
-                  >
-                    ✖ FECHAR
-                  </button>
-                </div>
+                {/* Botões apenas para o HOST */}
+                {role === 'host' ? (
+                  <div style={{ display: 'flex', gap: '1rem', width: '100%', maxWidth: '300px', flexDirection: 'column' }}>
+                    <button 
+                      onClick={() => {
+                        setActiveBattle((prev: any) => ({ ...prev, score_a: 0, score_b: 0 }));
+                        setBattleTimeLeft(180);
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                        color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 900, fontSize: '1.1rem',
+                        cursor: 'pointer', boxShadow: '0 8px 25px rgba(16, 185, 129, 0.4)',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      🔁 PEDIR REVANCHE
+                    </button>
+                    <button 
+                      onClick={() => setActiveBattle(null)}
+                      style={{
+                        background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+                        color: '#fff', padding: '1rem', borderRadius: '1rem', fontWeight: 700, fontSize: '1rem',
+                        cursor: 'pointer', transition: 'all 0.2s',
+                      }}
+                    >
+                      ✖ FECHAR
+                    </button>
+                  </div>
+                ) : (
+                  // Audiência: fecha automaticamente após 5s (sem botões)
+                  <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '-2rem' }}>Encerrando batalha...</p>
+                )}
               </div>
             )}
           </>
