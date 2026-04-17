@@ -139,7 +139,7 @@ export function Avista({
           </div>
         )}
         
-        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1000005 }}>
           {renderNavigationTabsHUD()}
         </div>
       </div>
@@ -572,8 +572,8 @@ export function Avista({
                    position: 'absolute',
                    right: '1.5rem',
                    top: '-60px',
-                   background: 'linear-gradient(45deg, #fbbf24, #f59e0b)',
-                   color: '#000',
+                   background: 'linear-gradient(135deg, #a855f7 0%, #6C2BFF 100%)',
+                   color: '#fff',
                    border: 'none',
                    borderRadius: '50%',
                    width: '56px',
@@ -581,7 +581,7 @@ export function Avista({
                    display: 'flex',
                    justifyContent: 'center',
                    alignItems: 'center',
-                   boxShadow: '0 4px 15px rgba(251, 191, 36, 0.4)',
+                   boxShadow: '0 0 20px rgba(168, 85, 247, 0.7), 0 0 40px rgba(108, 43, 255, 0.4)',
                    cursor: 'pointer',
                    zIndex: 100
                }}
