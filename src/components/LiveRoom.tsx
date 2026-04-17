@@ -1099,14 +1099,36 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       
     // DB Listener para ativar batalhas do aquecimento para ativas
     const dbChannel = supabase.channel(`public:live_battles:${room.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_battles' }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_battles' }, async (payload) => {
          const match = payload.new as any;
          if (!match || match.status !== 'active') return;
          
          const belongsToRoom = match.host_a_id === room.host_id || match.host_b_id === room.host_id;
          if (belongsToRoom) {
             const endsAt = new Date(match.ends_at).getTime();
-            setActiveBattle((prev: any) => prev ? { ...prev, endTime: endsAt, battleId: match.id } : { ...match, endTime: endsAt, battleId: match.id });
+
+            const isHostA = match.host_a_id === room.host_id;
+            const oppId = isHostA ? match.host_b_id : match.host_a_id;
+            const oppChannel = isHostA ? match.agora_channel_b : match.agora_channel_a;
+
+            // Busca as infos faltantes (como o ID da sala do oponente e seu profile) antes de ligar a batalha
+            const [{ data: oppProfile }, { data: oppLive }] = await Promise.all([
+               supabase.from('profiles').select('*').eq('id', oppId).maybeSingle(),
+               supabase.from('live_sessions').select('id').eq('host_id', oppId).eq('is_live', true).maybeSingle()
+            ]);
+
+            const mappedBattle = {
+               opponentId: oppId,
+               opponentProfile: oppProfile || null,
+               agora_channel: oppChannel,
+               opponentRoomId: oppLive?.id ?? null,
+               score_a: 0,
+               score_b: 0,
+               endTime: endsAt,
+               battleId: match.id 
+            };
+
+            setActiveBattle((prev: any) => prev ? { ...prev, ...mappedBattle } : mappedBattle);
             setBattleTimeLeft(Math.max(0, Math.floor((endsAt - Date.now()) / 1000)));
 
             if (role === 'host') {
