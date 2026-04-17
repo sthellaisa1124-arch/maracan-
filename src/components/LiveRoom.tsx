@@ -201,39 +201,37 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      
      doBroadcast(activeBattle.opponentRoomId, 'battle_invite_request', { 
         from: room.host_id, 
+        fromRoomId: room.id,
         profile: room.host_profile || session.user.user_metadata 
      });
   }
 
   async function handleAcceptBattle() {
-     if (!activeBattle?.opponentRoomId) return;
+     if (!battleInvite?.fromRoomId) return; 
      const eTime = Date.now() + 180000;
      const endsAtStr = new Date(eTime).toISOString();
      
      // 1. O Banco de Dados passa a comandar a Batalha Global!
-     // Invertendo A e B localmente para satisfazer a política RLS, onde o auth.uid() deve ser = host_a_id no INSERT.
      const { error } = await supabase.from('live_battles').insert({
         host_a_id: room.host_id,
-        host_b_id: activeBattle.opponentId,
+        host_b_id: battleInvite.fromId || battleInvite.from,
         status: 'active',
         started_at: new Date().toISOString(),
         ends_at: endsAtStr,
         agora_channel_a: room.agora_channel,
-        agora_channel_b: activeBattle.agora_channel
+        agora_channel_b: battleInvite.agora_channel
      });
      
      if (error) {
         console.error("Erro ao iniciar DB Battle", error);
      }
      
-     // Os listeners do postgres_changes em ambos os hosts (e 100% da audiência) 
-     // pegarão essa criação instantaneamente e descerão a barra idênticos!
      setBattleInvite(null);
   }
 
   async function handleRejectBattle() {
-     if (!activeBattle?.opponentRoomId) return;
-     doBroadcast(activeBattle.opponentRoomId, 'battle_invite_rejected');
+     if (!battleInvite?.fromRoomId) return;
+     doBroadcast(battleInvite.fromRoomId, 'battle_invite_rejected');
      setBattleInvite(null);
   }
 
@@ -399,7 +397,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [followerGoalCurrent, setFollowerGoalCurrent] = useState(room.follower_goal_current || 0);
 
   // Estados de Aquecimento da Batalha (Confronto)
-  const [battleInvite, setBattleInvite] = useState<{from: string, profile: any} | null>(null);
+  const [battleInvite, setBattleInvite] = useState<{from: string, fromRoomId: string, profile: any, agora_channel: string} | null>(null);
   const [battleInviteStatus, setBattleInviteStatus] = useState<'pending' | 'rejected' | null>(null);
   const [isGoalPickerOpen, setIsGoalPickerOpen] = useState(false);
   const [isGoalPanelOpen, setIsGoalPanelOpen] = useState(false);
@@ -829,7 +827,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
           }
         }
 
-        const isMatch = !goalGiftId || payload.gift.id === goalGiftId;
+        const isMatch = !giftGoalId || payload.gift.id === giftGoalId;
         setChat(prev => [...prev, { 
           username: payload.username || 'Desconhecido', 
           content: `🎁 enviou um ${payload.gift.name}!`,
@@ -1137,51 +1135,28 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     }]);
 
     // Contagem da meta para o próprio host (visual local)
-    const isMatch = !goalGiftId || gift.id === goalGiftId;
+    const isMatch = !giftGoalId || gift.id === giftGoalId;
     if (isMatch) {
-       setGoalCurrent((prev: number) => prev + (goalGiftId ? 1 : gift.price));
+       setGiftGoalCurrent((prev: number) => prev + (giftGoalId ? 1 : gift.price));
     }
 
     setIsGiftPanelOpen(false);
   }
 
-  async function updateGoal(type: 'gifts' | 'followers', title: string, target: number, giftId: string | null = null) {
-    if (role !== 'host') return;
-    
-    const newGoalData = {
-      type,
-      title,
-      target: Number(target),
-      current: 0,
-      giftId
-    };
-
-    setGoalType(type);
-    setGoalTitle(title);
-    setGoalTarget(Number(target));
-    setGoalCurrent(0);
-    setGoalGiftId(giftId);
-
-    // Broadcast para todos na sala
-    await supabase.channel(`live_chat:${room.id}`).send({
-      type: 'broadcast',
-      event: 'goal_update',
-      payload: newGoalData
-    });
-
-    // Salvar no banco para quem entrar depois
-    await supabase.from('live_sessions')
-      .update({
-        goal_type: type,
-        goal_title: title,
-        goal_target: Number(target),
-        goal_current: 0,
-        goal_gift_id: giftId
-      })
-      .eq('id', room.id);
-    
+  async function updateGiftGoal(title: string, target: number, giftId: string | null) {
+    const payload = { gift: { title, target, current: 0, gift_id: giftId } };
+    await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'goal_update', payload });
+    await supabase.from('live_sessions').update({ gift_goal_title: title, gift_goal_target: target, gift_goal_current: 0, gift_goal_id: giftId }).eq('id', room.id);
+    setGiftGoalTitle(title); setGiftGoalTarget(target); setGiftGoalCurrent(0); setGiftGoalId(giftId);
     setIsGoalPanelOpen(false);
-    setIsGoalPickerOpen(false);
+  }
+
+  async function updateFollowerGoal(title: string, target: number) {
+    const payload = { follower: { title, target, current: 0 } };
+    await supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'goal_update', payload });
+    await supabase.from('live_sessions').update({ follower_goal_title: title, follower_goal_target: target, follower_goal_current: 0 }).eq('id', room.id);
+    setFollowerGoalTitle(title); setFollowerGoalTarget(target); setFollowerGoalCurrent(0);
+    setIsGoalPanelOpen(false);
   }
 
   const lastTapRef = useRef<number>(0);
@@ -2197,30 +2172,34 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
       {isGoalPanelOpen && role === 'host' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000001, background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ width: '100%', maxWidth: '400px', background: '#111', borderRadius: '2rem', border: '1px solid var(--primary)', padding: '2rem', animation: 'fadeIn 0.3s' }}>
-             <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', color: '#fbbf24' }}>Configurar Meta 🎯</h3>
-             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                <button onClick={() => setGoalType('gifts')} style={{ flex: 1, padding: '1rem', borderRadius: '1rem', background: goalType === 'gifts' ? 'var(--primary)' : '#222', border: 'none', color: '#fff', fontWeight: 700 }}>PRESENTES 🎁</button>
-                <button onClick={() => setGoalType('followers')} style={{ flex: 1, padding: '1rem', borderRadius: '1rem', background: goalType === 'followers' ? 'var(--primary)' : '#222', border: 'none', color: '#fff', fontWeight: 700 }}>SEGUIDORES 👤</button>
+          <div style={{ width: '100%', maxWidth: '400px', background: '#111', borderRadius: '2rem', border: '1px solid var(--primary)', padding: '2rem', animation: 'fadeIn 0.3s', maxHeight: '90vh', overflowY: 'auto' }}>
+             <h3 style={{ marginBottom: '1.5rem', textAlign: 'center', color: '#fbbf24' }}>Configurar Metas 🎯</h3>
+             
+             {/* SEÇÃO PRESENTES */}
+             <div style={{ marginBottom: '2rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '1rem' }}>
+                <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '1rem' }}>🎁 Meta de Presentes</h4>
+                <div onClick={() => setIsGoalPickerOpen(true)} style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '16px', cursor: 'pointer', border: '1px dashed rgba(251,191,36,0.3)' }}>
+                   {giftGoalId ? (
+                     <>
+                       <div style={{ width: '32px', height: '32px' }}><img src={GIFT_CATALOG.find(g => g.id === giftGoalId)?.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
+                       <div style={{ color: '#fff' }}><div style={{ fontWeight: 800, fontSize: '0.8rem' }}>{GIFT_CATALOG.find(g => g.id === giftGoalId)?.name}</div></div>
+                     </>
+                   ) : <span style={{ opacity: 0.5, color: '#fff', fontSize: '0.8rem' }}>Escolher presente específico...</span>}
+                </div>
+                <input type="text" placeholder="Título da Meta" value={giftGoalTitle} onChange={e => setGiftGoalTitle(e.target.value)} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '0.8rem', borderRadius: '0.8rem', color: '#fff', marginBottom: '0.8rem' }} />
+                <input type="number" placeholder="Objetivo" value={giftGoalTarget} onChange={e => setGiftGoalTarget(Number(e.target.value))} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '0.8rem', borderRadius: '0.8rem', color: '#fff' }} />
+                <button onClick={() => updateGiftGoal(giftGoalTitle, Number(giftGoalTarget), giftGoalId)} style={{ width: '100%', marginTop: '0.8rem', padding: '0.8rem', background: '#fbbf24', color: '#000', borderRadius: '0.8rem', border: 'none', fontWeight: 900, fontSize: '0.8rem' }}>ATUALIZAR PRESENTES</button>
              </div>
-             {goalType === 'gifts' && (
-               <div onClick={() => setIsGoalPickerOpen(true)} style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', cursor: 'pointer', border: '1px dashed rgba(212,175,55,0.3)' }}>
-                  {goalGiftId ? (
-                    <>
-                      <div style={{ width: '40px', height: '40px' }}><img src={GIFT_CATALOG.find(g => g.id === goalGiftId)?.image} style={{ width: '100%', height: '100%', objectFit: 'contain' }} /></div>
-                      <div style={{ color: '#fff' }}><div style={{ fontWeight: 800 }}>{GIFT_CATALOG.find(g => g.id === goalGiftId)?.name}</div><div style={{ fontSize: '0.7rem', color: '#fbbf24' }}>🪙 {GIFT_CATALOG.find(g => g.id === goalGiftId)?.price} cada</div></div>
-                    </>
-                  ) : <span style={{ opacity: 0.5, color: '#fff' }}>Escolher presente específico...</span>}
-               </div>
-             )}
-             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.5rem', opacity: 0.7 }}>TÍTULO DA META</label>
-             <input type="text" placeholder="Ex: Para o setup novo!" value={goalTitle} onChange={e => setGoalTitle(e.target.value)} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '1rem', borderRadius: '1rem', color: '#fff', marginBottom: '1.5rem' }} />
-             <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '0.5rem', opacity: 0.7 }}>OBJETIVO (VALOR)</label>
-             <input type="number" placeholder="Ex: 5000" value={goalTarget} onChange={e => setGoalTarget(Number(e.target.value))} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '1rem', borderRadius: '1rem', color: '#fff', marginBottom: '2rem' }} />
-             <div style={{ display: 'flex', gap: '1rem' }}>
-                <button onClick={() => setIsGoalPanelOpen(false)} style={{ flex: 1, padding: '1rem', background: 'transparent', color: '#fff', border: 'none' }}>CANCELAR</button>
-                <button onClick={() => updateGoal(goalType, goalTitle, goalTarget, goalGiftId)} style={{ flex: 2, padding: '1rem', background: 'var(--primary)', color: '#000', borderRadius: '1rem', border: 'none', fontWeight: 900 }}>ATIVAR META 🔥</button>
+
+             {/* SEÇÃO SEGUIDORES */}
+             <div style={{ marginBottom: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '1rem' }}>
+                <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '1rem' }}>👤 Meta de Seguidores</h4>
+                <input type="text" placeholder="Título da Meta" value={followerGoalTitle} onChange={e => setFollowerGoalTitle(e.target.value)} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '0.8rem', borderRadius: '0.8rem', color: '#fff', marginBottom: '0.8rem' }} />
+                <input type="number" placeholder="Objetivo" value={followerGoalTarget} onChange={e => setFollowerGoalTarget(Number(e.target.value))} style={{ width: '100%', background: '#222', border: '1px solid #333', padding: '0.8rem', borderRadius: '0.8rem', color: '#fff' }} />
+                <button onClick={() => updateFollowerGoal(followerGoalTitle, Number(followerGoalTarget))} style={{ width: '100%', marginTop: '0.8rem', padding: '0.8rem', background: 'var(--primary)', color: '#000', borderRadius: '0.8rem', border: 'none', fontWeight: 900, fontSize: '0.8rem' }}>ATUALIZAR SEGUIDORES</button>
              </div>
+
+             <button onClick={() => setIsGoalPanelOpen(false)} style={{ width: '100%', padding: '1rem', background: 'transparent', color: 'rgba(255,255,255,0.5)', border: 'none', fontSize: '0.8rem' }}>FECHAR PAINEL</button>
           </div>
         </div>
       )}
@@ -2234,9 +2213,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                 {GIFT_CATALOG.filter(g => g.price > 0).map(g => (
-                  <div key={g.id} onClick={() => { setGoalGiftId(g.id); setIsGoalPickerOpen(false); }} style={{ background: goalGiftId === g.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div key={g.id} onClick={() => { setGiftGoalId(g.id); setIsGoalPickerOpen(false); }} style={{ background: giftGoalId === g.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '12px', textAlign: 'center', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }}>
                      <img src={g.image} style={{ width: '100%', height: '40px', objectFit: 'contain', marginBottom: '5px' }} />
-                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: goalGiftId === g.id ? '#000' : '#fff' }}>{g.name}</div>
+                     <div style={{ fontSize: '0.6rem', fontWeight: 800, color: giftGoalId === g.id ? '#000' : '#fff' }}>{g.name}</div>
                   </div>
                 ))}
               </div>
