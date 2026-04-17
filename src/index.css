@@ -1433,18 +1433,195 @@ html, body {
   opacity: 1;
   transform: scale(1.1);
 }
-.avista-top-supporters {
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  margin-top: 0;
-  transform: scale(0.9);
-  transform-origin: right top;
-}
 .avista-top-gradient {
   height: 120px;
   opacity: 0.5;
 }
+
+/* --- LIVE HUB (EXPLORER) --- */
+.live-hub-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: #000;
+  padding-bottom: 80px; /* Espao para a nav bar */
+}
+
+.live-hub-header {
+  padding: 1rem 1.5rem;
+  background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, transparent 100%);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+
+.live-hub-title {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #fff;
+  margin-bottom: 1rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  background: linear-gradient(to right, #fff, var(--primary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.live-hub-search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.live-hub-search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.8rem 1rem 0.8rem 2.8rem;
+  color: #fff;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.live-hub-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+}
+
+.live-hub-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.live-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 0 1rem 100px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.live-card-elite {
+  position: relative;
+  aspect-ratio: 1 / 1.35;
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.live-card-elite:active {
+  transform: scale(0.96);
+}
+
+.live-card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: scale 0.5s ease;
+}
+
+.live-card-elite:hover .live-card-thumb {
+  scale: 1.1;
+}
+
+.live-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 40%, transparent 60%, rgba(0,0,0,0.4) 100%);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.live-card-badge-live {
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+  animation: pulse-red 2s infinite;
+}
+
+.live-card-viewers {
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  margin-left: 4px;
+}
+
+.live-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.live-card-host {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-card-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--primary);
+  object-fit: cover;
+}
+
+.live-card-username {
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-card-title {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
 .is-avista .avista-container {
   height: 100dvh;
   padding: 0;

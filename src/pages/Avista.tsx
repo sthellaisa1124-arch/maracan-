@@ -602,7 +602,7 @@ export function Avista({
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999,
           height: '100dvh', width: '100vw', 
           overflowY: 'scroll', overflowX: 'hidden', 
-          scrollSnapType: 'y mandatory', 
+          scrollSnapType: currentTab === 'avista' ? 'y mandatory' : 'none', 
           scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch',
           backgroundColor: '#000'
         }}
