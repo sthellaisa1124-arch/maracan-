@@ -127,7 +127,7 @@ export function StatusViewer({ group, onClose, viewerId, onRefresh, onViewProfil
         .select('id')
         .eq('status_id', statusId)
         .eq('user_id', viewerId)
-        .single();
+        .maybeSingle();
       setIsLiked(!!myLike);
     }
 
