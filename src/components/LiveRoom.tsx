@@ -268,18 +268,20 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
   async function handleAcceptBattle() {
      console.log("Accepting battle from:", battleInvite);
-     if (!battleInvite?.fromRoomId) return; 
+     if (!battleInvite?.fromRoomId) return;
 
-     // Cria o registro no banco agora, mas com status 'waiting' ou apenas reservado
-     const { error } = await supabase.from('live_battles').insert({
+     // Cria o registro no banco agora e captura o ID gerado
+     const { data: newBattle, error } = await supabase.from('live_battles').insert({
         host_a_id: room.host_id,
         host_b_id: battleInvite.fromId || battleInvite.from,
         status: 'waiting',
         agora_channel_a: room.agora_channel,
         agora_channel_b: battleInvite.agora_channel
-     });
+     }).select().single();
 
      if (error) console.error("Erro ao registrar batalha:", error);
+     
+     const battleId = newBattle?.id || null;
      
      // Inicia o estado de espera local instantaneamente
      setBattleStatus('waiting');
@@ -294,8 +296,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         opponentRoomId: battleInvite.fromRoomId || null,
         score_a: 0,
         score_b: 0,
-        endTime: Date.now() + 180000, // Tempo visual inicial parado
-        battleId: null 
+        endTime: Date.now() + 180000, 
+        battleId: battleId 
      };
      setActiveBattle(mappedBattle);
 
@@ -305,7 +307,8 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
            opponentProfile: userProfile || activeUserProfile,
            opponentId: room.host_id,
            agora_channel: room.agora_channel,
-           fromRoomId: room.id
+           fromRoomId: room.id,
+           battleId: battleId
         });
      }
 
@@ -338,14 +341,27 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
      // Se ambos estiverem prontos, a batalha começa de verdade no banco
      if (opponentBattleReady) {
-        await supabase.from('live_battles').update({ 
-           status: 'active',
-           started_at: new Date().toISOString(),
-           ends_at: new Date(Date.now() + 180000).toISOString()
-        }).eq('id', activeBattle.battleId);
+        setBattleStatus('active'); // Inicia localmente para quem clicou por último
         
+        const endTime = Date.now() + 180000;
+        setBattleTimeLeft(180);
+
+        if (activeBattle.battleId) {
+          await supabase.from('live_battles').update({ 
+             status: 'active',
+             started_at: new Date().toISOString(),
+             ends_at: new Date(endTime).toISOString()
+          }).eq('id', activeBattle.battleId);
+        }
+        
+        // Notifica o oponente
         doBroadcast(activeBattle.opponentRoomId, 'battle_start', { 
-           endTime: Date.now() + 180000 
+           endTime: endTime 
+        });
+        
+        // Notifica as audiências deste quarto
+        doBroadcast(room.id, 'battle_start', { 
+           endTime: endTime 
         });
      }
   }
@@ -1199,7 +1215,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                score_a: 0,
                score_b: 0,
                endTime: Date.now() + 180000,
-               battleId: null
+               battleId: payload.battleId || null
             };
             setActiveBattle(mapped);
             setBattleStatus('waiting');
