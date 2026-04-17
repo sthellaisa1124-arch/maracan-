@@ -14,7 +14,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [is18Plus, setIs18Plus] = useState(false);
-  const [selectedVibe, setSelectedVibe] = useState('🔥 Papo Brabo');
+  const [selectedVibe, setSelectedVibe] = useState('RESENHA');
   const [goalType, setGoalType] = useState<'gifts' | 'followers'>('gifts');
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState<number | ''>('');
@@ -58,6 +58,7 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           title: title.trim(),
           description: fullDescription,
           cover_url: coverUrl,
+          category: selectedVibe,
           is_18plus: is18Plus,
           agora_channel: channelName,
           is_live: false, 
@@ -417,9 +418,9 @@ export function SetupLiveModal({ session, onClose, onStartLive }: SetupLiveModal
           )}
 
           <div className="vellar-input-wrap">
-            <label>VIBE DA TRANSMISSÃO</label>
+            <label>CATEGORIA DA LIVE</label>
             <div className="vibe-selector">
-              {['🔥 Papo Brabo', '🤳 Vida Real', '🎬 Bastidores', '✨ Beauty', '🗣️ Resenha'].map(vibe => (
+              {['RESENHA', 'TALENTO', 'CONFRONTO', 'CONVERSA'].map(vibe => (
                 <div 
                   key={vibe} 
                   className={`vibe-tag ${selectedVibe === vibe ? 'active' : ''}`}

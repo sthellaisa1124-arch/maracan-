@@ -29,6 +29,7 @@ export function Avista({
   const [activeLiveId, setActiveLiveId] = useState<string | null>(null);
   const [showSetupLive, setShowSetupLive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('TUDO');
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
@@ -58,10 +59,13 @@ export function Avista({
 
   const filteredLives = liveSessions.filter(live => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const titleOrUserMatches = (
       live.host_profile?.username?.toLowerCase().includes(searchLower) ||
       live.title?.toLowerCase().includes(searchLower)
     );
+    
+    if (selectedCategory === 'TUDO') return titleOrUserMatches;
+    return titleOrUserMatches && live.category === selectedCategory;
   });
 
   const renderLiveHub = () => {
@@ -79,6 +83,18 @@ export function Avista({
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+        </div>
+
+        <div className="live-hub-categories">
+          {['TUDO', 'RESENHA', 'TALENTO', 'CONFRONTO', 'CONVERSA'].map(cat => (
+            <button 
+              key={cat} 
+              className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
+              onClick={() => setSelectedCategory(cat)}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
 
         {filteredLives.length === 0 ? (
