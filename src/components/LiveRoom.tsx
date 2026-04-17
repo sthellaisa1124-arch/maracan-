@@ -101,6 +101,7 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
   const [showHostStats, setShowHostStats] = useState(false);
   const [agoraError, setAgoraError] = useState<string | null>(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(role === 'audience'); // Audiência "já está em live" sob a ótica de consumo
   const [activeBeautyPreset, setActiveBeautyPreset] = useState<keyof typeof BEAUTY_PRESETS>('original');
   const [activeVibePreset, setActiveVibePreset] = useState<keyof typeof VIBE_PRESETS>('original');
@@ -235,24 +236,43 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
      setBattleInvite(null);
   }
 
-  async function handleSurrenderBattle() {
+  function handleSurrenderBattle() {
      if (!activeBattle) return;
-     if (!confirm("Tem certeza que deseja desistir? A vitória será concedida ao seu oponente.")) return;
-     
+     // Abre o modal customizado — sem usar confirm() nativo do browser
+     setShowSurrenderConfirm(true);
+  }
+
+  async function executeSurrender() {
+     setShowSurrenderConfirm(false);
+     if (!activeBattle) return;
+
      const opponentId = activeBattle.opponentId;
-     
-     const payload = {
+
+     // Payload da perspectiva DE QUEM DESISTIU (score_a=0 = eu perdi)
+     const myPayload = {
          score_a: 0,
          score_b: 999999,
          winner_id: opponentId,
          surrender: true
      };
 
-     supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_ended', payload }).catch(()=>{});
+     // Payload da perspectiva DO OPONENTE (score_a=999999 = ele ganhou)
+     const opponentPayload = {
+         score_a: 999999,
+         score_b: 0,
+         winner_id: opponentId,
+         surrender: true
+     };
+
+     // Notifica a própria sala (audiência local vê o resultado)
+     supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_ended', payload: myPayload }).catch(()=>{});
+
+     // Notifica a sala do oponente com placar do ponto de vista DELE
      if (activeBattle.opponentRoomId) {
-         supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_ended', payload }).catch(()=>{});
+         supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_ended', payload: opponentPayload }).catch(()=>{});
      }
-     
+
+     // Persiste no banco
      if (activeBattle.battleId) {
          await supabase.from('live_battles').update({
              status: 'finished',
@@ -262,8 +282,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
              ends_at: new Date().toISOString()
          }).eq('id', activeBattle.battleId);
      }
-     
-     setActiveBattle((prev: any) => prev ? { ...prev, endTime: Date.now() } : null);
+
+     // Atualiza estado LOCAL com scores corretos (eu perdi = 0 vs 999999)
+     setActiveBattle((prev: any) => prev ? { ...prev, endTime: Date.now(), score_a: 0, score_b: 999999 } : null);
      setBattleTimeLeft(0);
   }
 
@@ -1013,16 +1034,21 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          }
       })
       .on('broadcast', { event: 'battle_ended' }, ({ payload }) => {
-         if (role === 'audience') {
-            // Atualiza placar final antes de limpar
-            if (payload?.score_a !== undefined) {
-              setActiveBattle((prev: any) => prev ? { ...prev, score_a: payload.score_a, score_b: payload.score_b } : prev);
-            }
-            setTimeout(() => {
-              setActiveBattle(null);
-              setBattleTimeLeft(0);
-            }, 5000); // Aguarda 5s para audiência ver a tela de resultado
+         // Processa para TODOS: audiência E host oponente (que recebe o evento de surrender)
+         // Atualiza placar final antes de limpar
+         if (payload?.score_a !== undefined) {
+           setActiveBattle((prev: any) => prev ? {
+             ...prev,
+             score_a: payload.score_a,
+             score_b: payload.score_b,
+             endTime: Date.now()   // força o placar final aparecer
+           } : prev);
          }
+         setBattleTimeLeft(0); // mostra a tela de resultado imediatamente
+         setTimeout(() => {
+           setActiveBattle(null);
+           setBattleTimeLeft(0);
+         }, payload?.surrender ? 4000 : 5000); // abandono some um pouco mais rápido
       })
       .on('broadcast', { event: 'goal_update' }, ({ payload }) => {
         if (payload.gift) {
@@ -2418,6 +2444,44 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
                 }}
               >
                 ENCERRAR AGORA
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO DE DESISTÊNCIA — sem usar confirm() nativo */}
+      {showSurrenderConfirm && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)'
+          }}
+          onClick={() => setShowSurrenderConfirm(false)}
+        >
+          <div
+            className="confirm-modal-urban animate-fade-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="confirm-icon-wrapper" style={{ background: 'rgba(251,191,36,0.1)' }}>
+              <span style={{ fontSize: '2rem' }}>🏳️</span>
+            </div>
+            <h3>DESISTIR DA BATALHA?</h3>
+            <p>A vitória será concedida ao seu oponente. Tem certeza que quer jogar a toalha agora?</p>
+            <div className="confirm-actions">
+              <button
+                className="confirm-btn cancel"
+                onClick={() => setShowSurrenderConfirm(false)}
+              >
+                CONTINUAR
+              </button>
+              <button
+                className="confirm-btn proceed"
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+                onClick={executeSurrender}
+              >
+                🏳 DESISTIR
               </button>
             </div>
           </div>

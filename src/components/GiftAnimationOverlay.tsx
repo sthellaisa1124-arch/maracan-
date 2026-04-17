@@ -458,16 +458,21 @@ function SimpleFloatingOverlay({
   const [mounted, setMounted] = useState(true);
   const DURATION = 2000;
 
+  // CRÍTICO: Usa ref para estabilizar onComplete e evitar que o timer seja
+  // resetado a cada re-render do componente pai (battle timer, chat, etc.)
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   const finish = useCallback(() => {
     setPhase('exit');
-    setTimeout(() => { setMounted(false); onComplete(); }, 450);
-  }, [onComplete]);
+    setTimeout(() => { setMounted(false); onCompleteRef.current(); }, 450);
+  }, []); // sem dependências — função estável durante todo o ciclo de vida
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase('hold'), 500);
     const t2 = setTimeout(finish, DURATION);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [finish]);
+  }, [finish]); // finish agora é estável, então isso roda apenas 1 vez
 
   if (!mounted) return null;
 
