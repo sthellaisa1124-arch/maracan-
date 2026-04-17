@@ -257,12 +257,12 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
          surrender: true
      };
 
-     // Notifica a própria sala (audiência local vê o resultado)
-     supabase.channel(`live_chat:${room.id}`).send({ type: 'broadcast', event: 'battle_ended', payload: myPayload }).catch(()=>{});
+     // Notifica a própria sala (audiência local vê o resultado) usando o helper robusto
+     doBroadcast(room.id, 'battle_ended', myPayload);
 
      // Notifica a sala do oponente com placar do ponto de vista DELE
      if (activeBattle.opponentRoomId) {
-         supabase.channel(`live_chat:${activeBattle.opponentRoomId}`).send({ type: 'broadcast', event: 'battle_ended', payload: opponentPayload }).catch(()=>{});
+         doBroadcast(activeBattle.opponentRoomId, 'battle_ended', opponentPayload);
      }
 
      // Persiste no banco
