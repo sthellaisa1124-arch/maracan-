@@ -179,7 +179,7 @@ export function AvistaCreator({ session, onClose, onRefresh }: { session: any, o
     try {
       setIsCameraActive(true);
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 } }, 
+        video: { facingMode: 'user' }, 
         audio: true 
       });
       streamRef.current = stream;

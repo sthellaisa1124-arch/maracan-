@@ -68,8 +68,18 @@ function App() {
       setLoading(false);
     });
 
+    const handleOpenProfile = (e: any) => {
+      setViewingUsername(e.detail.username);
+      setActiveTab('profile');
+      setShowSearch(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    };
+    window.addEventListener('openProfile', handleOpenProfile);
+
     return () => {
       authSubs.unsubscribe();
+      window.removeEventListener('openProfile', handleOpenProfile);
     };
   }, []);
 

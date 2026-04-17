@@ -129,7 +129,7 @@ export function StatusCreator({ session, onClose, onRefresh }: { session: any, o
       setCapturedBlob(null);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'user', width: { ideal: 1080 }, height: { ideal: 1920 } }, 
+        video: { facingMode: 'user' }, 
         audio: false 
       });
       

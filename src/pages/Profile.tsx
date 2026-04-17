@@ -6,6 +6,7 @@ import { MoralWallet } from '../components/MoralWallet';
 import { UserBadges } from '../components/Badges';
 import { UserRankProgress } from '../components/UserRankProgress';
 import { CreatorArea } from '../components/CreatorArea';
+import { UsersListModal } from '../components/UsersListModal';
 
 export function Profile({ 
   userProfile, 
@@ -48,6 +49,7 @@ export function Profile({
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [listModalMode, setListModalMode] = useState<'followers' | 'following' | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isOwnProfile = !viewingUsername || viewingUsername === userProfile?.username;
@@ -613,11 +615,19 @@ export function Profile({
                  <span className="profile-stat-value">{userPosts.length}</span>
                  <span className="profile-stat-label">posts</span>
                </div>
-               <div className="profile-stat-item">
+               <div 
+                 className="profile-stat-item" 
+                 style={{ cursor: 'pointer' }}
+                 onClick={() => setListModalMode('followers')}
+               >
                  <span className="profile-stat-value">{followersCount}</span>
                  <span className="profile-stat-label">seguidores</span>
                </div>
-               <div className="profile-stat-item">
+               <div 
+                 className="profile-stat-item"
+                 style={{ cursor: 'pointer' }}
+                 onClick={() => setListModalMode('following')}
+               >
                  <span className="profile-stat-value">{followingCount}</span>
                  <span className="profile-stat-label">seguindo</span>
                </div>
@@ -748,6 +758,31 @@ export function Profile({
             onClose={() => setSelectedAvistaId(null)}
           />
         </div>
+      )}
+      
+      {/* MODAL DE LISTA DE USUÁRIOS (SEGUIDORES/SEGUINDO) */}
+      {listModalMode && profile && (
+        <UsersListModal
+          title={listModalMode === 'followers' ? 'Seguidores' : 'Seguindo'}
+          targetUserId={profile.id}
+          mode={listModalMode}
+          session={session}
+          onClose={() => setListModalMode(null)}
+          onViewProfile={(username) => {
+            // Se o callback for fornecido pelo parent, usamos para navegar
+            if (onStartChat) {
+               // Uma alternativa é expor onViewProfile na props de Profile.
+               // Aqui chamaremos a função de trocar o viewUsername
+               // Mas como Profile só exibe quem passa no viewingUsername (se App repassa)
+               // Em Community temos esse prop. Como Profile só tem 'onStartChat' e 'onBackToMyProfile' que n servem aqui,
+               // eu preciso chamar a root navigation ou disparar um evento.
+               // O mais fácil é despachar um evento pra global ou usar window.location se for router.
+               // Como a estrutura é de tabs, enviar um evento customizado é ok:
+               const event = new CustomEvent('openProfile', { detail: { username } });
+               window.dispatchEvent(event);
+            }
+          }}
+        />
       )}
       <style>{`
         .avatar-wrapper.is-live-aura { position: relative; }
