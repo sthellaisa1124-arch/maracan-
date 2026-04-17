@@ -100,6 +100,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mediaCaption, setMediaCaption] = useState('');
+  const [filterTab, setFilterTab] = useState('TODOS');
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -271,12 +272,17 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   }
 
   async function loadSpecificUser(username: string) {
+    if (!username) return;
     const { data } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, username, avatar_url')
       .eq('username', username)
       .single();
-    if (data) setSelectedUser(data);
+    
+    if (data) {
+      setSelectedUser(data);
+      markAsRead(data.id);
+    }
   }
 
   async function fetchMessages(otherId: string) {
@@ -600,6 +606,49 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           font-weight: 600;
           text-transform: uppercase;
         }
+        .chat-tabs-container {
+          display: flex;
+          gap: 1.5rem;
+          margin-top: 1.2rem;
+          overflow-x: auto;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+          position: relative;
+        }
+        .chat-tabs-container::-webkit-scrollbar {
+          display: none;
+        }
+        .chat-tab-item {
+          color: rgba(255, 255, 255, 0.4);
+          font-size: 0.75rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.3s ease;
+          position: relative;
+          padding: 4px 0;
+        }
+        .chat-tab-item.active {
+          color: var(--primary);
+          text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+        }
+        .chat-tab-indicator {
+          position: absolute;
+          bottom: 0;
+          height: 2px;
+          background: var(--primary);
+          box-shadow: 0 0 10px var(--primary);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          border-radius: 2px;
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(20px); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .animate-slide {
+          animation: slideInRight 0.3s ease forwards;
+        }
       `}</style>
       
       {/* Barra Lateral de Conversas */}
@@ -615,15 +664,30 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+          <div className="chat-tabs-container">
+            {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map((tab) => (
+              <div 
+                key={tab}
+                className={`chat-tab-item ${filterTab === tab ? 'active' : ''}`}
+                onClick={() => setFilterTab(tab)}
+              >
+                {tab}
+                {filterTab === tab && <div className="chat-tab-indicator" style={{ width: '100%' }} />}
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="dm-list" style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
-          {listLoading ? (
-            <div className="dm-loading"><Loader2 className="animate-spin" color="var(--primary)" /></div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="dm-empty" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>
-              Nenhum papo encontrado... <br/><span style={{ fontSize: '0.85rem' }}>Chame um cria no perfil dele!</span>
-            </div>
-          ) : (
+        <div className="dm-list" key={filterTab} style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
+          <div className="animate-slide">
+            {listLoading ? (
+              <div className="dm-loading" style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                <Loader2 className="animate-spin" color="var(--primary)" />
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="dm-empty" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>
+                Nenhum papo encontrado... <br/><span style={{ fontSize: '0.85rem' }}>Chame um cria no perfil dele!</span>
+              </div>
+            ) : (
             filteredConversations.map(c => (
               <div 
                 key={c.user.id} 
@@ -656,6 +720,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               </div>
             ))
           )}
+          </div>
         </div>
       </aside>
 
