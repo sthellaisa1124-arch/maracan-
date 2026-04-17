@@ -580,7 +580,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       {/* --- HEADER FIXO MODERNO --- */}
       <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default', gap: '8px' }}>
         <h3 className="vellar-neon-logo" style={{ margin: 0, flexShrink: 0 }}>
-          <span className="logo-v">V</span>ELLΛ<span className="logo-r">R</span>
+          <span className="logo-v">V</span>ELL<span className="logo-r">Λ</span>R
         </h3>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: 'auto' }}>

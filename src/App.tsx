@@ -249,7 +249,9 @@ function App() {
             {(activeTab as string) !== 'avista' && (
               <aside className="sidebar">
                 <div className="logo-container">
-                  <span className="velar-logo">VELAR</span>
+                  <span className="vellar-neon-logo" style={{ fontSize: '1.4rem' }}>
+                    VELL<span className="logo-r">Λ</span>R
+                  </span>
                 </div>
                 <nav className="sidebar-nav">
                   <button className={`nav-item-urban ${activeTab === 'community' ? 'active' : ''}`} onClick={() => handleTabChange('community')}>

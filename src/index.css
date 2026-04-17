@@ -57,14 +57,31 @@ html, body {
 .vellar-neon-logo {
   font-family: 'Outfit', sans-serif !important;
   font-weight: 900 !important;
-  font-size: 2rem !important;
-  letter-spacing: -2px !important;
-  color: #fff !important;
-  text-shadow: 0 0 10px rgba(108, 43, 255, 0.9), 0 0 20px rgba(108, 43, 255, 0.5) !important;
+  font-size: 2.2rem !important;
+  letter-spacing: -1.5px !important;
   text-transform: uppercase;
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #22d3ee 100%);
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.6)) drop-shadow(0 0 2px rgba(34, 211, 238, 0.4)) !important;
+  display: inline-block;
+  line-height: 1;
+  position: relative;
 }
 
-.logo-v, .logo-r { color: var(--secondary) !important; }
+.logo-v {
+  background: linear-gradient(135deg, #a855f7, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  padding-right: 1px;
+}
+
+.logo-r {
+  background: linear-gradient(135deg, #6366f1, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
 /* --- MARCADOR DE TÃTULO (OS CRIA TÃƒO LANÃ‡ANDO) --- */
 .feed-title-urban, .community-page > div:nth-child(4) {
@@ -154,12 +171,12 @@ html, body {
 }
 
 .nav-create-btn-elite {
-  background: linear-gradient(135deg, #a855f7, #f97316) !important; /* ROXO PARA LARANJA IGUAL FOTO 1 */
+  background: linear-gradient(135deg, #a855f7, #6366f1) !important; /* ROXO NEON PREMIUM */
   width: 68px !important;
   height: 68px !important;
   border-radius: 50% !important;
   border: 4px solid #000 !important;
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(249, 115, 22, 0.4) !important;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.7), 0 0 40px rgba(99, 102, 241, 0.5) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
