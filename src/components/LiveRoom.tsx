@@ -869,6 +869,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         setSessionLikes(prev => prev + 1);
         setTotalLikes(payload.totalCount || (totalLikes + 1));
         
+        // Host persiste no banco as curtidas vindas da rede (contornando o RLS da audiência)
+        if (role === 'host' && payload.userId !== session.user.id) {
+           if (payload.totalCount % 5 === 0 || payload.totalCount <= 3) {
+              supabase
+                 .from('live_sessions')
+                 .update({ likes_count: payload.totalCount })
+                 .eq('id', room.id)
+                 .then(() => {});
+           }
+        }
+
         // Se não fui eu que curti, mostro um coração flutuante vindo da rede
         if (payload.userId !== session.user.id) {
           const colors = ['#ff4b2b', '#ff416c', '#6c2bff', '#fbbf24'];
@@ -1238,13 +1249,15 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       }
     });
 
-    // Persistir o total no banco (throttled: apenas a cada 5 curtidas para não sobrecarregar)
-    if (newLikes % 5 === 0 || newLikes <= 3) {
-      supabase
-        .from('live_sessions')
-        .update({ likes_count: newLikes })
-        .eq('id', room.id)
-        .then(() => {});
+    // Persistir o total no banco (apenas se for o host que deu o like)
+    if (role === 'host') {
+      if (newLikes % 5 === 0 || newLikes <= 3) {
+        supabase
+          .from('live_sessions')
+          .update({ likes_count: newLikes })
+          .eq('id', room.id)
+          .then(() => {});
+      }
     }
   }
   async function checkFollowStatus() {
