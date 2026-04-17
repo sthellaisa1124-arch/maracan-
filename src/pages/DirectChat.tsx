@@ -17,7 +17,9 @@ import {
   Pause, 
   X,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  MoreVertical,
+  Users
 } from 'lucide-react';
 
 interface Message {
@@ -101,6 +103,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mediaCaption, setMediaCaption] = useState('');
   const [filterTab, setFilterTab] = useState('TODOS');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -218,6 +221,29 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
     
     fetchConversations(); // Atualizar badges
+  }
+
+  async function deleteConversation() {
+    if (!selectedUser || !userId) return;
+    
+    const confirmDelete = window.confirm(`Tem certeza que deseja excluir toda a conversa com @${selectedUser.username}? Esta ação não pode ser desfeita.`);
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('direct_messages')
+        .delete()
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${selectedUser.id}),and(sender_id.eq.${selectedUser.id},receiver_id.eq.${userId})`);
+
+      if (error) throw error;
+
+      setMessages([]);
+      setSelectedUser(null);
+      fetchConversations();
+    } catch (err) {
+      console.error("Erro ao excluir conversa:", err);
+      alert("Erro ao excluir conversa. Tente novamente.");
+    }
   }
 
   async function loadSpecificUser(username: string) {
@@ -744,6 +770,53 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                   <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>@{selectedUser.username}</h4>
                   <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.5px' }}>NA PISTA AGORA</p>
                 </div>
+              </div>
+
+              {/* Botão de Opções (Três Pontinhos) */}
+              <div style={{ position: 'relative' }}>
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center' }}
+                >
+                  <MoreVertical size={22} />
+                </button>
+
+                {isMenuOpen && (
+                  <>
+                    <div 
+                      style={{ position: 'fixed', inset: 0, zIndex: 100 }} 
+                      onClick={() => setIsMenuOpen(false)} 
+                    />
+                    <div style={{
+                      position: 'absolute', top: '100%', right: 0, zIndex: 101,
+                      background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px',
+                      padding: '0.5rem', minWidth: '180px', marginTop: '10px',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.5), 0 0 20px rgba(168,85,247,0.1)',
+                      animation: 'slideUp 0.2s ease'
+                    }}>
+                      <button 
+                        onClick={() => { alert('Funcionalidade de Grupos chegará em breve!'); setIsMenuOpen(false); }}
+                        style={{ width: '100%', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', color: '#fff', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', borderRadius: '10px', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Users size={18} color="var(--primary)" /> CRIA GRUPO
+                      </button>
+                      
+                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)', margin: '0.4rem 0.5rem' }} />
+
+                      <button 
+                        onClick={() => { setIsMenuOpen(false); deleteConversation(); }}
+                        style={{ width: '100%', padding: '0.8rem 1rem', display: 'flex', alignItems: 'center', gap: '10px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', borderRadius: '10px', transition: 'background 0.2s' }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Trash2 size={18} /> EXCLUIR CONVERSA
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </header>
 
