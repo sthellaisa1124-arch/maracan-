@@ -23,21 +23,48 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
   async function fetchLiveOpponents() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      // 1. Busca lives ativas
+      const { data: activeLives, error: liveError } = await supabase
         .from('live_sessions')
-        .select(`*, host_profile:profiles(username, avatar_url, name)`)
+        .select(`id, host_id, agora_channel, title, viewer_count`)
         .eq('is_live', true)
-        .is('ended_at', null)
         .neq('host_id', currentHostId)
         .order('viewer_count', { ascending: false });
 
-      if (error) {
-        console.error("Erro explícito no fetchLiveOpponents:", error);
+      if (liveError) {
+        console.error("Erro explícito no fetch das lives_sessions:", liveError);
+        return;
       }
       
-      if (data && !error) {
-        setLiveCreators(data);
+      if (!activeLives || activeLives.length === 0) {
+        setLiveCreators([]);
+        return;
       }
+
+      // 2. Coleta IDs para preencher profiles separadamente 
+      // (Bypassa problemas crônicos de foreign key alias no PostgREST)
+      const hostIds = activeLives.map(l => l.host_id);
+      
+      const { data: profilesData, error: profError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, name')
+        .in('id', hostIds);
+
+      if (profError) {
+        console.error("Erro fetch profiles:", profError);
+      }
+
+      // 3. Junta os dados em memória
+      const enrichedLives = activeLives.map(live => {
+        const profile = profilesData?.find(p => p.id === live.host_id);
+        return {
+          ...live,
+          host_profile: profile || null
+        };
+      });
+
+      setLiveCreators(enrichedLives);
+
     } catch (err) {
       console.error("TryCatch err fetchLiveOpponents:", err);
     } finally {
@@ -153,10 +180,12 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {liveCreators
-                .filter(creator => 
-                  creator.host_profile?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                  creator.host_profile?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                )
+                .filter(creator => {
+                  const uname = creator.host_profile?.username || '';
+                  const cname = creator.host_profile?.name || '';
+                  const q = searchQuery.toLowerCase();
+                  return uname.toLowerCase().includes(q) || cname.toLowerCase().includes(q);
+                })
                 .map((creator) => {
                 const profile = creator.host_profile;
                 if (!profile) return null;
@@ -208,10 +237,12 @@ export function LiveBattleModal({ isOpen, onClose, currentHostId, onInvite, onGl
               })}
               
               {/* Fallback se a pesquisa não achar ninguém */}
-              {liveCreators.filter(creator => 
-                  creator.host_profile?.username?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                  creator.host_profile?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                ).length === 0 && liveCreators.length > 0 && (
+              {liveCreators.filter(creator => {
+                  const uname = creator.host_profile?.username || '';
+                  const cname = creator.host_profile?.name || '';
+                  const q = searchQuery.toLowerCase();
+                  return uname.toLowerCase().includes(q) || cname.toLowerCase().includes(q);
+                }).length === 0 && liveCreators.length > 0 && (
                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>
                     Nenhum criador encontrado com "{searchQuery}"
                  </div>
