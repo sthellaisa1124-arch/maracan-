@@ -753,12 +753,13 @@ function VideoOverlayWithFallback({
         preload="auto"
         style={{
           position: 'absolute',
-          inset: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
           width: '100%',
-          height: '100%',
-          maxHeight: '60dvh', // Limita o tamanho para não invadir o celular inteiro
-          margin: 'auto', // Centraliza
-          objectFit: 'contain', // Mostra o vídeo no formato original sem cortar rostos ao fundo
+          height: '65%', // Ocupa a região do chat na base da tela
+          objectFit: 'cover', // Garante que preencha todo o espaço do chat uniformemente
+          pointerEvents: 'none',
         }}
         onEnded={() => { setEnded(true); onComplete(); }}
         onError={handleError}

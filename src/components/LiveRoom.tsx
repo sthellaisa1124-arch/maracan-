@@ -592,8 +592,9 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
     }
   }, [activeGift, giftQueue]);
 
-  // GARANTIR QUE A TRACK DE VÍDEO RODE MESMO DEPOIS DE MONTAR TARDE
+  // GARANTIR QUE A TRACK DE VÍDEO RODE MESMO DEPOIS DE ROTAS DE RENDERIZAÇÃO
   useEffect(() => {
+    // 1. Toca o host se o usuário for audiência
     if (role === 'audience') {
       const hostUser = remoteUsers.find(u => String(u.uid) === String(room.host_id));
       if (hostUser?.videoTrack) {
@@ -603,7 +604,18 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
         }
       }
     }
-  }, [remoteUsers, role, room.host_id]);
+
+    // 2. Toca o oponente se houver uma batalha ativa
+    if (activeBattle && activeBattle.opponentId) {
+      const opponentUser = remoteUsers.find(u => String(u.uid) === String(activeBattle.opponentId));
+      if (opponentUser?.videoTrack) {
+        const elOp = document.getElementById('remote-video-opponent');
+        if (elOp && elOp.childElementCount === 0) {
+          opponentUser.videoTrack.play(elOp);
+        }
+      }
+    }
+  }, [remoteUsers, role, room.host_id, activeBattle]);
 
   async function initAgora() {
     const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
