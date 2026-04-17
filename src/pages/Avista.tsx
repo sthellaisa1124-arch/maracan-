@@ -544,26 +544,19 @@ export function Avista({
            ) : (
              liveSessions.map((live) => (
                 <div key={live.id} id={live.id} className="avista-item" style={{ position: 'relative', height: '100dvh', width: '100%', scrollSnapAlign: 'start', flexShrink: 0, backgroundColor: '#000', margin: 0, padding: 0 }}>
-                    {activeLiveId === live.id ? (
-                        <LiveRoom 
-                           session={session}
-                           userProfile={null}
-                           role="audience"
-                           room={live}
-                           inline={true}
-                           onClose={() => {
-                              setActiveLiveId(null);
-                              setCurrentTab('avista');
-                              fetchActiveLives();
-                           }}
-                        />
-                    ) : (
-                        <div className="avista-skeleton" style={{ background: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                            <img src={live.host_profile?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + live.user_id} style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem', opacity: 0.5 }} />
-                            <Loader2 className="animate-spin" color="var(--primary)" size={32} />
-                            <p style={{ marginTop: '1rem', fontWeight: 700, color: '#fff' }}>Conectando com @{live.host_profile?.username}...</p>
-                        </div>
-                    )}
+                    <LiveRoom 
+                       session={session}
+                       userProfile={null}
+                       role="audience"
+                       room={live}
+                       inline={true}
+                       isActive={activeLiveId === live.id}
+                       onClose={() => {
+                          setActiveLiveId(null);
+                          setCurrentTab('avista');
+                          fetchActiveLives();
+                       }}
+                    />
                     {renderNavigationTabsHUD()}
                 </div>
              ))
