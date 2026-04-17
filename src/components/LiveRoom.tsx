@@ -1194,8 +1194,10 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
       .on('broadcast', { event: 'battle_start' }, ({ payload }) => {
          setBattleStatus('active');
          setBattleTimeLeft(payload.duration || 180);
-         // Se for o host, garante que os placares estão zerados
-         if (role === 'host') {
+         // Se o payload trouxer o endTime sincronizado, aplica-o
+         if (payload.endTime) {
+            setActiveBattle((prev: any) => prev ? { ...prev, endTime: payload.endTime, score_a: 0, score_b: 0 } : prev);
+         } else if (role === 'host') {
             setActiveBattle((prev: any) => prev ? { ...prev, score_a: 0, score_b: 0 } : prev);
          }
       })
