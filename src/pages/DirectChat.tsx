@@ -82,7 +82,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [listLoading, setListLoading] = useState(true);
-  const [listLoading, setListLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id;
 
@@ -458,6 +457,67 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         .search-input-chats:focus {
           outline: none;
           border-color: var(--primary);
+        }
+        .chat-input-urban {
+          display: flex;
+          align-items: center;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1.5px solid rgba(255, 255, 255, 0.08);
+          border-radius: 1.2rem;
+          padding: 0.4rem 1rem;
+          gap: 12px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          min-height: 54px;
+        }
+        .chat-input-urban:focus-within {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: var(--primary);
+          box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
+          transform: translateY(-1px);
+        }
+        .chat-input-urban input {
+          flex: 1;
+          background: transparent !important;
+          border: none !important;
+          color: #fff !important;
+          font-size: 0.95rem !important;
+          height: 100%;
+          outline: none !important;
+          padding: 0.8rem 0;
+          font-family: inherit;
+        }
+        .chat-input-urban input::placeholder {
+          color: rgba(255, 255, 255, 0.3);
+          font-weight: 500;
+        }
+        .chat-bubble-velar {
+          max-width: 85%;
+          padding: 0.8rem 1.1rem;
+          border-radius: 1.2rem;
+          font-size: 0.95rem;
+          line-height: 1.4;
+          position: relative;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .chat-bubble-velar.sent {
+          background: linear-gradient(135deg, #6C2BFF, #a855f7);
+          color: #fff;
+          border-bottom-right-radius: 4px;
+          border: 1px solid rgba(255,255,255,0.1);
+        }
+        .chat-bubble-velar.received {
+          background: rgba(255, 255, 255, 0.05);
+          color: #fff;
+          border-bottom-left-radius: 4px;
+          border: 1px solid rgba(255,255,255,0.05);
+          backdrop-filter: blur(10px);
+        }
+        .chat-timestamp-velar {
+          font-size: 0.65rem;
+          color: rgba(255,255,255,0.3);
+          margin-top: 4px;
+          font-weight: 600;
+          text-transform: uppercase;
         }
       `}</style>
       
