@@ -283,6 +283,17 @@ export function LiveRoom({ session, userProfile, role, room, onClose, inline, is
 
         if (!activeDBMatch) return;
 
+        // ✅ PROTEÇÃO CRÍTICA: Se a batalha já expirou (ends_at no passado), não restaurar.
+        // Corrige o status no banco silenciosamente para evitar loops futuros.
+        if (activeDBMatch.ends_at && new Date(activeDBMatch.ends_at).getTime() < Date.now()) {
+          supabase
+            .from('live_battles')
+            .update({ status: 'ended' })
+            .eq('id', activeDBMatch.id)
+            .then(() => {});
+          return; // Sai sem restaurar — batalha já acabou
+        }
+
         const opponentId = activeDBMatch.host_a_id === room.host_id 
           ? activeDBMatch.host_b_id 
           : activeDBMatch.host_a_id;
