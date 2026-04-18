@@ -22,7 +22,8 @@ import {
   Users,
   Clock,
   Slash,
-  LogOut
+  LogOut,
+  CornerUpRight
 } from 'lucide-react';
 
 interface Message {
@@ -158,7 +159,7 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
             border: '1px solid rgba(255,255,255,0.1)', display: 'none'
           }}>
             <button onClick={() => onSwipe(message)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} title="Responder"><RefreshCw size={14} /></button>
-            <button onClick={(e) => { e.stopPropagation(); (window as any).triggerForward(message); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} title="Encaminhar"><ImageIcon size={14} /></button>
+            <button onClick={(e) => { e.stopPropagation(); (window as any).triggerForward(message); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} title="Encaminhar"><CornerUpRight size={14} /></button>
             <button onClick={(e) => { e.stopPropagation(); (window as any).triggerDeleteMessage(message.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }} title="Apagar para mim"><Trash2 size={14} /></button>
           </div>
 
@@ -256,6 +257,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
   const [messageToForward, setMessageToForward] = useState<Message | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     (window as any).triggerForward = (msg: Message) => setMessageToForward(msg);
@@ -268,21 +270,27 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   }, [userId, selectedUser]);
 
   async function deleteSingleMessage(msgId: string) {
-     if (!userId) return;
-     const confirmDel = window.confirm("Certeza que quer sumir com essa mensagem apenas pra você?");
-     if (!confirmDel) return;
+    if (!userId) return;
+    setMessageToDelete(msgId);
+  }
 
-     try {
-       const { data: msg } = await supabase.from('direct_messages').select('deleted_by').eq('id', msgId).single();
-       const deletedBy = msg?.deleted_by || [];
-       if (!deletedBy.includes(userId)) {
-         await supabase.from('direct_messages').update({ deleted_by: [...deletedBy, userId] }).eq('id', msgId);
-         setMessages(prev => prev.filter(m => m.id !== msgId));
-       }
-     } catch (err) {
-       console.error("Erro delete msg:", err);
-     }
-   }
+  async function confirmDeleteMessage() {
+    if (!userId || !messageToDelete) return;
+    const msgId = messageToDelete;
+
+    try {
+      const { data: msg } = await supabase.from('direct_messages').select('deleted_by').eq('id', msgId).single();
+      const deletedBy = msg?.deleted_by || [];
+      if (!deletedBy.includes(userId)) {
+        await supabase.from('direct_messages').update({ deleted_by: [...deletedBy, userId] }).eq('id', msgId);
+        setMessages(prev => prev.filter(m => m.id !== msgId));
+      }
+    } catch (err) {
+      console.error("Erro delete msg:", err);
+    } finally {
+      setMessageToDelete(null);
+    }
+  }
 
    // 1. Carregar lista de conversas ao montar
   useEffect(() => {
@@ -1755,6 +1763,60 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
            </div>
          </div>
        )}
+
+      {/* Modal de Confirmação de Exclusão */}
+      {messageToDelete && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999999,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(15px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #1a1a20 0%, #0a0a0c 100%)',
+            width: '100%', maxWidth: '340px',
+            borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)',
+            padding: '2rem', textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.6)'
+          }}>
+            <div style={{ 
+              width: '60px', height: '60px', borderRadius: '50%', 
+              background: 'rgba(239, 68, 68, 0.1)', display: 'flex', 
+              alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem'
+            }}>
+              <Trash2 size={30} color="#ef4444" />
+            </div>
+            
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 900, marginBottom: '0.5rem' }}>SUMIR COM O PAPO?</h2>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '2rem' }}>
+              Essa mensagem vai sumir apenas pra você, mas o sigilo continua. Confirmar?
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                onClick={confirmDeleteMessage}
+                style={{
+                  width: '100%', background: '#ef4444', border: 'none',
+                  color: '#fff', padding: '1rem', borderRadius: '16px',
+                  fontWeight: 900, fontSize: '0.9rem', cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(239, 68, 68, 0.3)'
+                }}
+              >
+                SIM, APAGAR AGORA
+              </button>
+              <button 
+                onClick={() => setMessageToDelete(null)}
+                style={{
+                  width: '100%', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#fff', padding: '1rem', borderRadius: '16px',
+                  fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer'
+                }}
+              >
+                NÃO, DEIXA ELA AÍ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
