@@ -257,7 +257,17 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
   const [messageToForward, setMessageToForward] = useState<Message | null>(null);
 
-   async function deleteSingleMessage(msgId: string) {
+  useEffect(() => {
+    (window as any).triggerForward = (msg: Message) => setMessageToForward(msg);
+    (window as any).triggerDeleteMessage = (msgId: string) => deleteSingleMessage(msgId);
+    
+    return () => {
+      delete (window as any).triggerForward;
+      delete (window as any).triggerDeleteMessage;
+    };
+  }, [userId, selectedUser]);
+
+  async function deleteSingleMessage(msgId: string) {
      if (!userId) return;
      const confirmDel = window.confirm("Certeza que quer sumir com essa mensagem apenas pra você?");
      if (!confirmDel) return;
