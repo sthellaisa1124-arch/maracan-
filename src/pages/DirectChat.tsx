@@ -34,6 +34,10 @@ interface Message {
   audio_url?: string;
   read: boolean;
   created_at: string;
+  reply_to_id?: string;
+  reply_to?: { content: string };
+  is_temporary?: boolean;
+  is_forwarded?: boolean;
 }
 
 interface Conversation {
@@ -79,6 +83,140 @@ function MessageTicks({ message }: { message: Message }) {
   return <Check size={14} color="rgba(255,255,255,0.4)" />;
 }
 
+// Componente para Bolha de Mensagem com Swipe
+function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boolean, onSwipe: (m: Message) => void }) {
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartX = useRef(0);
+  const swipeThreshold = 60;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    const diff = e.touches[0].clientX - touchStartX.current;
+    if (diff > 0) { // Apenas arraste para a direita
+       setSwipeOffset(Math.min(diff, 100));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (swipeOffset >= swipeThreshold) {
+      onSwipe(message);
+    }
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
+
+  return (
+    <div 
+      style={{ 
+        display: 'flex', flexDirection: 'column', 
+        alignItems: isMe ? 'flex-end' : 'flex-start',
+        position: 'relative',
+        width: '100%', margin: '4px 0',
+        overflow: 'visible'
+      }}
+    >
+      {/* Ícone de Resposta (Aparece no fundo ao deslizar) */}
+      {swipeOffset > 10 && (
+        <div style={{
+          position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)',
+          opacity: swipeOffset / 60, transition: 'opacity 0.2s', paddingLeft: '10px'
+        }}>
+          <RefreshCw size={18} color="var(--primary)" />
+        </div>
+      )}
+
+      <div 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ 
+          transform: `translateX(${swipeOffset}px)`,
+          transition: isSwiping ? 'none' : 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+          maxWidth: '85%'
+        }}
+      >
+        <div 
+          className={`chat-bubble-velar ${isMe ? 'sent' : 'received'}`} 
+          style={{ position: 'relative' }}
+          onClick={(e) => {
+            // No mobile, clique abre o menu de ações
+            const menu = e.currentTarget.querySelector('.msg-actions-hover');
+            if (menu) (menu as HTMLElement).style.display = (menu as HTMLElement).style.display === 'flex' ? 'none' : 'flex';
+          }}
+        >
+          {/* Menu de Ações Rápidas (Especial para Desktop/Touch) */}
+          <div className="msg-actions-hover" style={{
+            position: 'absolute', top: '-35px', right: isMe ? 0 : 'auto', left: isMe ? 'auto' : 0,
+            background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)',
+            borderRadius: '10px', padding: '4px', gap: '8px', zIndex: 10,
+            border: '1px solid rgba(255,255,255,0.1)', display: 'none'
+          }}>
+            <button onClick={() => onSwipe(message)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} title="Responder"><RefreshCw size={14} /></button>
+            <button onClick={(e) => { e.stopPropagation(); (window as any).triggerForward(message); }} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }} title="Encaminhar"><ImageIcon size={14} /></button>
+            <button onClick={(e) => { e.stopPropagation(); (window as any).triggerDeleteMessage(message.id); }} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }} title="Apagar para mim"><Trash2 size={14} /></button>
+          </div>
+
+          {/* Selo de Encaminhada */}
+          {message.is_forwarded && (
+            <div style={{ 
+              display: 'flex', alignItems: 'center', gap: '4px', 
+              fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', 
+              fontStyle: 'italic', marginBottom: '4px' 
+            }}>
+              <RefreshCw size={10} /> ENCAMINHADA
+            </div>
+          )}
+
+          {/* Se for uma resposta, mostrar o card da original */}
+          {(message as any).reply_to && (
+             <div style={{
+               background: 'rgba(255,255,255,0.05)', borderRadius: '8px', 
+               padding: '0.5rem', marginBottom: '0.5rem', 
+               borderLeft: '3px solid var(--primary)', fontSize: '0.75rem', opacity: 0.7
+             }}>
+               <strong style={{ display: 'block', color: 'var(--primary)', fontWeight: 900, marginBottom: '2px' }}>
+                 ORIGINAL
+               </strong>
+               <span className="truncate" style={{ display: 'block' }}>{(message as any).reply_to.content}</span>
+             </div>
+          )}
+
+          {message.image_url && (
+            <div style={{ marginBottom: message.content ? '0.5rem' : 0 }}>
+              <img 
+                src={message.image_url} 
+                alt="Mídia" 
+                style={{ maxWidth: '100%', borderRadius: '12px', display: 'block', cursor: 'pointer' }} 
+                onClick={() => window.open(message.image_url, '_blank')}
+              />
+            </div>
+          )}
+          
+          {message.audio_url && (
+            <div style={{ minWidth: '200px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <audio src={message.audio_url} controls style={{ height: '32px', filter: 'invert(1) hue-rotate(180deg)', width: '100%' }} />
+            </div>
+          )}
+
+          {message.content && message.content !== '📷 Foto' && message.content !== '🎤 Áudio' && (
+            <div style={{ wordBreak: 'break-word', fontWeight: 600 }}>{message.content}</div>
+          )}
+        </div>
+        <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {isMe && <MessageTicks message={message} />}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function DirectChat({ session, initialRecipient }: { session: any, initialRecipient?: string | null }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -94,6 +232,10 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isEphemeralMode, setIsEphemeralMode] = useState(false);
+  const [filterTab, setFilterTab] = useState('TODOS');
+  const [searchTerm, setSearchTerm] = useState('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -107,15 +249,32 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mediaCaption, setMediaCaption] = useState('');
-  const [filterTab, setFilterTab] = useState('TODOS');
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedChats, setSelectedChats] = useState<string[]>([]);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
+  const [messageToForward, setMessageToForward] = useState<Message | null>(null);
 
-  // 1. Carregar lista de conversas ao montar
+   async function deleteSingleMessage(msgId: string) {
+     if (!userId) return;
+     const confirmDel = window.confirm("Certeza que quer sumir com essa mensagem apenas pra você?");
+     if (!confirmDel) return;
+
+     try {
+       const { data: msg } = await supabase.from('direct_messages').select('deleted_by').eq('id', msgId).single();
+       const deletedBy = msg?.deleted_by || [];
+       if (!deletedBy.includes(userId)) {
+         await supabase.from('direct_messages').update({ deleted_by: [...deletedBy, userId] }).eq('id', msgId);
+         setMessages(prev => prev.filter(m => m.id !== msgId));
+       }
+     } catch (err) {
+       console.error("Erro delete msg:", err);
+     }
+   }
+
+   // 1. Carregar lista de conversas ao montar
   useEffect(() => {
     if (userId) {
       fetchConversations();
@@ -138,53 +297,66 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   useEffect(() => {
     if (!userId || !selectedUser) return;
 
-    fetchMessages(selectedUser.id);
+     fetchMessages(selectedUser.id);
+     fetchChatSettings(selectedUser.id);
 
-    const channel = supabase
-      .channel(`chat-${userId}-${selectedUser.id}`, {
-        config: { presence: { key: userId } }
-      })
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'direct_messages',
-        filter: `receiver_id=eq.${userId}`
-      }, (payload) => {
-        const newMsg = payload.new as Message;
-        if (selectedUser && newMsg.sender_id === selectedUser.id) {
-          setMessages(prev => [...prev, newMsg]);
-          setOtherUserTyping(false);
-          markAsRead(selectedUser.id); // Marcar como lida se o chat estiver aberto
-        }
-        fetchConversations();
-      })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'direct_messages',
-        filter: `sender_id=eq.${userId}`
-      }, (payload) => {
-        // Escutar quando o destinatário atualiza a msg para lida
-        const updatedMsg = payload.new as Message;
-        setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
-      })
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const typing = Object.values(state).some((p: any) => 
-          p.some((presence: any) => presence.user_id === selectedUser.id && presence.is_typing)
-        );
-        setOtherUserTyping(typing);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ user_id: userId, is_typing: false });
-        }
-      });
+     const channel = supabase
+       .channel(`chat-${userId}-${selectedUser.id}`, {
+         config: { presence: { key: userId } }
+       })
+       .on('postgres_changes', { 
+         event: 'INSERT', 
+         schema: 'public', 
+         table: 'direct_messages',
+         filter: selectedUser.is_group ? `group_id=eq.${selectedUser.id}` : `receiver_id=eq.${userId}`
+       }, (payload) => {
+         const newMsg = payload.new as Message;
+         if (selectedUser.is_group || newMsg.sender_id === selectedUser.id) {
+           // Se for uma resposta, precisamos buscar o texto da original para o UI
+           if (newMsg.reply_to_id) {
+             fetchMessages(selectedUser.id); 
+           } else {
+             setMessages(prev => [...prev, newMsg]);
+           }
+           setOtherUserTyping(false);
+           if (!selectedUser.is_group) markAsRead(selectedUser.id);
+         }
+         fetchConversations();
+       })
+       .on('postgres_changes', { 
+         event: 'UPDATE', 
+         schema: 'public', 
+         table: selectedUser.is_group ? 'chat_groups' : 'chat_settings'
+       }, (payload) => {
+         // Sincronizar o Modo Temporário em tempo real
+         const data = payload.new as any;
+         if (selectedUser.is_group) {
+           if (data.id === selectedUser.id) setIsEphemeralMode(data.is_ephemeral_active);
+         } else {
+           if ((data.user_a === userId && data.user_b === selectedUser.id) || 
+               (data.user_b === userId && data.user_a === selectedUser.id)) {
+             setIsEphemeralMode(data.is_ephemeral_active);
+           }
+         }
+       })
+       .on('presence', { event: 'sync' }, () => {
+         const state = channel.presenceState();
+         const targetId = selectedUser.id;
+         const typing = Object.values(state).some((p: any) => 
+           p.some((presence: any) => presence.user_id === targetId && presence.is_typing)
+         );
+         setOtherUserTyping(typing);
+       })
+       .subscribe(async (status) => {
+         if (status === 'SUBSCRIBED') {
+           await channel.track({ user_id: userId, is_typing: false });
+         }
+       });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, selectedUser]);
+     return () => {
+       supabase.removeChannel(channel);
+     };
+   }, [userId, selectedUser]);
 
   const handleTyping = async (typing: boolean) => {
     const channel = supabase.getChannels().find(c => c.topic === `chat-${userId}-${selectedUser.id}`);
@@ -520,27 +692,60 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     fetchConversations();
   }
 
-  async function fetchMessages(entityId: string) {
-    if (!userId || !entityId) return;
+   async function fetchChatSettings(entityId: string) {
+     if (!selectedUser) return;
+     if (selectedUser.is_group) {
+       const { data } = await supabase.from('chat_groups').select('is_ephemeral_active').eq('id', entityId).single();
+       if (data) setIsEphemeralMode(data.is_ephemeral_active);
+     } else {
+       const { data } = await supabase
+         .from('chat_settings')
+         .select('is_ephemeral_active')
+         .or(`and(user_a.eq.${userId},user_b.eq.${entityId}),and(user_a.eq.${entityId},user_b.eq.${userId})`)
+         .single();
+       if (data) setIsEphemeralMode(data.is_ephemeral_active);
+       else setIsEphemeralMode(false);
+     }
+   }
 
-    const query = supabase
-      .from('direct_messages')
-      .select('*')
-      .not('deleted_by', 'cs', `{${userId}}`)
-      .order('created_at', { ascending: true });
+   async function toggleEphemeralMode() {
+     if (!selectedUser || !userId) return;
+     const newState = !isEphemeralMode;
+     
+     if (selectedUser.is_group) {
+        await supabase.from('chat_groups').update({ is_ephemeral_active: newState }).eq('id', selectedUser.id);
+     } else {
+        await supabase.from('chat_settings').upsert({
+          user_a: userId < selectedUser.id ? userId : selectedUser.id,
+          user_b: userId < selectedUser.id ? selectedUser.id : userId,
+          is_ephemeral_active: newState
+        }, { onConflict: 'user_a,user_b' });
+     }
+     setIsEphemeralMode(newState);
+     setIsChatMenuOpen(false);
+   }
 
-    if (selectedUser?.is_group) {
-      query.eq('group_id', entityId);
-    } else {
-      query
-        .or(`and(sender_id.eq.${userId},receiver_id.eq.${entityId}),and(sender_id.eq.${entityId},receiver_id.eq.${userId})`)
-        .is('group_id', null);
-    }
+   async function fetchMessages(entityId: string) {
+     if (!userId || !entityId) return;
 
-    const { data } = await query;
-    if (data) setMessages(data);
-    if (!selectedUser?.is_group) markAsRead(entityId);
-  }
+     const query = supabase
+       .from('direct_messages')
+       .select('*, reply_to:direct_messages(content)')
+       .not('deleted_by', 'cs', `{${userId}}`)
+       .order('created_at', { ascending: true });
+
+     if (selectedUser?.is_group) {
+       query.eq('group_id', entityId);
+     } else {
+       query
+         .or(`and(sender_id.eq.${userId},receiver_id.eq.${entityId}),and(sender_id.eq.${entityId},receiver_id.eq.${userId})`)
+         .is('group_id', null);
+     }
+
+     const { data } = await query;
+     if (data) setMessages(data as any);
+     if (!selectedUser?.is_group) markAsRead(entityId);
+   }
 
   const startCamera = async (mode: 'user' | 'environment') => {
     try {
@@ -685,7 +890,9 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       const msgData: any = {
         sender_id: userId,
         content: mediaCaption.trim() || (type === 'image' ? '📷 Foto' : '🎤 Áudio'),
-        [type === 'image' ? 'image_url' : 'audio_url']: publicUrl
+        [type === 'image' ? 'image_url' : 'audio_url']: publicUrl,
+        is_temporary: isEphemeralMode,
+        expires_at: isEphemeralMode ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
       };
 
       if (selectedUser.is_group) {
@@ -695,7 +902,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         msgData.receiver_id = selectedUser.id;
       }
 
-      const { error, data } = await supabase.from('direct_messages').insert([msgData]).select().single();
+      const { error, data } = await supabase.from('direct_messages').insert([msgData]).select('*, reply_to:direct_messages(content)').single();
       if (error) throw error;
 
       setMessages(prev => [...prev, data]);
@@ -997,91 +1204,109 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <div className="chat-tabs-container">
-            {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map((tab) => (
-              <div 
-                key={tab}
-                className={`chat-tab-item ${filterTab === tab ? 'active' : ''}`}
-                onClick={() => setFilterTab(tab)}
-              >
-                {tab}
-                {filterTab === tab && <div className="chat-tab-indicator" style={{ width: '100%' }} />}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="dm-list" key={filterTab} style={{ flex: 1, overflowY: 'auto', padding: '0.75rem' }}>
-          <div className="animate-slide">
-            {listLoading ? (
-              <div className="dm-loading" style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
-                <Loader2 className="animate-spin" color="var(--primary)" />
-              </div>
-            ) : filteredConversations.length === 0 ? (
-              <div className="dm-empty" style={{ textAlign: 'center', padding: '3rem', opacity: 0.5 }}>
-                Nenhum papo encontrado... <br/><span style={{ fontSize: '0.85rem' }}>Chame um cria no perfil dele!</span>
-              </div>
-            ) : (
-             filteredConversations.map((c, idx) => {
-               const entityId = c.isGroup ? c.group.id : c.user.id;
-               const entityName = c.isGroup ? c.group.name : c.user.username;
-               const entityAvatar = c.isGroup ? c.group.avatar_url : c.user.avatar_url;
-               
-               return (
-                <div 
-                  key={entityId || idx} 
-                  className={`chat-list-item-urban ${((c.isGroup && selectedUser?.id === c.group.id) || (!c.isGroup && selectedUser?.id === c.user.id)) ? 'active' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
-                  onClick={() => {
-                    if (isSelectionMode) {
-                      setSelectedChats(prev => prev.includes(entityId) ? prev.filter(id => id !== entityId) : [...prev, entityId]);
-                    } else {
-                      if (c.isGroup) {
-                        setSelectedUser({ ...c.group, is_group: true });
-                      } else {
-                        setSelectedUser({ ...c.user, is_group: false });
-                      }
-                    }
-                  }}
-                >
-                  {isSelectionMode && (
-                    <div style={{ marginRight: '12px' }}>
-                      <div style={{ 
-                        width: '20px', height: '20px', borderRadius: '50%', 
-                        border: `2px solid ${selectedChats.includes(entityId) ? 'var(--primary)' : 'rgba(255,255,255,0.2)'}`,
-                        background: selectedChats.includes(entityId) ? 'var(--primary)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {selectedChats.includes(entityId) && <Check size={12} color="#000" strokeWidth={4} />}
-                      </div>
-                    </div>
-                  )}
-                  <img 
-                    src={entityAvatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + entityId} 
-                    style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid var(--separator)', objectFit: 'cover' }}
-                    alt="Avatar" 
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                      <strong style={{ fontSize: '0.95rem' }}>{c.isGroup ? entityName : `@${entityName}`}</strong>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {c.unreadCount > 0 && (
-                          <span style={{ background: 'var(--primary)', color: '#000', fontSize: '0.65rem', fontWeight: 900, padding: '0.1rem 0.4rem', borderRadius: '1rem', minWidth: '18px', textAlign: 'center' }}>
-                            {c.unreadCount}
-                          </span>
-                        )}
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    </div>
-                    <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'var(--text-muted)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {c.lastMessage}
-                    </p>
-                  </div>
+          <div className="chat-tabs-container" style={{ display: 'flex', gap: '5px', padding: '0.2rem', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', marginBottom: '0.5rem', position: 'relative', overflow: 'hidden' }}>
+             {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map((tab) => (
+               <div 
+                 key={tab}
+                 className={`chat-tab-item ${filterTab === tab ? 'active' : ''}`}
+                 onClick={() => setFilterTab(tab)}
+                 style={{ 
+                   flex: 1, textAlign: 'center', padding: '0.8rem 0.2rem', 
+                   fontSize: '0.65rem', fontWeight: 900, cursor: 'pointer',
+                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                   borderRadius: '10px',
+                   color: filterTab === tab ? '#000' : 'rgba(255,255,255,0.4)',
+                   background: filterTab === tab ? 'var(--primary)' : 'transparent',
+                   position: 'relative', zIndex: 2
+                 }}
+               >
+                 {tab}
+               </div>
+             ))}
+           </div>
+         </div>
+
+         {/* Container Deslizante das Listas (Sidebar Swipe) */}
+         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ 
+              display: 'flex', width: '400%', height: '100%',
+              transform: `translateX(-${['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].indexOf(filterTab) * 25}%)`,
+              transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map(tab => (
+                <div key={tab} style={{ width: '25%', height: '100%', overflowY: 'auto', padding: '0.75rem' }}>
+                   {listLoading ? (
+                     <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                       <Loader2 className="animate-spin" color="var(--primary)" />
+                     </div>
+                   ) : (filteredConversations || []).filter(c => {
+                       if (tab === 'GRUPOS') return c.isGroup;
+                       if (tab === 'NAO LIDAS') return c.unreadCount > 0;
+                       return true;
+                   }).length === 0 ? (
+                     <div style={{ textAlign: 'center', padding: '3rem', opacity: 0.3 }}>
+                        <MessageSquare size={40} style={{ marginBottom: '10px', marginLeft: 'auto', marginRight: 'auto' }} />
+                        <p style={{ fontSize: '0.8rem', fontWeight: 700 }}>Nada por aqui ainda...</p>
+                     </div>
+                   ) : (
+                    (filteredConversations || [])
+                      .filter(c => {
+                        if (tab === 'GRUPOS') return c.isGroup;
+                        if (tab === 'NAO LIDAS') return c.unreadCount > 0;
+                        return true;
+                      })
+                      .map((c, idx) => {
+                       const entityId = c.isGroup ? c.group.id : c.user.id;
+                       return (
+                        <div 
+                          key={entityId || idx} 
+                          className={`chat-list-item-urban ${((c.isGroup && selectedUser?.id === c.group.id) || (!c.isGroup && selectedUser?.id === c.user.id)) ? 'active' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              setSelectedChats(prev => prev.includes(entityId) ? prev.filter(id => id !== entityId) : [...prev, entityId]);
+                            } else {
+                              if (c.isGroup) setSelectedUser({ ...c.group, is_group: true });
+                              else setSelectedUser({ ...c.user, is_group: false });
+                            }
+                          }}
+                        >
+                          <div style={{ position: 'relative' }}>
+                            {isSelectionMode && (
+                              <div style={{
+                                width: '22px', height: '22px', borderRadius: '50%',
+                                border: '2px solid var(--primary)', marginRight: '10px',
+                                background: selectedChats.includes(entityId) ? 'var(--primary)' : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                              }}>
+                                {selectedChats.includes(entityId) && <Check size={14} color="#000" strokeWidth={4} />}
+                              </div>
+                            )}
+                            <img 
+                              src={(c.isGroup ? c.group.avatar_url : c.user.avatar_url) || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + entityId} 
+                              style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid var(--separator)', objectFit: 'cover' }}
+                            />
+                            {c.unreadCount > 0 && <span className="unread-badge-velar">{c.unreadCount}</span>}
+                          </div>
+                          
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                              <h3 style={{ fontSize: '0.95rem', fontWeight: 900, margin: 0 }}>{c.isGroup ? c.group.name : `@${c.user.username}`}</h3>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'var(--text-muted)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                              {c.lastMessage}
+                            </p>
+                          </div>
+                        </div>
+                       );
+                     })
+                   )}
                 </div>
-               );
-             })
-           )}
-          </div>
+              ))}
+            </div>
+         </div>
         </div>
       </aside>
 
@@ -1103,10 +1328,13 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                     <User size={20} />
                   </div>
                 )}
-                <div>
-                  <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>
-                    {selectedUser.is_group ? selectedUser.name : `@${selectedUser.username}`}
-                  </h4>
+                 <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>
+                      {selectedUser.is_group ? selectedUser.name : `@${selectedUser.username}`}
+                    </h4>
+                    {isEphemeralMode && <Clock size={16} color="var(--primary)" className="animate-pulse" />}
+                  </div>
                   <p style={{ margin: 0, fontSize: '0.65rem', color: 'var(--primary)', fontWeight: 800, letterSpacing: '0.5px' }}>
                     {selectedUser.is_group ? 'TROPA ATIVA' : 'NA PISTA AGORA'}
                   </p>
@@ -1153,7 +1381,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                           </button>
                           
                           <button 
-                            onClick={() => { alert('Ativando Mensagens Temporárias...'); setIsChatMenuOpen(false); }}
+                            onClick={() => { toggleEphemeralMode(); setIsChatMenuOpen(false); }}
                             className="menu-btn-velar"
                           >
                             <Clock size={16} color="var(--primary)" /> MENSAGEM TEMPORÁRIA
@@ -1181,43 +1409,14 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                   <ShieldCheck size={14} /> PAPO RETO & SIGILO ABSOLUTO
                 </div>
               </div>
-              {messages.map((m) => (
-                <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: m.sender_id === userId ? 'flex-end' : 'flex-start' }}>
-                  <div className={`chat-bubble-velar ${m.sender_id === userId ? 'sent' : 'received'}`}>
-                    {m.image_url && (
-                      <div style={{ marginBottom: m.content ? '0.5rem' : 0 }}>
-                        <img 
-                          src={m.image_url} 
-                          alt="Mídia" 
-                          style={{ maxWidth: '100%', borderRadius: '12px', display: 'block', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.1)' }} 
-                          onClick={() => window.open(m.image_url, '_blank')}
-                        />
-                      </div>
-                    )}
-                    
-                    {m.audio_url && (
-                      <div style={{ 
-                        minWidth: '200px', 
-                        padding: '0.5rem 0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px'
-                      }}>
-                        <audio src={m.audio_url} controls style={{ height: '32px', filter: 'invert(1) hue-rotate(180deg)', width: '100%' }} />
-                      </div>
-                    )}
 
-                    {m.content && m.content !== '📷 Foto' && m.content !== '🎤 Áudio' && (
-                      <div style={{ wordBreak: 'break-word' }}>{m.content}</div>
-                    )}
-                  </div>
-                  <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    {m.sender_id === userId && (
-                      <MessageTicks message={m} />
-                    )}
-                  </span>
-                </div>
+              {messages.map((m) => (
+                <MessageBubble 
+                  key={m.id}
+                  message={m}
+                  isMe={m.sender_id === userId}
+                  onSwipe={(msg) => setReplyingTo(msg)}
+                />
               ))}
 
               {otherUserTyping && (
@@ -1337,7 +1536,28 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               </div>
             )}
 
-            <div style={{ padding: '1rem 1.5rem', background: 'rgba(5,5,5,0.8)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ padding: '0.5rem 1.5rem', background: 'rgba(5,5,5,0.8)', backdropFilter: 'blur(10px)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              {/* Preview de Resposta */}
+              {replyingTo && (
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '0.8rem', 
+                  marginBottom: '0.8rem', display: 'flex', alignItems: 'center', gap: '12px',
+                  borderLeft: '4px solid var(--primary)', animation: 'slideUp 0.2s ease'
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 900, marginBottom: '2px' }}>
+                      RESPONDENDO PARA {replyingTo.sender_id === userId ? 'VOCÊ' : `@${selectedUser.username || 'GRUPO'}`}
+                    </p>
+                    <p style={{ fontSize: '0.85rem', opacity: 0.6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {replyingTo.content}
+                    </p>
+                  </div>
+                  <button onClick={() => setReplyingTo(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    <X size={18} />
+                  </button>
+                </div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {/* Inputs Escondidos */}
                 <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => handleFileSelect(e)} />
@@ -1405,6 +1625,66 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           </div>
         )}
       </main>
+
+      {/* Modal de Encaminhamento */}
+      {messageToForward && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999999,
+          background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(20px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: '#111', width: '100%', maxWidth: '450px',
+            borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)',
+            padding: '1.5rem', maxHeight: '80vh', display: 'flex', flexDirection: 'column'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.2rem', fontWeight: 900, color: 'var(--primary)' }}>ENCAMINHAR PAPO</h2>
+                <p style={{ fontSize: '0.75rem', opacity: 0.5 }}>Escolha pra quem mandar essa fita</p>
+              </div>
+              <button onClick={() => setMessageToForward(null)} style={{ background: 'transparent', border: 'none', color: '#fff' }}>
+                <X />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {conversations.map((c, idx) => {
+                const entityId = c.isGroup ? c.group.id : c.user.id;
+                return (
+                  <div 
+                    key={entityId || idx}
+                    onClick={async () => {
+                      const forwardData = {
+                        sender_id: userId,
+                        content: messageToForward.content,
+                        image_url: messageToForward.image_url,
+                        audio_url: messageToForward.audio_url,
+                        is_forwarded: true,
+                        [c.isGroup ? 'group_id' : 'receiver_id']: entityId
+                      };
+                      await supabase.from('direct_messages').insert([forwardData]);
+                      setMessageToForward(null);
+                      alert('Encaminhado com sucesso!');
+                    }}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', gap: '12px', 
+                      padding: '0.8rem', borderRadius: '14px', cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.03)', marginBottom: '8px'
+                    }}
+                  >
+                    <img 
+                      src={(c.isGroup ? c.group.avatar_url : c.user.avatar_url) || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + entityId} 
+                      style={{ width: '40px', height: '40px', borderRadius: '50%' }} 
+                    />
+                    <span style={{ fontWeight: 800 }}>{c.isGroup ? c.group.name : `@${c.user.username}`}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
        {/* Modais Globais (Fora de qualquer condicional de contexto) */}
        {isGroupModalOpen && (
