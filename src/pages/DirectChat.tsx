@@ -291,14 +291,31 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
           {/* Se for uma resposta, mostrar o card da original */}
           {(message as any).reply_to && (
              <div style={{
-               background: 'rgba(255,255,255,0.05)', borderRadius: '8px', 
-               padding: '0.5rem', marginBottom: '0.5rem', 
-               borderLeft: '3px solid var(--primary)', fontSize: '0.75rem', opacity: 0.7
+               background: 'rgba(0,0,0,0.3)', 
+               backdropFilter: 'blur(5px)',
+               borderRadius: '10px', 
+               padding: '0.6rem 0.8rem', 
+               marginBottom: '0.6rem', 
+               borderLeft: '4px solid var(--primary)', 
+               fontSize: '0.75rem',
+               border: '1px solid rgba(255,255,255,0.05)',
+               borderLeftWidth: '4px'
              }}>
-               <strong style={{ display: 'block', color: 'var(--primary)', fontWeight: 900, marginBottom: '2px' }}>
-                 ORIGINAL
-               </strong>
-               <span className="truncate" style={{ display: 'block' }}>{(message as any).reply_to.content}</span>
+               <div style={{ 
+                 display: 'flex', 
+                 alignItems: 'center', 
+                 gap: '6px', 
+                 marginBottom: '4px',
+                 opacity: 0.8
+               }}>
+                 <RefreshCw size={10} color="var(--primary)" />
+                 <strong style={{ color: 'var(--primary)', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.65rem' }}>
+                   RESPOSTA AO PAPO
+                 </strong>
+               </div>
+               <span className="truncate" style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
+                 {(message as any).reply_to.content}
+               </span>
              </div>
           )}
 
