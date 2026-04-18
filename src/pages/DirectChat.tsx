@@ -120,8 +120,8 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
 
   return (
     <div className="audio-player-elite" style={{ 
-      display: 'flex', alignItems: 'center', gap: '12px', 
-      minWidth: '180px', padding: '4px 0' 
+      display: 'flex', alignItems: 'center', gap: '10px', 
+      width: '100%', maxWidth: '220px', padding: '2px 0' 
     }}>
       <audio 
         ref={audioRef} 
@@ -135,15 +135,15 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <img 
           src={avatarUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=audio"} 
-          style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} 
+          style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
         />
         <div style={{
           position: 'absolute', bottom: '-2px', right: '-2px',
           background: 'var(--primary)', borderRadius: '50%',
-          width: '18px', height: '18px', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', border: '2px solid #000'
+          width: '16px', height: '16px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', border: '1.5px solid #000'
         }}>
-          <Mic size={10} color="#000" />
+          <Mic size={9} color="#000" />
         </div>
       </div>
 
@@ -153,18 +153,18 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
         style={{ 
           background: isMe ? 'rgba(255,255,255,0.2)' : 'var(--primary)', 
           border: 'none', borderRadius: '50%', 
-          width: '32px', height: '32px', display: 'flex',
+          width: '30px', height: '30px', display: 'flex',
           alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           color: isMe ? '#fff' : '#000', transition: 'all 0.2s'
         }}
       >
-        {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: '2px' }} />}
+        {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" style={{ marginLeft: '1px' }} />}
       </button>
 
       {/* Barra de Progresso e Tempo */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
         <div style={{ 
-          width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', 
+          width: '100%', height: '3px', background: 'rgba(255,255,255,0.1)', 
           borderRadius: '2px', position: 'relative', cursor: 'pointer' 
         }}
         onClick={(e) => {
@@ -178,18 +178,17 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
           <div style={{ 
             height: '100%', background: isMe ? '#fff' : 'var(--primary)', 
             width: `${(currentTime / duration) * 100 || 0}%`, 
-            borderRadius: '2px', position: 'relative',
-            boxShadow: `0 0 10px ${isMe ? 'rgba(255,255,255,0.5)' : 'var(--primary)'}`
+            borderRadius: '2px', position: 'relative'
           }}>
             <div style={{
-              position: 'absolute', right: '-4px', top: '50%',
-              transform: 'translateY(-50%)', width: '10px', height: '10px',
+              position: 'absolute', right: '-3px', top: '50%',
+              transform: 'translateY(-50%)', width: '8px', height: '8px',
               background: isMe ? '#fff' : 'var(--primary)', borderRadius: '50%',
-              boxShadow: '0 0 10px currentColor'
+              boxShadow: '0 0 8px currentColor'
             }} />
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', opacity: 0.6, fontWeight: 700 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', opacity: 0.5, fontWeight: 700 }}>
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
@@ -1111,15 +1110,15 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          border-right: 1px solid var(--separator);
-          background: rgba(5,5,5,0.5);
+          border-right: 1px solid rgba(255,255,255,0.06);
+          background: #09090D;
         }
         .dc-main {
           flex: 1;
           display: flex;
           flex-direction: column;
           min-width: 0;
-          background: #050505;
+          background: #0B0B0F;
         }
         @media (max-width: 768px) {
           .dc-sidebar {
@@ -1134,33 +1133,37 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .search-input-chats {
           width: 100%;
-          padding: 0.8rem 1rem;
-          border-radius: 1rem;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid var(--separator);
+          padding: 0.8rem 1.2rem;
+          border-radius: 2rem;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
           color: #fff;
           font-family: inherit;
+          transition: all 0.2s;
         }
         .search-input-chats:focus {
           outline: none;
           border-color: var(--primary);
+          background: rgba(255,255,255,0.06);
+          box-shadow: 0 0 15px rgba(168, 85, 247, 0.1);
         }
         .chat-input-urban {
           display: flex;
           align-items: center;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1.5px solid rgba(255, 255, 255, 0.08);
-          border-radius: 1.2rem;
-          padding: 0.4rem 1rem;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 2.5rem;
+          padding: 0.4rem 1.2rem;
           gap: 12px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          min-height: 54px;
+          min-height: 58px;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         .chat-input-urban:focus-within {
-          background: rgba(255, 255, 255, 0.06);
+          background: rgba(255, 255, 255, 0.07);
           border-color: var(--primary);
-          box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
-          transform: translateY(-1px);
+          box-shadow: 0 0 30px rgba(168, 85, 247, 0.2);
+          transform: translateY(-2px);
         }
         .chat-input-urban input {
           flex: 1;
@@ -1173,39 +1176,41 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           padding: 0.8rem 0;
           font-family: inherit;
         }
-        .chat-input-urban input::placeholder {
-          color: rgba(255, 255, 255, 0.3);
-          font-weight: 500;
-        }
         .chat-bubble-velar {
           max-width: 75%;
           width: fit-content;
-          padding: 0.6rem 0.9rem;
-          border-radius: 1.2rem;
+          min-width: 65px;
+          padding: 0.7rem 1.1rem;
+          border-radius: 1.5rem;
           font-size: 0.9rem;
-          line-height: 1.4;
+          line-height: 1.45;
           position: relative;
-          box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        .chat-bubble-velar:has(.audio-player-elite), 
+        .chat-bubble-velar:has(img) {
+          padding: 6px !important;
         }
         .chat-bubble-velar.sent {
-          background: linear-gradient(135deg, #6C2BFF, #a855f7);
+          background: linear-gradient(135deg, #7C3AED, #4F46E5);
           color: #fff;
-          border-bottom-right-radius: 4px;
-          border: 1px solid rgba(255,255,255,0.1);
+          border-bottom-right-radius: 0.4rem;
+          border: 1px solid rgba(255,255,255,0.15);
         }
         .chat-bubble-velar.received {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.08);
           color: #fff;
-          border-bottom-left-radius: 4px;
-          border: 1px solid rgba(255,255,255,0.05);
-          backdrop-filter: blur(10px);
+          border-bottom-left-radius: 0.4rem;
+          border: 1px solid rgba(255,255,255,0.08);
+          backdrop-filter: blur(12px);
         }
         .chat-timestamp-velar {
-          font-size: 0.65rem;
-          color: rgba(255,255,255,0.3);
-          margin-top: 4px;
-          font-weight: 600;
+          font-size: 0.62rem;
+          color: rgba(255,255,255,0.25);
+          margin-top: 5px;
+          font-weight: 700;
           text-transform: uppercase;
+          letter-spacing: 0.4px;
         }
         .chat-tabs-container {
           display: flex;
@@ -1232,7 +1237,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .chat-tab-item.active {
           color: var(--primary);
-          text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+          text-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
         }
         .chat-tab-indicator {
           position: absolute;
@@ -1243,41 +1248,28 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           border-radius: 2px;
         }
-        @keyframes slideInRight {
-          from { transform: translateX(20px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        .animate-slide {
-          animation: slideInRight 0.3s ease forwards;
-        }
         .menu-btn-velar {
           width: 100%;
-          padding: 0.7rem 0.9rem;
+          padding: 0.75rem 1rem;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           background: transparent;
           border: none;
           color: #fff;
-          font-size: 0.8rem;
+          font-size: 0.82rem;
           font-weight: 700;
           cursor: pointer;
-          border-radius: 8px;
-          transition: background 0.2s;
+          border-radius: 10px;
+          transition: all 0.2s;
           text-align: left;
         }
         .menu-btn-velar:hover {
-          background: rgba(255,255,255,0.05);
+          background: rgba(255,255,255,0.07);
         }
         .audio-player-elite {
-          background: rgba(255, 255, 255, 0.03);
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 1.2rem;
           transition: all 0.3s ease;
-        }
-        .audio-player-elite:hover {
-          background: rgba(255, 255, 255, 0.06);
-          border-color: var(--primary);
         }
       `}</style>
       
