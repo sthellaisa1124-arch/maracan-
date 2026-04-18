@@ -1114,10 +1114,16 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   });
 
   return (
-    <div className={`direct-chat-container animate-fade-up ${selectedUser ? 'is-in-conversation' : ''}`} style={{ display: 'flex', width: '100%', height: selectedUser ? '100vh' : 'calc(100vh - 70px)', overflow: 'hidden' }}>
+    <div className={`direct-chat-container animate-fade-up ${selectedUser ? 'is-in-conversation' : ''}`} style={{ display: 'flex', width: '100%', height: selectedUser ? '100dvh' : 'calc(100dvh - 70px)', overflow: 'hidden' }}>
       <style>{`
         body:has(.is-in-conversation) .mobile-nav-elite { 
           display: none !important; 
+        }
+        /* Remove o padding do container pai que sobra quando a nav some */
+        body:has(.is-in-conversation) .main-content,
+        body:has(.is-in-conversation) .feed-container-urban { 
+          padding-bottom: 0 !important; 
+          margin-bottom: 0 !important;
         }
         .dc-container { padding-bottom: 0 !important; }
         .dc-sidebar {
