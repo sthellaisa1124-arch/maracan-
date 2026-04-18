@@ -39,6 +39,7 @@ interface Message {
   reply_to?: { content: string };
   is_temporary?: boolean;
   is_forwarded?: boolean;
+  sender?: { avatar_url: string };
 }
 
 interface Conversation {
@@ -82,6 +83,119 @@ function MessageTicks({ message }: { message: Message }) {
   }
   
   return <Check size={14} color="rgba(255,255,255,0.4)" />;
+}
+
+// Componente de Áudio Estilo WhatsApp Elite
+function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string, isMe: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+      if (isPlaying) audioRef.current.pause();
+      else audioRef.current.play();
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="audio-player-elite" style={{ 
+      display: 'flex', alignItems: 'center', gap: '12px', 
+      minWidth: '240px', padding: '4px 0' 
+    }}>
+      <audio 
+        ref={audioRef} 
+        src={src} 
+        onTimeUpdate={handleTimeUpdate} 
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={() => setIsPlaying(false)}
+      />
+      
+      {/* Avatar com Microfone */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <img 
+          src={avatarUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=audio"} 
+          style={{ width: '45px', height: '45px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,0.1)' }} 
+        />
+        <div style={{
+          position: 'absolute', bottom: '-2px', right: '-2px',
+          background: 'var(--primary)', borderRadius: '50%',
+          width: '18px', height: '18px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', border: '2px solid #000'
+        }}>
+          <Mic size={10} color="#000" />
+        </div>
+      </div>
+
+      {/* Controle de Play */}
+      <button 
+        onClick={togglePlay}
+        style={{ 
+          background: isMe ? 'rgba(255,255,255,0.2)' : 'var(--primary)', 
+          border: 'none', borderRadius: '50%', 
+          width: '32px', height: '32px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+          color: isMe ? '#fff' : '#000', transition: 'all 0.2s'
+        }}
+      >
+        {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" style={{ marginLeft: '2px' }} />}
+      </button>
+
+      {/* Barra de Progresso e Tempo */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ 
+          width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', 
+          borderRadius: '2px', position: 'relative', cursor: 'pointer' 
+        }}
+        onClick={(e) => {
+          if (audioRef.current && duration) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const pct = x / rect.width;
+            audioRef.current.currentTime = pct * duration;
+          }
+        }}>
+          <div style={{ 
+            height: '100%', background: isMe ? '#fff' : 'var(--primary)', 
+            width: `${(currentTime / duration) * 100 || 0}%`, 
+            borderRadius: '2px', position: 'relative',
+            boxShadow: `0 0 10px ${isMe ? 'rgba(255,255,255,0.5)' : 'var(--primary)'}`
+          }}>
+            <div style={{
+              position: 'absolute', right: '-4px', top: '50%',
+              transform: 'translateY(-50%)', width: '10px', height: '10px',
+              background: isMe ? '#fff' : 'var(--primary)', borderRadius: '50%',
+              boxShadow: '0 0 10px currentColor'
+            }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', opacity: 0.6, fontWeight: 700 }}>
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(duration)}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // Componente para Bolha de Mensagem com Swipe
@@ -200,9 +314,11 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
           )}
           
           {message.audio_url && (
-            <div style={{ minWidth: '200px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <audio src={message.audio_url} controls style={{ height: '32px', filter: 'invert(1) hue-rotate(180deg)', width: '100%' }} />
-            </div>
+             <AudioPlayer 
+               src={message.audio_url} 
+               avatarUrl={message.sender?.avatar_url} 
+               isMe={isMe} 
+             />
           )}
 
           {message.content && message.content !== '📷 Foto' && message.content !== '🎤 Áudio' && (
@@ -725,7 +841,11 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
 
      const query = supabase
        .from('direct_messages')
-       .select('*, reply_to:direct_messages(content)')
+        .select(`
+          *, 
+          reply_to:direct_messages(content),
+          sender:profiles!sender_id(avatar_url)
+        `)
        .not('deleted_by', 'cs', `{${userId}}`)
        .order('created_at', { ascending: true });
 
@@ -1130,6 +1250,16 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .menu-btn-velar:hover {
           background: rgba(255,255,255,0.05);
+        }
+        .audio-player-elite {
+          background: rgba(255, 255, 255, 0.03);
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          transition: all 0.3s ease;
+        }
+        .audio-player-elite:hover {
+          background: rgba(255, 255, 255, 0.06);
+          border-color: var(--primary);
         }
       `}</style>
       
