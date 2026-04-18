@@ -528,8 +528,21 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   };
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (scrollRef.current) {
+      const container = scrollRef.current;
+      // Scroll instantâneo para carregar a conversa no fim sem "pular"
+      container.scrollTop = container.scrollHeight;
+      
+      // Pequeno atraso para garantir que imagens/mídias carregadas também sejam consideradas
+      const timer = setTimeout(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, selectedUser]);
 
   async function cleanupExpiredMessages() {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -1522,7 +1535,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               </div>
             </header>
 
-            <div className="dm-messages-area" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+            <div ref={scrollRef} className="dm-messages-area" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
               <div style={{ textAlign: 'center', margin: '1rem 0 2rem', opacity: 0.4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 600 }}>
                   <ShieldCheck size={14} /> PAPO RETO & SIGILO ABSOLUTO
@@ -1546,7 +1559,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                 </div>
               )}
 
-              <div ref={scrollRef} />
             </div>
 
             {/* Câmera em Tela Cheia (Overlay) */}
