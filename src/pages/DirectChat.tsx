@@ -667,30 +667,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     setListLoading(false);
   }
 
-  async function loadSpecificUser(username: string) {
-    if (!username) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, username, avatar_url')
-      .eq('username', username)
-      .single();
-    
-    if (data) {
-      setSelectedUser({ ...data, is_group: false });
-      markAsRead(data.id);
-    }
-  }
 
-  async function markAsRead(otherId: string) {
-    if (!userId) return;
-    await supabase
-      .from('direct_messages')
-      .update({ read: true })
-      .eq('sender_id', otherId)
-      .eq('receiver_id', userId)
-      .eq('read', false);
-    fetchConversations();
-  }
 
    async function fetchChatSettings(entityId: string) {
      if (!selectedUser) return;
@@ -931,6 +908,9 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     const msgData: any = {
       sender_id: userId,
       content: input.trim(),
+      reply_to_id: replyingTo?.id || null,
+      is_temporary: isEphemeralMode,
+      expires_at: isEphemeralMode ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
     };
 
     if (selectedUser.is_group) {
@@ -941,10 +921,11 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
 
     try {
-      const { data, error } = await supabase.from('direct_messages').insert([msgData]).select().single();
+      const { data, error } = await supabase.from('direct_messages').insert([msgData]).select('*, reply_to:direct_messages(content)').single();
       if (error) throw error;
       
       setInput('');
+      setReplyingTo(null);
       setMessages(prev => [...prev, data]);
       fetchConversations();
 
@@ -960,7 +941,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
   }
 
-  const [searchTerm, setSearchTerm] = useState('');
   
   const filteredConversations = conversations.filter(c => {
     const name = c.isGroup ? c.group?.name : c.user?.username;
@@ -1307,7 +1287,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
               ))}
             </div>
          </div>
-        </div>
       </aside>
 
 
