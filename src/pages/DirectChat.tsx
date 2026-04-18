@@ -132,18 +132,18 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
       />
       
       {/* Avatar com Microfone */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'relative', flexShrink: 0, marginLeft: '4px' }}>
         <img 
           src={avatarUrl || "https://api.dicebear.com/7.x/avataaars/svg?seed=audio"} 
-          style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.1)' }} 
+          style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.2)' }} 
         />
         <div style={{
           position: 'absolute', bottom: '-2px', right: '-2px',
-          background: 'var(--primary)', borderRadius: '50%',
-          width: '16px', height: '16px', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', border: '1.5px solid #000'
+          background: '#000', borderRadius: '50%',
+          width: '18px', height: '18px', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.2)'
         }}>
-          <Mic size={9} color="#000" />
+          <Mic size={10} color="var(--primary)" />
         </div>
       </div>
 
@@ -151,21 +151,21 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
       <button 
         onClick={togglePlay}
         style={{ 
-          background: isMe ? 'rgba(255,255,255,0.2)' : 'var(--primary)', 
+          background: 'rgba(255,255,255,0.15)', 
           border: 'none', borderRadius: '50%', 
-          width: '30px', height: '30px', display: 'flex',
+          width: '32px', height: '32px', display: 'flex',
           alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          color: isMe ? '#fff' : '#000', transition: 'all 0.2s'
+          color: '#fff', transition: 'all 0.2s', backdropFilter: 'blur(5px)'
         }}
       >
         {isPlaying ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" style={{ marginLeft: '1px' }} />}
       </button>
 
       {/* Barra de Progresso e Tempo */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px', marginRight: '6px' }}>
         <div style={{ 
-          width: '100%', height: '3px', background: 'rgba(255,255,255,0.1)', 
-          borderRadius: '2px', position: 'relative', cursor: 'pointer' 
+          width: '100%', height: '3px', background: 'rgba(255,255,255,0.2)', 
+          borderRadius: '4px', position: 'relative', cursor: 'pointer' 
         }}
         onClick={(e) => {
           if (audioRef.current && duration) {
@@ -176,21 +176,20 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
           }
         }}>
           <div style={{ 
-            height: '100%', background: isMe ? '#fff' : 'var(--primary)', 
+            height: '100%', background: '#fff', 
             width: `${(currentTime / duration) * 100 || 0}%`, 
-            borderRadius: '2px', position: 'relative'
+            borderRadius: '4px', position: 'relative'
           }}>
             <div style={{
-              position: 'absolute', right: '-3px', top: '50%',
-              transform: 'translateY(-50%)', width: '8px', height: '8px',
-              background: isMe ? '#fff' : 'var(--primary)', borderRadius: '50%',
-              boxShadow: '0 0 8px currentColor'
+              position: 'absolute', right: '-4px', top: '50%',
+              transform: 'translateY(-50%)', width: '9px', height: '9px',
+              background: '#fff', borderRadius: '50%',
+              boxShadow: '0 0 10px rgba(255,255,255,0.8)'
             }} />
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', opacity: 0.5, fontWeight: 700 }}>
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '0.65rem', opacity: 0.8, fontWeight: 900, color: '#fff' }}>
+          <span>{formatTime(currentTime || duration)}</span>
         </div>
       </div>
     </div>
@@ -1102,15 +1101,19 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   });
 
   return (
-    <div className="direct-chat-container animate-fade-up" style={{ display: 'flex', width: '100%', height: 'calc(100vh - 70px)', overflow: 'hidden' }}>
+  return (
+    <div className={`direct-chat-container animate-fade-up ${selectedUser ? 'is-in-conversation' : ''}`} style={{ display: 'flex', width: '100%', height: selectedUser ? '100vh' : 'calc(100vh - 70px)', overflow: 'hidden' }}>
       <style>{`
+        body:has(.is-in-conversation) .mobile-nav-elite { 
+          display: none !important; 
+        }
         .dc-container { padding-bottom: 0 !important; }
         .dc-sidebar {
           width: 350px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          border-right: 1px solid rgba(255,255,255,0.06);
+          border-right: 1px solid rgba(255,255,255,0.05);
           background: #09090D;
         }
         .dc-main {
@@ -1118,7 +1121,17 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           display: flex;
           flex-direction: column;
           min-width: 0;
-          background: #0B0B0F;
+          background: radial-gradient(circle at center, #1a0b2e 0%, #0b0b0f 100%);
+          position: relative;
+        }
+        .dc-main::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(white, rgba(255,255,255,0.2) 2px, transparent 40px);
+          background-size: 150px 150px;
+          opacity: 0.03;
+          pointer-events: none;
         }
         @media (max-width: 768px) {
           .dc-sidebar {
@@ -1133,37 +1146,29 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .search-input-chats {
           width: 100%;
-          padding: 0.8rem 1.2rem;
+          padding: 0.8rem 1.4rem;
           border-radius: 2rem;
-          background: rgba(255,255,255,0.03);
+          background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.08);
           color: #fff;
           font-family: inherit;
-          transition: all 0.2s;
-        }
-        .search-input-chats:focus {
-          outline: none;
-          border-color: var(--primary);
-          background: rgba(255,255,255,0.06);
-          box-shadow: 0 0 15px rgba(168, 85, 247, 0.1);
         }
         .chat-input-urban {
           display: flex;
           align-items: center;
-          background: rgba(255, 255, 255, 0.04);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.4);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 2.5rem;
           padding: 0.4rem 1.2rem;
           gap: 12px;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          min-height: 58px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+          min-height: 56px;
+          backdrop-filter: blur(15px);
         }
         .chat-input-urban:focus-within {
-          background: rgba(255, 255, 255, 0.07);
           border-color: var(--primary);
-          box-shadow: 0 0 30px rgba(168, 85, 247, 0.2);
-          transform: translateY(-2px);
+          box-shadow: 0 0 25px rgba(168, 85, 247, 0.3);
+          transform: translateY(-1px);
         }
         .chat-input-urban input {
           flex: 1;
@@ -1177,40 +1182,39 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           font-family: inherit;
         }
         .chat-bubble-velar {
-          max-width: 75%;
+          max-width: 78%;
           width: fit-content;
-          min-width: 65px;
-          padding: 0.7rem 1.1rem;
-          border-radius: 1.5rem;
-          font-size: 0.9rem;
-          line-height: 1.45;
+          min-width: 70px;
+          padding: 0.8rem 1.2rem;
+          border-radius: 22px;
+          font-size: 0.95rem;
+          line-height: 1.5;
           position: relative;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+          box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+          margin-bottom: 2px;
         }
-        .chat-bubble-velar:has(.audio-player-elite), 
-        .chat-bubble-velar:has(img) {
+        .chat-bubble-velar:has(.audio-player-elite) {
           padding: 6px !important;
         }
         .chat-bubble-velar.sent {
-          background: linear-gradient(135deg, #7C3AED, #4F46E5);
+          background: linear-gradient(135deg, #6366f1, #a855f7);
           color: #fff;
-          border-bottom-right-radius: 0.4rem;
-          border: 1px solid rgba(255,255,255,0.15);
+          border-bottom-right-radius: 4px;
+          box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
         }
         .chat-bubble-velar.received {
-          background: rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.1);
           color: #fff;
-          border-bottom-left-radius: 0.4rem;
-          border: 1px solid rgba(255,255,255,0.08);
-          backdrop-filter: blur(12px);
+          border-bottom-left-radius: 4px;
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255,255,255,0.05);
         }
         .chat-timestamp-velar {
-          font-size: 0.62rem;
-          color: rgba(255,255,255,0.25);
-          margin-top: 5px;
+          font-size: 0.65rem;
+          color: rgba(255,255,255,0.4);
+          margin-top: 4px;
           font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.4px;
+          letter-spacing: 0.3px;
         }
         .chat-tabs-container {
           display: flex;
@@ -1221,9 +1225,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           padding-bottom: 2px;
           position: relative;
         }
-        .chat-tabs-container::-webkit-scrollbar {
-          display: none;
-        }
         .chat-tab-item {
           color: rgba(255, 255, 255, 0.4);
           font-size: 0.75rem;
@@ -1232,44 +1233,14 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           cursor: pointer;
           white-space: nowrap;
           transition: all 0.3s ease;
-          position: relative;
           padding: 4px 0;
         }
         .chat-tab-item.active {
           color: var(--primary);
-          text-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
-        }
-        .chat-tab-indicator {
-          position: absolute;
-          bottom: 0;
-          height: 2px;
-          background: var(--primary);
-          box-shadow: 0 0 10px var(--primary);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border-radius: 2px;
-        }
-        .menu-btn-velar {
-          width: 100%;
-          padding: 0.75rem 1rem;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          background: transparent;
-          border: none;
-          color: #fff;
-          font-size: 0.82rem;
-          font-weight: 700;
-          cursor: pointer;
-          border-radius: 10px;
-          transition: all 0.2s;
-          text-align: left;
-        }
-        .menu-btn-velar:hover {
-          background: rgba(255,255,255,0.07);
+          text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
         }
         .audio-player-elite {
-          border-radius: 1.2rem;
-          transition: all 0.3s ease;
+          border-radius: 18px;
         }
       `}</style>
       
