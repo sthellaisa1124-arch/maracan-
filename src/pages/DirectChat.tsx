@@ -121,7 +121,7 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
   return (
     <div className="audio-player-elite" style={{ 
       display: 'flex', alignItems: 'center', gap: '12px', 
-      minWidth: '240px', padding: '4px 0' 
+      minWidth: '200px', padding: '4px 0' 
     }}>
       <audio 
         ref={audioRef} 
@@ -1179,6 +1179,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .chat-bubble-velar {
           max-width: 85%;
+          width: fit-content;
           padding: 0.8rem 1.1rem;
           border-radius: 1.2rem;
           font-size: 0.95rem;
