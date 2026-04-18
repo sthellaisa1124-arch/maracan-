@@ -121,7 +121,7 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
   return (
     <div className="audio-player-elite" style={{ 
       display: 'flex', alignItems: 'center', gap: '12px', 
-      minWidth: '200px', padding: '4px 0' 
+      minWidth: '180px', padding: '4px 0' 
     }}>
       <audio 
         ref={audioRef} 
@@ -289,7 +289,7 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
           )}
 
           {/* Se for uma resposta, mostrar o card da original */}
-          {(message as any).reply_to && (
+          {message.reply_to && message.reply_to.content && (
              <div style={{
                background: 'rgba(0,0,0,0.3)', 
                backdropFilter: 'blur(5px)',
@@ -1178,11 +1178,11 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           font-weight: 500;
         }
         .chat-bubble-velar {
-          max-width: 85%;
+          max-width: 75%;
           width: fit-content;
-          padding: 0.8rem 1.1rem;
+          padding: 0.6rem 0.9rem;
           border-radius: 1.2rem;
-          font-size: 0.95rem;
+          font-size: 0.9rem;
           line-height: 1.4;
           position: relative;
           box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -1461,11 +1461,14 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       <main className="dc-main">
         {selectedUser ? (
           <>
-            <header className="dm-window-header" style={{ padding: '0.8rem 1.2rem', borderBottom: '1px solid var(--separator)', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)' }}>
-              <button className="btn-back-dm" onClick={() => setSelectedUser(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.4rem' }}>
-                <ArrowLeft size={24} />
-              </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1 }}>
+            <header className="dm-window-header" style={{ padding: '0.8rem 1.2rem', borderBottom: '1px solid var(--separator)', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', minHeight: '70px' }}>
+              <div style={{ width: '44px', display: 'flex', justifyContent: 'flex-start' }}>
+                <button className="btn-back-dm" onClick={() => setSelectedUser(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.4rem' }}>
+                  <ArrowLeft size={24} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', flex: 1, textAlign: 'center' }}>
                 {selectedUser.avatar_url ? (
                   <img src={selectedUser.avatar_url} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} alt="Avatar" />
                 ) : (
@@ -1473,7 +1476,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                     <User size={20} />
                   </div>
                 )}
-                 <div>
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>
                       {selectedUser.is_group ? selectedUser.name : `@${selectedUser.username}`}
@@ -1486,8 +1489,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                 </div>
               </div>
 
-              {/* Botão de Opções (Três Pontinhos na Janela de Conversa) */}
-              <div style={{ position: 'relative' }}>
+              <div style={{ width: '44px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button 
                   onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
                   style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.5rem', display: 'flex', alignItems: 'center' }}
