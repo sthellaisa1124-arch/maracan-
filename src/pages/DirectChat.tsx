@@ -1190,7 +1190,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         .chat-bubble-velar {
           max-width: 82%;
           width: fit-content;
-          min-width: 70px;
+          min-width: 75px;
           padding: 10px 14px;
           border-radius: 20px;
           font-size: 0.95rem;
@@ -1198,12 +1198,12 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           position: relative;
           box-shadow: 0 4px 15px rgba(0,0,0,0.3);
           margin-bottom: 12px;
-          display: flex;
-          flex-direction: column;
+          display: block;
           clear: both;
           word-break: normal;
           overflow-wrap: break-word;
           white-space: pre-wrap;
+          transition: all 0.2s ease;
         }
         .chat-bubble-velar:has(.audio-player-elite) {
           padding: 8px 14px !important;
@@ -1216,7 +1216,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           color: #fff;
           border-bottom-right-radius: 4px;
           box-shadow: 0 4px 25px rgba(168, 85, 247, 0.2);
-          align-self: flex-end;
+          margin-left: auto;
         }
         .chat-bubble-velar.received {
           background: rgba(255, 255, 255, 0.1);
@@ -1224,7 +1224,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           border-bottom-left-radius: 4px;
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255,255,255,0.05);
-          align-self: flex-start;
+          margin-right: auto;
         }
         .audio-player-elite {
           display: flex;
