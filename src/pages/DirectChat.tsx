@@ -1120,17 +1120,42 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           display: flex;
           flex-direction: column;
           min-width: 0;
-          background: radial-gradient(circle at center, #1a0b2e 0%, #0b0b0f 100%);
+          background: #0B0B0F;
           position: relative;
+          overflow: hidden;
         }
         .dc-main::before {
           content: "";
           position: absolute;
           inset: 0;
-          background-image: radial-gradient(white, rgba(255,255,255,0.2) 2px, transparent 40px);
-          background-size: 150px 150px;
-          opacity: 0.03;
+          background: 
+            radial-gradient(circle at 20% 30%, rgba(124, 58, 237, 0.1) 0%, transparent 40%),
+            radial-gradient(circle at 80% 70%, rgba(79, 70, 229, 0.1) 0%, transparent 40%),
+            radial-gradient(circle at 50% 50%, #1a0b3e 0%, #0b0b0f 100%);
+          z-index: 0;
+        }
+        .dc-main::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: 
+            radial-gradient(white, rgba(255,255,255,0.2) 1.5px, transparent 40px);
+          background-size: 250px 250px;
+          opacity: 0.1;
           pointer-events: none;
+          z-index: 1;
+        }
+        .dm-window-header {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          padding: 0.8rem 1.2rem;
+          display: flex;
+          align-items: center;
+          min-height: 70px;
+          background: rgba(11, 11, 15, 0.6);
+          backdrop-filter: blur(25px);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         @media (max-width: 768px) {
           .dc-sidebar {
@@ -1143,63 +1168,33 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             width: 100%;
           }
         }
-        .search-input-chats {
-          width: 100%;
-          padding: 0.8rem 1.4rem;
-          border-radius: 2rem;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
-          color: #fff;
-          font-family: inherit;
-        }
-        .chat-input-urban {
-          display: flex;
-          align-items: center;
-          background: rgba(0, 0, 0, 0.4);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 2.5rem;
-          padding: 0.4rem 1.2rem;
-          gap: 12px;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          min-height: 56px;
-          backdrop-filter: blur(15px);
-        }
-        .chat-input-urban:focus-within {
-          border-color: var(--primary);
-          box-shadow: 0 0 25px rgba(168, 85, 247, 0.3);
-          transform: translateY(-1px);
-        }
-        .chat-input-urban input {
-          flex: 1;
-          background: transparent !important;
-          border: none !important;
-          color: #fff !important;
-          font-size: 0.95rem !important;
-          height: 100%;
-          outline: none !important;
-          padding: 0.8rem 0;
-          font-family: inherit;
-        }
         .chat-bubble-velar {
-          max-width: 78%;
+          max-width: 82%;
           width: fit-content;
           min-width: 70px;
-          padding: 0.8rem 1.2rem;
-          border-radius: 22px;
+          padding: 10px 14px;
+          border-radius: 20px;
           font-size: 0.95rem;
           line-height: 1.5;
           position: relative;
           box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-          margin-bottom: 2px;
+          margin-bottom: 12px;
+          display: inline-block;
+          clear: both;
+          word-break: normal;
+          overflow-wrap: break-word;
         }
         .chat-bubble-velar:has(.audio-player-elite) {
-          padding: 6px !important;
+          padding: 8px 12px !important;
+          min-width: 150px;
+          max-width: 240px;
+          background: linear-gradient(135deg, #6366f1, #a855f7) !important;
         }
         .chat-bubble-velar.sent {
           background: linear-gradient(135deg, #6366f1, #a855f7);
           color: #fff;
           border-bottom-right-radius: 4px;
-          box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
+          box-shadow: 0 4px 25px rgba(168, 85, 247, 0.2);
         }
         .chat-bubble-velar.received {
           background: rgba(255, 255, 255, 0.1);
@@ -1208,38 +1203,40 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255,255,255,0.05);
         }
+        .audio-player-elite {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+        }
+        .search-input-chats {
+          width: 100%;
+          padding: 0.8rem 1.4rem;
+          border-radius: 2rem;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: #fff;
+          font-family: inherit;
+          margin-bottom: 1rem;
+        }
+        .chat-input-urban {
+          display: flex;
+          align-items: center;
+          background: rgba(0, 0, 0, 0.5);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 2.5rem;
+          padding: 0.4rem 1.2rem;
+          gap: 12px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          min-height: 56px;
+          backdrop-filter: blur(15px);
+        }
         .chat-timestamp-velar {
           font-size: 0.65rem;
           color: rgba(255,255,255,0.4);
           margin-top: 4px;
           font-weight: 700;
           letter-spacing: 0.3px;
-        }
-        .chat-tabs-container {
-          display: flex;
-          gap: 1.5rem;
-          margin-top: 1.2rem;
-          overflow-x: auto;
-          scrollbar-width: none;
-          padding-bottom: 2px;
-          position: relative;
-        }
-        .chat-tab-item {
-          color: rgba(255, 255, 255, 0.4);
-          font-size: 0.75rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          cursor: pointer;
-          white-space: nowrap;
-          transition: all 0.3s ease;
-          padding: 4px 0;
-        }
-        .chat-tab-item.active {
-          color: var(--primary);
-          text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
-        }
-        .audio-player-elite {
-          border-radius: 18px;
         }
       `}</style>
       
@@ -1423,7 +1420,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       <main className="dc-main">
         {selectedUser ? (
           <>
-            <header className="dm-window-header" style={{ padding: '0.8rem 1.2rem', borderBottom: '1px solid var(--separator)', display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', minHeight: '70px' }}>
+            <header className="dm-window-header">
               <div style={{ width: '44px', display: 'flex', justifyContent: 'flex-start' }}>
                 <button className="btn-back-dm" onClick={() => setSelectedUser(null)} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0.4rem' }}>
                   <ArrowLeft size={24} />
