@@ -121,7 +121,7 @@ function AudioPlayer({ src, avatarUrl, isMe }: { src: string, avatarUrl?: string
   return (
     <div className="audio-player-elite" style={{ 
       display: 'flex', alignItems: 'center', gap: '10px', 
-      width: '100%', maxWidth: '220px', padding: '2px 0' 
+      width: '100%', maxWidth: '280px', padding: '2px 0' 
     }}>
       <audio 
         ref={audioRef} 
@@ -1185,9 +1185,9 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           overflow-wrap: break-word;
         }
         .chat-bubble-velar:has(.audio-player-elite) {
-          padding: 8px 12px !important;
-          min-width: 150px;
-          max-width: 240px;
+          padding: 8px 14px !important;
+          min-width: 240px;
+          max-width: 300px;
           background: linear-gradient(135deg, #6366f1, #a855f7) !important;
         }
         .chat-bubble-velar.sent {
@@ -1230,6 +1230,19 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           min-height: 56px;
           backdrop-filter: blur(15px);
+        }
+        .chat-input-urban input {
+          flex: 1;
+          background: transparent !important;
+          border: none !important;
+          outline: none !important;
+          color: #fff !important;
+          font-family: inherit;
+          font-size: 0.95rem;
+          padding: 0.5rem 0;
+        }
+        .chat-input-urban input::placeholder {
+          color: rgba(255, 255, 255, 0.4);
         }
         .chat-timestamp-velar {
           font-size: 0.65rem;
