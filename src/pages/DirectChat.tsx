@@ -337,7 +337,7 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
           )}
 
           {message.content && message.content !== '📷 Foto' && message.content !== '🎤 Áudio' && (
-            <div style={{ wordBreak: 'break-word', fontWeight: 600 }}>{message.content}</div>
+            <div style={{ fontWeight: 600 }}>{message.content}</div>
           )}
         </div>
         <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
@@ -1194,14 +1194,16 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           padding: 10px 14px;
           border-radius: 20px;
           font-size: 0.95rem;
-          line-height: 1.5;
+          line-height: 1.4;
           position: relative;
           box-shadow: 0 4px 15px rgba(0,0,0,0.3);
           margin-bottom: 12px;
-          display: inline-block;
+          display: flex;
+          flex-direction: column;
           clear: both;
           word-break: normal;
           overflow-wrap: break-word;
+          white-space: pre-wrap;
         }
         .chat-bubble-velar:has(.audio-player-elite) {
           padding: 8px 14px !important;
@@ -1214,6 +1216,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           color: #fff;
           border-bottom-right-radius: 4px;
           box-shadow: 0 4px 25px rgba(168, 85, 247, 0.2);
+          align-self: flex-end;
         }
         .chat-bubble-velar.received {
           background: rgba(255, 255, 255, 0.1);
@@ -1221,6 +1224,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           border-bottom-left-radius: 4px;
           backdrop-filter: blur(20px);
           border: 1px solid rgba(255,255,255,0.05);
+          align-self: flex-start;
         }
         .audio-player-elite {
           display: flex;
