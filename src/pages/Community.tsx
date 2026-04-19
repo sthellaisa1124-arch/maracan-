@@ -16,6 +16,7 @@ import {
   Bell,
   Zap,
   ShoppingCart,
+  Bot,
   Pin,
   ArrowUpCircle,
   Trash2,
