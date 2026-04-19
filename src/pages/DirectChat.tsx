@@ -230,7 +230,7 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
         display: 'flex', flexDirection: 'column', 
         alignItems: isMe ? 'flex-end' : 'flex-start',
         position: 'relative',
-        width: '100%', margin: '4px 0',
+        width: '100%', margin: '10px 0',
         overflow: 'visible'
       }}
     >
@@ -337,10 +337,10 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
           )}
 
           {message.content && message.content !== '📷 Foto' && message.content !== '🎤 Áudio' && (
-            <div style={{ fontWeight: 600 }}>{message.content}</div>
+            <div style={{ fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word', width: '100%' }}>{message.content}</div>
           )}
         </div>
-        <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+        <span className="chat-timestamp-velar" style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
           {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           {isMe && <MessageTicks message={message} />}
         </span>
@@ -1191,13 +1191,13 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           max-width: 82%;
           width: fit-content;
           min-width: 75px;
-          padding: 10px 14px;
-          border-radius: 20px;
-          font-size: 0.95rem;
-          line-height: 1.4;
+          padding: 12px 16px;
+          border-radius: 18px;
+          font-size: 0.92rem;
+          line-height: 1.5;
           position: relative;
           box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           display: block;
           clear: both;
           word-break: normal;
