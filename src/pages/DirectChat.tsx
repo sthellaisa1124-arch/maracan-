@@ -46,6 +46,7 @@ interface Conversation {
   user?: any;
   group?: any;
   isGroup: boolean;
+  isRequest: boolean;
   lastMessage: string;
   timestamp: string;
   unreadCount: number;
@@ -389,6 +390,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
   const [messageToForward, setMessageToForward] = useState<Message | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     (window as any).triggerForward = (msg: Message) => setMessageToForward(msg);
@@ -426,6 +428,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
    // 1. Carregar lista de conversas ao montar
   useEffect(() => {
     if (userId) {
+      fetchFollowingIds();
       fetchConversations();
       
       // Se vier de um perfil com destinatário inicial
@@ -753,6 +756,12 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
     }
   }
 
+  async function fetchFollowingIds() {
+    if (!userId) return;
+    const { data } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
+    if (data) setFollowingIds(new Set(data.map(f => f.following_id)));
+  }
+
   async function fetchConversations() {
     setListLoading(true);
     try {
@@ -795,10 +804,12 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             const unreadCount = privData.filter(msg => 
               msg.sender_id === otherUser.id && msg.receiver_id === userId && !msg.read
             ).length;
+            const isRequest = !followingIds.has(otherUser.id);
             privMap.set(otherUser.id, true);
             convs.push({
               user: otherUser,
               isGroup: false,
+              isRequest,
               lastMessage: m.content,
               timestamp: m.created_at,
               unreadCount
@@ -815,6 +826,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           convs.push({
             group: g,
             isGroup: true,
+            isRequest: false,
             lastMessage: lastM ? lastM.content : "Início da Tropa",
             timestamp: lastM ? lastM.created_at : g.created_at,
             unreadCount: 0 // Simplificado para agora
@@ -1362,6 +1374,24 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                  }}
                >
                  {tab}
+                 {/* Badge de Notificação */}
+                 {(() => {
+                   let count = 0;
+                   if (tab === 'NAO LIDAS') count = conversations.filter(c => c.unreadCount > 0 && !c.isRequest).length;
+                   if (tab === 'GRUPOS') count = conversations.filter(c => c.isGroup && c.unreadCount > 0).length;
+                   if (tab === 'SOLICITAÇÕES') count = conversations.filter(c => c.isRequest && c.unreadCount > 0).length;
+                   
+                   if (count > 0 && filterTab !== tab) {
+                     return (
+                       <span style={{
+                         position: 'absolute', top: '5px', right: '5px',
+                         width: '8px', height: '8px', background: '#fff',
+                         borderRadius: '50%', boxShadow: '0 0 8px #fff'
+                       }} />
+                     );
+                   }
+                   return null;
+                 })()}
                </div>
              ))}
            </div>
@@ -1381,9 +1411,10 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                        <Loader2 className="animate-spin" color="var(--primary)" />
                      </div>
                    ) : (filteredConversations || []).filter(c => {
-                       if (tab === 'GRUPOS') return c.isGroup;
-                       if (tab === 'NAO LIDAS') return c.unreadCount > 0;
-                       return true;
+                        if (tab === 'GRUPOS') return c.isGroup;
+                        if (tab === 'NAO LIDAS') return c.unreadCount > 0 && !c.isRequest;
+                        if (tab === 'SOLICITAÇÕES') return c.isRequest;
+                        return !c.isRequest; // TODOS oculta solicitações
                    }).length === 0 ? (
                      <div style={{ textAlign: 'center', padding: '3rem', opacity: 0.3 }}>
                         <MessageSquare size={40} style={{ marginBottom: '10px', marginLeft: 'auto', marginRight: 'auto' }} />
@@ -1393,8 +1424,9 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                     (filteredConversations || [])
                       .filter(c => {
                         if (tab === 'GRUPOS') return c.isGroup;
-                        if (tab === 'NAO LIDAS') return c.unreadCount > 0;
-                        return true;
+                        if (tab === 'NAO LIDAS') return c.unreadCount > 0 && !c.isRequest;
+                        if (tab === 'SOLICITAÇÕES') return c.isRequest;
+                        return !c.isRequest; // TODOS oculta solicitações
                       })
                       .map((c, idx) => {
                        const entityId = c.isGroup ? c.group.id : c.user.id;
