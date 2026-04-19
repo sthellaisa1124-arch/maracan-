@@ -46,6 +46,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   const [noSaldoModal, setNoSaldoModal] = useState(false);
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [boostingPost, setBoostingPost] = useState<any | null>(null);
+  const [confirmBoost, setConfirmBoost] = useState<{type: 'bump' | 'pin', postId: string} | null>(null);
   const [activePin, setActivePin] = useState<{id: string, username: string, expires_at: string} | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -340,15 +341,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   async function handleBumpPost(postId: string) {
     if (!session) return notify("Loga aí pra subir o papo! 🚀", "error");
     
-    const confirmed = confirm(
-      "Deseja subir esse post para o topo? 🚀\n\n" +
-      "Custo: 5.000 Moral\n\n" +
-      "O post subirá para o topo da pista agora como se tivesse acabado de ser postado. " +
-      "Atenção: Ele NÃO fica fixado, apenas sobe para a primeira posição do feed atual."
-    );
- 
-    if (!confirmed) return;
- 
     setActionLoading(postId);
     try {
       const { data: res, error: rpcError } = await supabase.rpc('boost_post', {
@@ -373,14 +365,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
  
   async function handlePinPost(postId: string) {
     if (!session) return notify("Loga aí pra fixar o papo! 📌", "error");
- 
-    const confirmed = confirm(
-      "Deseja fixar esse post no topo absoluto? 📌👑\n\n" +
-      "Custo: 100.000 Moral\n\n" +
-      "O post ficará fixado no topo da pista para TODOS que entrarem no app pelas próximas 24 horas."
-    );
- 
-    if (!confirmed) return;
  
     setActionLoading(postId);
     try {
@@ -1012,7 +996,6 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Domine a pista do Vellar</p>
               </div>
               <div style={{ background: 'rgba(255,255,255,0.04)', padding: '8px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-                <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', fontWeight: 800, display: 'block', marginBottom: '2px', letterSpacing: '0.5px' }}>SEU SALDO</span>
                 <span style={{ color: '#22c55e', fontWeight: 900, fontSize: '1.1rem' }}>🪙 {moralBalance.toLocaleString('pt-BR')}</span>
               </div>
             </div>
@@ -1022,7 +1005,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               
               {/* OPÇÃO 1: SUBIR */}
               <button 
-                onClick={() => handleBumpPost(boostingPost.id)}
+                onClick={() => setConfirmBoost({ type: 'bump', postId: boostingPost.id })}
                 disabled={!!actionLoading}
                 style={{
                   width: '100%', padding: '1.4rem', borderRadius: '24px', border: '1px solid rgba(168, 85, 247, 0.2)',
@@ -1031,7 +1014,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 }}
               >
                 <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  {actionLoading === boostingPost.id ? <Loader2 className="animate-spin" color="#a855f7" /> : <ArrowUpCircle size={26} color="#a855f7" />}
+                  <ArrowUpCircle size={26} color="#a855f7" />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -1043,10 +1026,10 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                   </p>
                 </div>
               </button>
- 
+
               {/* OPÇÃO 2: FIXAR */}
               <button 
-                onClick={() => handlePinPost(boostingPost.id)}
+                onClick={() => setConfirmBoost({ type: 'pin', postId: boostingPost.id })}
                 disabled={!!actionLoading || !!activePin}
                 style={{
                   width: '100%', padding: '1.4rem', borderRadius: '24px', 
@@ -1079,6 +1062,98 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               >
                 AGORA NÃO, VALEU
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+ 
+      {/* --- MODAL DE CONFIRMAÇÃO ELITE --- */}
+      {confirmBoost && createPortal(
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1100000,
+          background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+        }}>
+          <div style={{
+            width: '100%', maxWidth: '400px',
+            background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%)',
+            borderRadius: '32px', padding: '2rem',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            boxShadow: '0 25px 70px rgba(0,0,0,0.8)',
+            textAlign: 'center',
+            position: 'relative', overflow: 'hidden'
+          }}>
+            {/* Brilho de fundo */}
+            <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '200px', height: '200px', background: confirmBoost.type === 'pin' ? 'rgba(250, 204, 21, 0.08)' : 'rgba(168, 85, 247, 0.08)', filter: 'blur(60px)', borderRadius: '50%' }} />
+ 
+            <div style={{ 
+              width: '72px', height: '72px', borderRadius: '24px', 
+              background: confirmBoost.type === 'pin' ? 'rgba(250, 204, 21, 0.1)' : 'rgba(168, 85, 247, 0.1)', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              margin: '0 auto 1.5rem', border: confirmBoost.type === 'pin' ? '1px solid rgba(250, 204, 21, 0.2)' : '1px solid rgba(168, 85, 247, 0.2)'
+            }}>
+              {confirmBoost.type === 'pin' ? <Pin size={32} color="#facc15" /> : <Rocket size={32} color="#a855f7" />}
+            </div>
+ 
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fff', marginBottom: '1rem', fontFamily: 'Outfit' }}>
+              Confirmar Pagamento
+            </h2>
+ 
+            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '20px', marginBottom: '1.8rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+               {confirmBoost.type === 'bump' ? (
+                 <>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Custo:</span>
+                     <span style={{ color: '#a855f7', fontWeight: 900 }}>🪙 5.000 Moral</span>
+                   </div>
+                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, textAlign: 'left' }}>
+                     Seu post subirá para o topo da pista agora como se tivesse acabado de ser postado. 🚀
+                   </p>
+                   <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'rgba(244, 63, 94, 0.8)', fontWeight: 700, textAlign: 'left' }}>
+                     ⚠️ Atenção: Ele NÃO fica fixado, apenas sobe para a primeira posição.
+                   </p>
+                 </>
+               ) : (
+                 <>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Custo:</span>
+                     <span style={{ color: '#facc15', fontWeight: 900 }}>🪙 100.000 Moral</span>
+                   </div>
+                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, textAlign: 'left' }}>
+                     O post ficará fixado no topo da pista para TODOS que entrarem no app pelas próximas 24 horas. 👑🏆
+                   </p>
+                 </>
+               )}
+            </div>
+ 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+               <button 
+                 onClick={() => {
+                   if (confirmBoost.type === 'bump') handleBumpPost(confirmBoost.postId);
+                   else handlePinPost(confirmBoost.postId);
+                   setConfirmBoost(null);
+                 }}
+                 disabled={!!actionLoading}
+                 style={{
+                   width: '100%', padding: '1.2rem', borderRadius: '18px',
+                   background: confirmBoost.type === 'pin' ? 'linear-gradient(90deg, #facc15, #eab308)' : 'linear-gradient(90deg, #a855f7, #7c3aed)',
+                   color: '#000', fontWeight: 900, fontSize: '1rem', border: 'none', cursor: 'pointer',
+                   boxShadow: confirmBoost.type === 'pin' ? '0 10px 25px rgba(250, 204, 21, 0.25)' : '0 10px 25px rgba(168, 85, 247, 0.25)'
+                 }}
+               >
+                 {actionLoading ? 'PROCESSANDO...' : 'CONFIRMAR AGORA'}
+               </button>
+               <button 
+                 onClick={() => setConfirmBoost(null)}
+                 disabled={!!actionLoading}
+                 style={{
+                   width: '100%', padding: '1rem', borderRadius: '18px',
+                   background: 'transparent', color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.9rem', border: 'none', cursor: 'pointer'
+                 }}
+               >
+                 CANCELAR
+               </button>
             </div>
           </div>
         </div>,
