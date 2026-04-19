@@ -341,7 +341,7 @@ function App() {
                   />
                 )}
                 {activeTab === 'messages' && (
-                  <DirectChat session={session} initialRecipient={viewingUsername} />
+                  <DirectChat session={session} initialRecipient={viewingUsername} onBack={() => handleTabChange('community')} />
                 )}
                 {activeTab === 'notifications' && (
                   <Notifications userId={session.user.id} onBack={() => handleTabChange('community')} />
@@ -387,7 +387,7 @@ function App() {
           </div>
 
           {/* ── MOBILE NAV — fora do dashboard para position:fixed funcionar ── */}
-          {(activeTab !== 'avista' && activeTab !== 'chat' && !activeLiveRoom) && (
+          {(activeTab !== 'avista' && activeTab !== 'chat' && activeTab !== 'messages' && !activeLiveRoom) && (
             <nav className="mobile-nav-elite" style={{ zIndex: 100 }}>
               <button className={activeTab === 'community' ? 'active' : ''} onClick={() => handleTabChange('community')}>
                 <Home size={24} />

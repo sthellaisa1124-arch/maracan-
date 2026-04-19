@@ -23,7 +23,9 @@ import {
   Clock,
   Slash,
   LogOut,
-  CornerUpRight
+  CornerUpRight,
+  Search,
+  ChevronLeft
 } from 'lucide-react';
 
 interface Message {
@@ -350,7 +352,7 @@ function MessageBubble({ message, isMe, onSwipe }: { message: Message, isMe: boo
   );
 }
 
-export function DirectChat({ session, initialRecipient }: { session: any, initialRecipient?: string | null }) {
+export function DirectChat({ session, initialRecipient, onBack }: { session: any, initialRecipient?: string | null, onBack?: () => void }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1142,12 +1144,21 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
         }
         .dc-container { padding-bottom: 0 !important; }
         .dc-sidebar {
-          width: 350px;
+          width: 380px;
           flex-shrink: 0;
           display: flex;
           flex-direction: column;
-          border-right: 1px solid rgba(255,255,255,0.05);
-          background: #09090D;
+          background: #0A0A0F;
+          position: relative;
+          z-index: 5;
+        }
+        .dc-sidebar::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at 50% -20%, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
+          pointer-events: none;
+          z-index: 0;
         }
         .dc-main {
           flex: 1;
@@ -1195,12 +1206,97 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
           .dc-sidebar {
             width: 100%;
             display: ${selectedUser ? 'none' : 'flex'};
-            border-right: none;
           }
           .dc-main {
             display: ${!selectedUser ? 'none' : 'flex'};
             width: 100%;
           }
+        }
+        
+        .premium-header-velar {
+          padding: 1.2rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(10, 10, 15, 0.8);
+          backdrop-filter: blur(20px);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .search-container-chats {
+          padding: 0.5rem 1.2rem;
+          position: relative;
+        }
+        .search-pill-velar {
+          width: 100%;
+          padding: 0.8rem 2.8rem;
+          border-radius: 2rem;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #fff;
+          font-size: 0.85rem;
+          transition: all 0.3s ease;
+          backdrop-filter: blur(10px);
+        }
+        .search-pill-velar:focus {
+          background: rgba(255, 255, 255, 0.07);
+          border-color: rgba(168, 85, 247, 0.4);
+          box-shadow: 0 0 15px rgba(168, 85, 247, 0.15);
+          outline: none;
+        }
+
+        .conv-item-velar {
+          display: flex;
+          align-items: center;
+          padding: 1rem 1.2rem;
+          margin: 0.2rem 0.6rem;
+          border-radius: 18px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          gap: 12px;
+        }
+        .conv-item-velar:hover {
+          background: rgba(255, 255, 255, 0.03);
+          transform: scale(0.98);
+        }
+        .conv-item-velar.active {
+          background: rgba(168, 85, 247, 0.08);
+        }
+        .conv-item-velar.unread {
+          background: rgba(168, 85, 247, 0.04);
+        }
+
+        .avatar-glow-velar {
+          position: relative;
+          width: 52px;
+          height: 52px;
+          flex-shrink: 0;
+        }
+        .avatar-glow-velar img {
+          width: 100%;
+          height: 100%;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 2px solid rgba(255,255,255,0.05);
+          transition: border-color 0.3s;
+        }
+        .conv-item-velar:hover .avatar-glow-velar img {
+          border-color: var(--primary);
+        }
+        .unread-dot-velar {
+          width: 10px;
+          height: 10px;
+          background: var(--primary);
+          border-radius: 50%;
+          box-shadow: 0 0 10px var(--primary);
+          position: absolute;
+          right: 0;
+          top: 0;
+          border: 2px solid #0A0A0F;
         }
         .chat-bubble-velar {
           max-width: 82%;
@@ -1293,48 +1389,56 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
       
       {/* Barra Lateral de Conversas */}
       <aside className="dc-sidebar">
-        <div className="dm-sidebar-header" style={{ padding: '1.2rem', borderBottom: '1px solid var(--separator)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.8rem', margin: 0 }}>
-              <MessageSquare size={20} color="var(--primary)" /> PAPOS
+        <div className="premium-header-velar">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {onBack && (
+              <button 
+                onClick={onBack}
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <ChevronLeft size={22} />
+              </button>
+            )}
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 900, margin: 0, letterSpacing: '-0.5px', color: '#fff', textShadow: '0 0 20px rgba(168, 85, 247, 0.3)' }}>
+              PAPOS
             </h3>
-            
-            {/* Menu da Barra Lateral */}
-            <div style={{ position: 'relative' }}>
-               {isSelectionMode ? (
-                 <div style={{ display: 'flex', gap: '8px' }}>
-                    <button 
-                      onClick={deleteSelectedConversations}
-                      disabled={selectedChats.length === 0}
-                      style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: selectedChats.length === 0 ? 0.5 : 1 }}
-                    >
-                      APAGAR ({selectedChats.length})
-                    </button>
-                    <button 
-                      onClick={() => { setIsSelectionMode(false); setSelectedChats([]); }}
-                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
-                    >
-                      PRONTO
-                    </button>
-                 </div>
-               ) : (
-                 <button 
-                   onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
-                   style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '4px' }}
-                 >
-                   <MoreVertical size={20} />
-                 </button>
-               )}
-               {isSidebarMenuOpen && !isSelectionMode && (
-                 <>
-                   <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsSidebarMenuOpen(false)} />
-                   <div style={{
-                     position: 'absolute', top: '100%', right: 0, zIndex: 101,
-                     background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(20px)',
-                     border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px',
-                     padding: '0.4rem', minWidth: '180px', marginTop: '8px',
-                     boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-                   }}>
+          </div>
+          
+          <div style={{ position: 'relative' }}>
+             {isSelectionMode ? (
+               <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    onClick={deleteSelectedConversations}
+                    disabled={selectedChats.length === 0}
+                    style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', color: '#ef4444', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer', opacity: selectedChats.length === 0 ? 0.5 : 1 }}
+                  >
+                    APAGAR
+                  </button>
+                  <button 
+                    onClick={() => { setIsSelectionMode(false); setSelectedChats([]); }}
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    OK
+                  </button>
+               </div>
+             ) : (
+               <button 
+                 onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
+                 style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '12px', cursor: 'pointer' }}
+               >
+                 <MoreVertical size={20} />
+               </button>
+             )}
+             {isSidebarMenuOpen && !isSelectionMode && (
+               <>
+                 <div style={{ position: 'fixed', inset: 0, zIndex: 100 }} onClick={() => setIsSidebarMenuOpen(false)} />
+                 <div style={{
+                   position: 'absolute', top: '100%', right: 0, zIndex: 101,
+                   background: 'rgba(15,15,20,0.95)', backdropFilter: 'blur(30px)',
+                   border: '1px solid rgba(255,255,255,0.1)', borderRadius: '18px',
+                   padding: '0.5rem', minWidth: '200px', marginTop: '10px',
+                   boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                 }}>
                      <button 
                        onClick={() => { 
                          setIsSidebarMenuOpen(false); 
@@ -1348,56 +1452,63 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
                      <button onClick={() => { setIsSidebarMenuOpen(false); setIsSelectionMode(true); }} className="menu-btn-velar" style={{ color: '#ef4444' }}>
                        <Trash2 size={16} /> EXCLUIR CONVERSA
                      </button>
-                   </div>
-                 </>
-               )}
-             </div>
           </div>
-          <input 
-            type="text" 
-            placeholder="Pesquisar conversa..." 
-            className="search-input-chats"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <div className="chat-tabs-container" style={{ display: 'flex', gap: '5px', padding: '0.2rem', background: 'rgba(255,255,255,0.03)', borderRadius: '14px', marginBottom: '0.5rem', position: 'relative', overflow: 'hidden' }}>
-             {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map((tab) => (
-               <div 
-                 key={tab}
-                 className={`chat-tab-item ${filterTab === tab ? 'active' : ''}`}
-                 onClick={() => setFilterTab(tab)}
-                 style={{ 
-                   flex: 1, textAlign: 'center', padding: '0.8rem 0.2rem', 
-                   fontSize: '0.65rem', fontWeight: 900, cursor: 'pointer',
-                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                   borderRadius: '10px',
-                   color: filterTab === tab ? '#000' : 'rgba(255,255,255,0.4)',
-                   background: filterTab === tab ? 'var(--primary)' : 'transparent',
-                   position: 'relative', zIndex: 2
-                 }}
-               >
-                 {tab}
-                 {/* Badge de Notificação */}
-                 {(() => {
-                   let count = 0;
-                   if (tab === 'NAO LIDAS') count = conversations.filter(c => c.unreadCount > 0 && !c.isRequest).length;
-                   if (tab === 'GRUPOS') count = conversations.filter(c => c.isGroup && c.unreadCount > 0).length;
-                   if (tab === 'SOLICITAÇÕES') count = conversations.filter(c => c.isRequest && c.unreadCount > 0).length;
-                   
-                   if (count > 0 && filterTab !== tab) {
-                     return (
-                       <span style={{
-                         position: 'absolute', top: '5px', right: '5px',
-                         width: '8px', height: '8px', background: '#fff',
-                         borderRadius: '50%', boxShadow: '0 0 8px #fff'
-                       }} />
-                     );
-                   }
-                   return null;
-                 })()}
-               </div>
-             ))}
-           </div>
+        </div>
+
+        {/* Busca e Abas fixas abaixo do header */}
+        <div className="search-container-chats">
+          <div style={{ position: 'relative' }}>
+            <Search size={16} color="rgba(255,255,255,0.4)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar conversa..." 
+              className="search-pill-velar"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="chat-tabs-container" style={{ display: 'flex', gap: '8px', padding: '0.5rem 1.2rem', overflowX: 'auto', scrollbarWidth: 'none' }}>
+           {['TODOS', 'NAO LIDAS', 'GRUPOS', 'SOLICITAÇÕES'].map((tab) => (
+             <div 
+               key={tab}
+               className={`chat-tab-item ${filterTab === tab ? 'active' : ''}`}
+               onClick={() => setFilterTab(tab)}
+               style={{ 
+                 whiteSpace: 'nowrap', padding: '0.6rem 1rem', 
+                 fontSize: '0.65rem', fontWeight: 900, cursor: 'pointer',
+                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                 borderRadius: '2rem',
+                 color: filterTab === tab ? '#fff' : 'rgba(255,255,255,0.5)',
+                 background: filterTab === tab ? 'var(--primary)' : 'rgba(255,255,255,0.04)',
+                 border: filterTab === tab ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                 boxShadow: filterTab === tab ? '0 5px 15px rgba(168, 85, 247, 0.3)' : 'none',
+                 position: 'relative'
+               }}
+             >
+               {tab}
+               {/* Badge de Notificação refinado */}
+               {(() => {
+                 let count = 0;
+                 if (tab === 'NAO LIDAS') count = conversations.filter(c => c.unreadCount > 0 && !c.isRequest).length;
+                 if (tab === 'GRUPOS') count = conversations.filter(c => c.isGroup && c.unreadCount > 0).length;
+                 if (tab === 'SOLICITAÇÕES') count = conversations.filter(c => c.isRequest && c.unreadCount > 0).length;
+                 
+                 if (count > 0 && filterTab !== tab) {
+                   return (
+                     <span style={{
+                       position: 'absolute', top: '-2px', right: '-2px',
+                       width: '6px', height: '6px', background: '#fff',
+                       borderRadius: '50%', boxShadow: '0 0 10px #fff'
+                     }} />
+                   );
+                 }
+                 return null;
+               })()}
+             </div>
+           ))}
+        </div>
          </div>
 
          {/* Container Deslizante das Listas (Sidebar Swipe) */}
