@@ -322,7 +322,7 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
   // ─────────────── TELA DE VERIFICAÇÃO ───────────────────────────
   if (subView === 'verification') {
     return (
-      <div ref={containerRef} style={{ padding: '1.5rem', overflowY: 'auto', paddingBottom: '4rem', background: 'transparent' }}>
+      <div ref={containerRef} style={{ padding: '1.5rem', overflowY: 'auto', paddingBottom: '4rem', background: 'radial-gradient(circle at top right, rgba(168, 85, 247, 0.08) 0%, #050508 60%)', height: '100%' }}>
         {ToastEl}
 
         {/* Header verificação */}
@@ -423,7 +423,7 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
   // ─────────────── TELA DE HISTORICO DE LIVES ───────────────────────────
   if (subView === 'live-history') {
     return (
-     <div ref={containerRef} style={{ padding: '1.5rem', overflowY: 'auto', paddingBottom: '4rem', background: 'transparent' }}>
+      <div ref={containerRef} style={{ padding: '1.5rem', overflowY: 'auto', paddingBottom: '4rem', background: 'radial-gradient(circle at top right, rgba(168, 85, 247, 0.08) 0%, #050508 60%)', height: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
           <button onClick={() => setSubView('dashboard')} style={{
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
@@ -440,27 +440,118 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
         </div>
 
         {liveHistory.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 0', color: 'rgba(255,255,255,0.3)' }}>
-              <Video size={48} opacity={0.3} style={{margin: '0 auto', marginBottom: '1rem'}} />
-              <p>Nenhuma live encontrada nos últimos 15 dias.<br/>Que tal iniciar uma transmissão e engajar os crias?</p>
+          <div style={{ textAlign: 'center', padding: '6rem 1.5rem', color: 'rgba(255,255,255,0.15)' }}>
+              <div style={{ 
+                width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.02)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', marginBottom: '1.5rem',
+                border: '1px solid rgba(255,255,255,0.05)'
+              }}>
+                <Video size={36} opacity={0.4} />
+              </div>
+              <h3 style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 900, marginBottom: '0.5rem' }}>Silêncio no Palco...</h3>
+              <p style={{ fontSize: '0.82rem', opacity: 0.6, maxWidth: '240px', margin: '0 auto', lineHeight: 1.6 }}>Nenhuma live encontrada nos últimos 15 dias. Que tal brilhar hoje?</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-             {liveHistory.map(l => (
-                <div key={l.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1.2rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <strong style={{ color: '#fff', fontSize: '1.1rem' }}>{l.title || 'Live de Cria'} {l.is_18plus && <span style={{color: '#ef4444', fontSize: '0.7rem', marginLeft: '6px'}}>+18</span>}</strong>
-                      <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>{new Date(l.started_at).toLocaleDateString()}</span>
-                   </div>
-                   {l.description && <p style={{ fontSize: '0.8rem', opacity: 0.6, margin: '5px 0' }}>{l.description}</p>}
-                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', background: 'rgba(0,0,0,0.3)', padding: '0.8rem', borderRadius: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#3b82f6', fontWeight: 700 }}><Users size={16}/> {l.max_viewers || 0} <span style={{fontSize:'0.6rem', fontWeight: 400, opacity: 0.6}}>MÁX VISITAS</span></div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#fbbf24', fontWeight: 700 }}><Gift size={16}/> {l.total_gifts || 0} <span style={{fontSize:'0.6rem', fontWeight: 400, opacity: 0.6}}>MORAL</span></div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#ef4444', fontWeight: 700 }}><Heart size={16}/> {l.total_likes || 0} <span style={{fontSize:'0.6rem', fontWeight: 400, opacity: 0.6}}>LIKES</span></div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}><UserPlus size={16}/> {l.total_followers || 0} <span style={{fontSize:'0.6rem', fontWeight: 400, opacity: 0.6}}>FÃS</span></div>
-                   </div>
-                </div>
-             ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+             {liveHistory.map((l, idx) => {
+                // Lógica de Performance e Evolução
+                const prevLive = liveHistory[idx + 1];
+                const perfScore = (l.max_viewers || 0) * 5 + (l.total_gifts || 0) + (l.total_likes || 0) * 0.1;
+                const isHigh = perfScore > 150;
+                const isMedium = perfScore > 40;
+
+                // Comparação com a anterior
+                const viewsDiff = prevLive ? (l.max_viewers || 0) - (prevLive.max_viewers || 0) : 0;
+                const giftsDiff = prevLive ? (l.total_gifts || 0) - (prevLive.total_gifts || 0) : 0;
+                const growth = viewsDiff > 0 || giftsDiff > 0;
+
+                return (
+                  <div 
+                    key={l.id} 
+                    style={{ 
+                      background: 'rgba(20, 20, 28, 0.7)', 
+                      borderRadius: '1.6rem', 
+                      padding: '1.5rem', 
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(30px)',
+                      boxShadow: '0 12px 40px rgba(0,0,0,0.5), inset 0 0 30px rgba(168, 85, 247, 0.04)',
+                      transition: 'transform 0.2s',
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {/* Badge de Performance */}
+                    <div style={{
+                      position: 'absolute', top: '1.2rem', right: '1.2rem',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '4px 10px', borderRadius: '2rem',
+                      background: isHigh ? 'rgba(239, 68, 68, 0.1)' : isMedium ? 'rgba(168, 85, 247, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                      border: `1px solid ${isHigh ? 'rgba(239, 68, 68, 0.2)' : isMedium ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255, 255, 255, 0.1)'}`,
+                    }}>
+                      <span style={{ fontSize: '0.65rem', fontWeight: 900, color: isHigh ? '#ef4444' : isMedium ? '#a78bfa' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        {isHigh ? '🔥 ALTA PERFORMANCE' : isMedium ? '✨ PERFORMANCE MÉDIA' : '📈 PERFORMANCE PADRÃO'}
+                      </span>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          {new Date(l.started_at).toLocaleDateString()} · {new Date(l.started_at).toLocaleTimeString([], { hour: '2d-digit', minute: '2d-digit' })}
+                        </span>
+                        <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.4px' }}>
+                          {l.title || 'Live de Cria'} {l.is_18plus && <span style={{color: '#ef4444', fontSize: '0.8rem', verticalAlign: 'middle', marginLeft: '4px'}}>+18</span>}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Métricas Horizontais Massivas */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '1.25rem', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}><Users size={14}/></div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fff' }}>{l.max_viewers || 0}</div>
+                        <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', fontWeight: 800 }}>VISITAS</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}><Gift size={14}/></div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#fbbf24' }}>{l.total_gifts || 0}</div>
+                        <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', fontWeight: 800 }}>MORAL</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}><Heart size={14}/></div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#ef4444' }}>{l.total_likes || 0}</div>
+                        <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', fontWeight: 800 }}>LIKES</div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ color: 'rgba(255,255,255,0.35)', marginBottom: '4px' }}><UserPlus size={14}/></div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 900, color: '#10b981' }}>{l.total_followers || 0}</div>
+                        <div style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.2)', fontWeight: 800 }}>FÃS</div>
+                      </div>
+                    </div>
+
+                    {/* Rodapé de Evolução */}
+                    {prevLive && (
+                      <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '8px', padding: '0 4px' }}>
+                        <div style={{ 
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          background: growth ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)',
+                          padding: '3px 8px', borderRadius: '1rem',
+                          border: `1px solid ${growth ? 'rgba(74,222,128,0.2)' : 'rgba(255,255,255,0.1)'}`
+                        }}>
+                          {growth ? <ArrowUpRight size={10} color="#4ade80" strokeWidth={3} /> : <ArrowDownRight size={10} color="rgba(255,255,255,0.3)" />}
+                          <span style={{ fontSize: '0.65rem', fontWeight: 800, color: growth ? '#4ade80' : 'rgba(255,255,255,0.3)' }}>
+                            {growth ? 'EVOLUÇÃO POSITIVA' : 'DESEMPENHO ESTÁVEL'}
+                          </span>
+                        </div>
+                        {viewsDiff !== 0 && (
+                          <span style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', fontWeight: 700 }}>
+                            {viewsDiff > 0 ? `+${viewsDiff}` : viewsDiff} visitas vs anterior
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+             })}
           </div>
         )}
      </div>
@@ -469,7 +560,7 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
 
   // ─────────────── DASHBOARD PRINCIPAL ───────────────────────────
   return (
-    <div ref={containerRef} style={{ overflowY: 'auto', paddingBottom: '4rem', background: 'transparent' }}>
+    <div ref={containerRef} style={{ overflowY: 'auto', paddingBottom: '4rem', background: 'radial-gradient(circle at top right, rgba(168, 85, 247, 0.05) 0%, transparent 60%)' }}>
       {ToastEl}
 
       {/* ── HERO HEADER ─────────────────────────────────────── */}
