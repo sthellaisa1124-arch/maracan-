@@ -622,11 +622,12 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
 
     try {
       // 1. Enviar mensagem de saída
+      const { data: userProfile } = await supabase.from('profiles').select('username').eq('id', userId).single();
       const leaveMsg = {
         sender_id: userId,
         group_id: selectedUser.id,
         content: `@${userProfile.username} ABANDONOU A TROPA.`,
-        receiver_id: userId // receiver_id can be fixed to current user since it is a system message 
+        receiver_id: userId
       };
       await supabase.from('direct_messages').insert([leaveMsg]);
 
@@ -845,8 +846,6 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
     }
     setListLoading(false);
   }
-
-
 
    async function fetchChatSettings(entityId: string) {
      if (!selectedUser) return;
@@ -1426,7 +1425,7 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
                  onClick={() => setIsSidebarMenuOpen(!isSidebarMenuOpen)}
                  style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', padding: '8px', borderRadius: '12px', cursor: 'pointer' }}
                >
-                 <MoreVertical size={20} />
+                 < MoreVertical size={20} />
                </button>
              )}
              {isSidebarMenuOpen && !isSelectionMode && (
@@ -1452,6 +1451,9 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
                      <button onClick={() => { setIsSidebarMenuOpen(false); setIsSelectionMode(true); }} className="menu-btn-velar" style={{ color: '#ef4444' }}>
                        <Trash2 size={16} /> EXCLUIR CONVERSA
                      </button>
+                  </div>
+                </>
+              )}
           </div>
         </div>
 
@@ -1509,7 +1511,6 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
              </div>
            ))}
         </div>
-         </div>
 
          {/* Container Deslizante das Listas (Sidebar Swipe) */}
          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -1547,7 +1548,7 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
                        return (
                         <div 
                           key={entityId || idx} 
-                          className={`chat-list-item-urban ${((c.isGroup && selectedUser?.id === c.group.id) || (!c.isGroup && selectedUser?.id === c.user.id)) ? 'active' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
+                          className={`conv-item-velar ${((c.isGroup && selectedUser?.id === c.group.id) || (!c.isGroup && selectedUser?.id === c.user.id)) ? 'active' : ''} ${c.unreadCount > 0 ? 'unread' : ''} ${isSelectionMode ? 'selection-mode' : ''}`}
                           onClick={() => {
                             if (isSelectionMode) {
                               setSelectedChats(prev => prev.includes(entityId) ? prev.filter(id => id !== entityId) : [...prev, entityId]);
@@ -1557,12 +1558,13 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
                             }
                           }}
                         >
-                          <div style={{ position: 'relative' }}>
+                          <div className="avatar-glow-velar">
                             {isSelectionMode && (
                               <div style={{
+                                position: 'absolute', top: 0, left: 0, zIndex: 10,
                                 width: '22px', height: '22px', borderRadius: '50%',
-                                border: '2px solid var(--primary)', marginRight: '10px',
-                                background: selectedChats.includes(entityId) ? 'var(--primary)' : 'transparent',
+                                border: '2px solid var(--primary)',
+                                background: selectedChats.includes(entityId) ? 'var(--primary)' : 'rgba(0,0,0,0.5)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                               }}>
                                 {selectedChats.includes(entityId) && <Check size={14} color="#000" strokeWidth={4} />}
@@ -1570,19 +1572,20 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
                             )}
                             <img 
                               src={(c.isGroup ? c.group.avatar_url : c.user.avatar_url) || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + entityId} 
-                              style={{ width: '52px', height: '52px', borderRadius: '50%', border: '2px solid var(--separator)', objectFit: 'cover' }}
                             />
-                            {c.unreadCount > 0 && <span className="unread-badge-velar">{c.unreadCount}</span>}
+                            {c.unreadCount > 0 && <span className="unread-dot-velar" />}
                           </div>
                           
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                              <h3 style={{ fontSize: '0.95rem', fontWeight: 900, margin: 0 }}>{c.isGroup ? c.group.name : `@${c.user.username}`}</h3>
-                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              <h3 style={{ fontSize: '0.95rem', fontWeight: c.unreadCount > 0 ? 900 : 700, margin: 0 }}>
+                                {c.isGroup ? c.group.name : `@${c.user.username}`}
+                              </h3>
+                              <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
                                 {new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </span>
                             </div>
-                            <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'var(--text-muted)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+                            <p style={{ fontSize: '0.85rem', color: c.unreadCount > 0 ? '#fff' : 'rgba(255,255,255,0.5)', fontWeight: c.unreadCount > 0 ? 700 : 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
                               {c.lastMessage}
                             </p>
                           </div>
@@ -1595,8 +1598,6 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
             </div>
          </div>
       </aside>
-
-
 
       {/* Janela de Chat */}
       <main className="dc-main">

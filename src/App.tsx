@@ -312,8 +312,16 @@ function App() {
                 </div>
               )}
 
-              <div className={`feed-container-urban ${activeTab !== 'avista' ? 'animate-fade-up' : ''}`}>
-                {activeTab === 'community' && (
+              <div className="main-content-layout" style={{ position: 'relative', flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                {/* 
+                   Persistimos o componente Community para não perder o scroll ou 
+                   estado de carregamento ao ir para as mensagens/perfil.
+                */}
+                <div style={{ 
+                  display: activeTab === 'community' ? 'block' : 'none',
+                  animation: activeTab === 'community' ? 'fadeIn 0.4s ease' : 'none',
+                  flex: 1
+                }}>
                   <Community
                     profile={userProfile}
                     session={session}
@@ -324,31 +332,40 @@ function App() {
                     onOpenStatusCreator={() => setIsCreatingStatus(true)}
                     onOpenSearch={() => setShowSearch(true)}
                   />
-                )}
-                {/* O chat foi movido para o top-level (Portals) para resolver conflitos de position:fixed */}
-                {activeTab === 'avista' && (
-                  <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} initialPostId={avistaInitialPostId} />
-                )}
-                {activeTab === 'profile' && (
-                  <Profile
-                    session={session}
-                    userProfile={userProfile}
-                    viewingUsername={viewingUsername}
-                    onBackToMyProfile={() => setViewingUsername(null)}
-                    onStartChat={(user) => { setViewingUsername(user); handleTabChange('messages'); }}
-                    onTabChange={(tab: any) => handleTabChange(tab)}
-                    onJoinLive={(live: any) => setActiveLiveRoom(live)}
-                  />
-                )}
-                {activeTab === 'messages' && (
-                  <DirectChat session={session} initialRecipient={viewingUsername} onBack={() => handleTabChange('community')} />
-                )}
-                {activeTab === 'notifications' && (
-                  <Notifications userId={session.user.id} onBack={() => handleTabChange('community')} />
-                )}
-                {activeTab === 'admin' && (
-                  <Admin isAdmin={isAdmin} userProfile={userProfile} session={session} onBack={() => handleTabChange('profile')} />
-                )}
+                </div>
+
+                <div className={`tab-view-container ${activeTab !== 'community' ? 'animate-fade-up' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {activeTab === 'avista' && (
+                    <Avista session={session} onViewProfile={onViewProfile} onBackToCommunity={() => handleTabChange('community')} initialPostId={avistaInitialPostId} />
+                  )}
+                  {activeTab === 'profile' && (
+                    <Profile
+                      session={session}
+                      userProfile={userProfile}
+                      viewingUsername={viewingUsername}
+                      onBackToMyProfile={() => setViewingUsername(null)}
+                      onStartChat={(user) => { setViewingUsername(user); handleTabChange('messages'); }}
+                      onTabChange={(tab: any) => handleTabChange(tab)}
+                      onJoinLive={(live: any) => setActiveLiveRoom(live)}
+                    />
+                  )}
+                  {activeTab === 'messages' && (
+                    <DirectChat 
+                      session={session} 
+                      initialRecipient={viewingUsername} 
+                      onBack={() => {
+                        setViewingUsername(null);
+                        handleTabChange('community');
+                      }} 
+                    />
+                  )}
+                  {activeTab === 'notifications' && (
+                    <Notifications userId={session.user.id} onBack={() => handleTabChange('community')} />
+                  )}
+                  {activeTab === 'admin' && (
+                    <Admin isAdmin={isAdmin} userProfile={userProfile} session={session} onBack={() => handleTabChange('profile')} />
+                  )}
+                </div>
               </div>
             </main>
 
