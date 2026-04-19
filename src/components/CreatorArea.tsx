@@ -496,7 +496,7 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
                     <div style={{ marginBottom: '1.5rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                         <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
-                          {new Date(l.started_at).toLocaleDateString()} · {new Date(l.started_at).toLocaleTimeString([], { hour: '2d-digit', minute: '2d-digit' })}
+                          {new Date(l.started_at).toLocaleDateString()} · {new Date(l.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 900, margin: 0, letterSpacing: '-0.4px' }}>
                           {l.title || 'Live de Cria'} {l.is_18plus && <span style={{color: '#ef4444', fontSize: '0.8rem', verticalAlign: 'middle', marginLeft: '4px'}}>+18</span>}
