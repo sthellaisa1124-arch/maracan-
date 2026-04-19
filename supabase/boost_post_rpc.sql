@@ -1,4 +1,4 @@
--- Função RPC para processar impulsionamento de posts
+-- Função RPC para processar impulsionamento de posts (CORRIGIDA)
 -- Essa função debita a Moral e atualiza o post em uma única transação atômica.
 -- SECURITY DEFINER permite que a função ignore RLS para atualizar posts de terceiros.
 
@@ -43,15 +43,15 @@ BEGIN
     RETURN jsonb_build_object('success', false, 'error', 'Saldo de Moral insuficiente.');
   END IF;
 
-  -- 3. Executar o débito (usando a lógica da send_moral para manter consistência)
-  -- Débito do remetente
+  -- 3. Executar o débito
+  -- Débito do remetente no perfil
   UPDATE public.profiles
   SET moral_balance = moral_balance - v_amount
   WHERE id = p_user_id;
 
-  -- Registrar transação
+  -- Registrar transação (CORRIGIDO: sender_id e amount negativo)
   INSERT INTO public.moral_transactions (
-    user_id,
+    sender_id,
     type,
     amount,
     reference_id,
@@ -60,7 +60,7 @@ BEGIN
   ) VALUES (
     p_user_id,
     v_ref_type,
-    v_amount,
+    -v_amount,
     p_post_id,
     v_ref_type,
     v_description
