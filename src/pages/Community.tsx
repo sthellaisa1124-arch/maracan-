@@ -1056,6 +1056,8 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                 </div>
               </button>
  
+              <button 
+                onClick={() => setBoostingPost(null)}
                 style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.25)', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '0.5rem', letterSpacing: '0.5px' }}
               >
                 AGORA NÃO, VALEU
