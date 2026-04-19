@@ -554,8 +554,29 @@ export function Profile({
       ) : (
       <>
       {!isOwnProfile && (
-        <button className="icon-btn" onClick={onBackToMyProfile} style={{ marginBottom: '1.5rem' }}>
-          <ArrowLeft size={18} /> <span style={{ marginLeft: '0.5rem', fontWeight: 600 }}>VOLTAR</span>
+        <button 
+          onClick={onBackToMyProfile} 
+          style={{ 
+            background: 'rgba(168, 85, 247, 0.1)', 
+            border: '1px solid rgba(168, 85, 247, 0.4)', 
+            color: '#fff', 
+            padding: '0.6rem 1.2rem', 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem',
+            cursor: 'pointer',
+            marginBottom: '1.5rem',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            letterSpacing: '1px',
+            transition: 'all 0.2s',
+            backdropFilter: 'blur(10px)'
+          }}
+          onMouseOver={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.2)'}
+          onMouseOut={e => e.currentTarget.style.background = 'rgba(168, 85, 247, 0.1)'}
+        >
+          <ArrowLeft size={18} color="#a855f7" /> VOLTAR
         </button>
       )}
 

@@ -343,7 +343,10 @@ function App() {
                       session={session}
                       userProfile={userProfile}
                       viewingUsername={viewingUsername}
-                      onBackToMyProfile={() => setViewingUsername(null)}
+                      onBackToMyProfile={() => {
+                        setViewingUsername(null);
+                        setActiveTab('community');
+                      }}
                       onStartChat={(user) => { setViewingUsername(user); handleTabChange('messages'); }}
                       onTabChange={(tab: any) => handleTabChange(tab)}
                       onJoinLive={(live: any) => setActiveLiveRoom(live)}
