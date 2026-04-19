@@ -428,7 +428,6 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
    // 1. Carregar lista de conversas ao montar
   useEffect(() => {
     if (userId) {
-      fetchFollowingIds();
       fetchConversations();
       
       // Se vier de um perfil com destinatário inicial
@@ -757,14 +756,18 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
   }
 
   async function fetchFollowingIds() {
-    if (!userId) return;
+    if (!userId) return new Set<string>();
     const { data } = await supabase.from('follows').select('following_id').eq('follower_id', userId);
-    if (data) setFollowingIds(new Set(data.map(f => f.following_id)));
+    const ids = new Set(data?.map(f => f.following_id) || []);
+    setFollowingIds(ids);
+    return ids;
   }
 
   async function fetchConversations() {
     setListLoading(true);
     try {
+      const currentFollowing = await fetchFollowingIds();
+
       // 1. Buscar Mensagens Privadas
       const { data: privData } = await supabase
         .from('direct_messages')
@@ -804,7 +807,7 @@ export function DirectChat({ session, initialRecipient }: { session: any, initia
             const unreadCount = privData.filter(msg => 
               msg.sender_id === otherUser.id && msg.receiver_id === userId && !msg.read
             ).length;
-            const isRequest = !followingIds.has(otherUser.id);
+            const isRequest = !currentFollowing.has(otherUser.id);
             privMap.set(otherUser.id, true);
             convs.push({
               user: otherUser,
