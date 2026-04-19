@@ -1058,76 +1058,96 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
  
               <button 
                 onClick={() => setBoostingPost(null)}
-                style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.25)', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '0.5rem', letterSpacing: '0.5px' }}
-              >
-                AGORA NÃO, VALEU
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
- 
-      {/* --- MODAL DE CONFIRMAÇÃO ELITE --- */}
+                style={{ border: 'none', background: 'transparent', color: 'rgba(255,255,255,0.25)', padding: '12px', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', marginTop: '0      {/* --- MODAL DE CONFIRMAÇÃO ELITE (DOPAMINA UPGRADE) --- */}
       {confirmBoost && createPortal(
         <div style={{
           position: 'fixed', inset: 0, zIndex: 1100000,
-          background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+          background: 'rgba(0,0,0,0.95)', backdropFilter: 'blur(20px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem',
+          animation: 'fadeIn 0.3s ease'
         }}>
+          {/* Injeção de Animações */}
+          <style>{`
+            @keyframes shineSweep {
+              0% { transform: translateX(-150%) skewX(-25deg); }
+              50% { transform: translateX(150%) skewX(-25deg); }
+              100% { transform: translateX(150%) skewX(-25deg); }
+            }
+            @keyframes pulseGlow {
+              0% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+              50% { box-shadow: 0 0 40px rgba(168, 85, 247, 0.5); }
+              100% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+            }
+            @keyframes pinGlow {
+              0% { box-shadow: 0 0 20px rgba(250, 204, 21, 0.2); }
+              50% { box-shadow: 0 0 40px rgba(250, 204, 21, 0.6); }
+              100% { box-shadow: 0 0 20px rgba(250, 204, 21, 0.2); }
+            }
+          `}</style>
+
           <div style={{
-            width: '100%', maxWidth: '400px',
-            background: 'linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%)',
-            borderRadius: '32px', padding: '2rem',
-            border: '1px solid rgba(168, 85, 247, 0.3)',
-            boxShadow: '0 25px 70px rgba(0,0,0,0.8)',
+            width: '100%', maxWidth: '420px',
+            background: 'linear-gradient(180deg, #1A1A1A 0%, #080808 100%)',
+            borderRadius: '40px', padding: '2.5rem 2rem',
+            border: confirmBoost.type === 'pin' ? '2px solid rgba(250, 204, 21, 0.4)' : '2px solid rgba(168, 85, 247, 0.4)',
+            boxShadow: '0 30px 100px rgba(0,0,0,0.9)',
             textAlign: 'center',
-            position: 'relative', overflow: 'hidden'
+            position: 'relative', overflow: 'hidden',
+            animation: confirmBoost.type === 'pin' ? 'pinGlow 3s infinite' : 'pulseGlow 3s infinite'
           }}>
-            {/* Brilho de fundo */}
-            <div style={{ position: 'absolute', top: '-10%', left: '50%', transform: 'translateX(-50%)', width: '200px', height: '200px', background: confirmBoost.type === 'pin' ? 'rgba(250, 204, 21, 0.08)' : 'rgba(168, 85, 247, 0.08)', filter: 'blur(60px)', borderRadius: '50%' }} />
+            {/* Tag de Exclusividade (Apenas para PIN) */}
+            {confirmBoost.type === 'pin' && (
+              <div style={{
+                position: 'absolute', top: '24px', right: '-35px',
+                background: 'linear-gradient(90deg, #facc15, #eab308)',
+                color: '#000', padding: '6px 40px', fontSize: '0.7rem', fontWeight: 900,
+                transform: 'rotate(45deg)', boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+                letterSpacing: '1px', textTransform: 'uppercase'
+              }}>
+                Elite
+              </div>
+            )}
  
+            {/* Ícone com Aura de Poder */}
             <div style={{ 
-              width: '72px', height: '72px', borderRadius: '24px', 
-              background: confirmBoost.type === 'pin' ? 'rgba(250, 204, 21, 0.1)' : 'rgba(168, 85, 247, 0.1)', 
+              width: '90px', height: '90px', borderRadius: '30px', 
+              background: confirmBoost.type === 'pin' ? 'linear-gradient(135deg, rgba(250, 204, 21, 0.15) 0%, rgba(0,0,0,0) 100%)' : 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(0,0,0,0) 100%)', 
               display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              margin: '0 auto 1.5rem', border: confirmBoost.type === 'pin' ? '1px solid rgba(250, 204, 21, 0.2)' : '1px solid rgba(168, 85, 247, 0.2)'
+              margin: '0 auto 2rem', border: confirmBoost.type === 'pin' ? '1px solid rgba(250, 204, 21, 0.3)' : '1px solid rgba(168, 85, 247, 0.3)',
+              boxShadow: 'inset 0 0 20px rgba(255,255,255,0.02)'
             }}>
-              {confirmBoost.type === 'pin' ? <Pin size={32} color="#facc15" /> : <Rocket size={32} color="#a855f7" />}
+              {confirmBoost.type === 'pin' ? <Pin size={42} color="#facc15" /> : <Rocket size={42} color="#a855f7" />}
             </div>
  
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fff', marginBottom: '1rem', fontFamily: 'Outfit' }}>
-              Confirmar Pagamento
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 950, color: '#fff', marginBottom: '1.2rem', fontFamily: 'Outfit', letterSpacing: '-0.5px' }}>
+              {confirmBoost.type === 'pin' ? 'Fixar Post Master' : 'Impulsionar Papo'}
             </h2>
  
-            <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.2rem', borderRadius: '20px', marginBottom: '1.8rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem', borderRadius: '24px', marginBottom: '2.5rem', border: '1px solid rgba(255,255,255,0.05)', position: 'relative' }}>
                {confirmBoost.type === 'bump' ? (
                  <>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Custo:</span>
-                     <span style={{ color: '#a855f7', fontWeight: 900 }}>🪙 5.000 Moral</span>
+                   <div style={{ marginBottom: '15px' }}>
+                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>INVESTIMENTO</span>
+                     <span style={{ color: '#a855f7', fontWeight: 950, fontSize: '2rem' }}>🪙 5.000</span>
                    </div>
-                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, textAlign: 'left' }}>
-                     Seu post subirá para o topo da pista agora como se tivesse acabado de ser postado. 🚀
-                   </p>
-                   <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'rgba(244, 63, 94, 0.8)', fontWeight: 700, textAlign: 'left' }}>
-                     ⚠️ Atenção: Ele NÃO fica fixado, apenas sobe para a primeira posição.
+                   <p style={{ margin: 0, fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, textAlign: 'center', fontWeight: 500 }}>
+                     Seu post receberá um choque de energia e voltará para o <strong style={{color: '#fff'}}>TOPO ABSOLUTO</strong> agora mesmo! 🚀⚡
                    </p>
                  </>
                ) : (
                  <>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Custo:</span>
-                     <span style={{ color: '#facc15', fontWeight: 900 }}>🪙 100.000 Moral</span>
+                   <div style={{ marginBottom: '15px' }}>
+                     <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>INVESTIMENTO ELITE</span>
+                     <span style={{ color: '#facc15', fontWeight: 950, fontSize: '2rem' }}>🪙 100.000</span>
                    </div>
-                   <p style={{ margin: 0, fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, textAlign: 'left' }}>
-                     O post ficará fixado no topo da pista para TODOS que entrarem no app pelas próximas 24 horas. 👑🏆
+                   <p style={{ margin: 0, fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, textAlign: 'center', fontWeight: 500 }}>
+                     Você dominará a pista do Vellar. Seu post ficará <strong style={{color: '#fff'}}>CONGELADO NO TOPO</strong> por 24 horas consecutivas! 👑🏆
                    </p>
                  </>
                )}
             </div>
  
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                <button 
                  onClick={() => {
                    if (confirmBoost.type === 'bump') handleBumpPost(confirmBoost.postId);
@@ -1136,23 +1156,27 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                  }}
                  disabled={!!actionLoading}
                  style={{
-                   width: '100%', padding: '1.2rem', borderRadius: '18px',
-                   background: confirmBoost.type === 'pin' ? 'linear-gradient(90deg, #facc15, #eab308)' : 'linear-gradient(90deg, #a855f7, #7c3aed)',
-                   color: '#000', fontWeight: 900, fontSize: '1rem', border: 'none', cursor: 'pointer',
-                   boxShadow: confirmBoost.type === 'pin' ? '0 10px 25px rgba(250, 204, 21, 0.25)' : '0 10px 25px rgba(168, 85, 247, 0.25)'
+                   width: '100%', padding: '1.4rem', borderRadius: '20px',
+                   background: confirmBoost.type === 'pin' ? 'linear-gradient(90deg, #facc15 0%, #eab308 100%)' : 'linear-gradient(90deg, #a855f7 0%, #7c3aed 100%)',
+                   color: '#000', fontWeight: 950, fontSize: '1.1rem', border: 'none', cursor: 'pointer',
+                   boxShadow: confirmBoost.type === 'pin' ? '0 15px 35px rgba(250, 204, 21, 0.4)' : '0 15px 35px rgba(168, 85, 247, 0.4)',
+                   position: 'relative', overflow: 'hidden', textTransform: 'uppercase', letterSpacing: '1px'
                  }}
                >
-                 {actionLoading ? 'PROCESSANDO...' : 'CONFIRMAR AGORA'}
+                 {/* Efeito Shine */}
+                 <div style={{ position: 'absolute', top: 0, left: 0, width: '40px', height: '100%', background: 'rgba(255,255,255,0.4)', filter: 'blur(10px)', animation: 'shineSweep 2.5s infinite ease-in-out' }} />
+                 {actionLoading ? 'PROCESSANDO...' : 'REIVINDICAR TOPO'}
                </button>
                <button 
                  onClick={() => setConfirmBoost(null)}
                  disabled={!!actionLoading}
                  style={{
-                   width: '100%', padding: '1rem', borderRadius: '18px',
-                   background: 'transparent', color: 'rgba(255,255,255,0.4)', fontWeight: 700, fontSize: '0.9rem', border: 'none', cursor: 'pointer'
+                   width: '100%', padding: '1.1rem', borderRadius: '20px',
+                   background: 'transparent', color: 'rgba(255,255,255,0.3)', fontWeight: 800, fontSize: '0.9rem', border: 'none', cursor: 'pointer',
+                   textTransform: 'uppercase', letterSpacing: '1px'
                  }}
                >
-                 CANCELAR
+                 NÃO POR ENQUANTO
                </button>
             </div>
           </div>
