@@ -579,34 +579,36 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
       )}
 
       {/* --- HEADER FIXO MODERNO --- */}
-      <div className="header-feed-urban" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default', gap: '8px' }}>
-        {/* Lupa de Pesquisa à Esquerda */}
-        <button 
-          onClick={onOpenSearch}
-          style={{ 
-            background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.4rem', flexShrink: 0,
-            color: 'rgba(255,255,255,0.7)', transition: 'all 0.2s'
-          }}
-          className="hover:text-primary-glow"
-        >
-          <Search size={24} />
-        </button>
+      <div className="header-feed-urban" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: '8px', padding: '0.8rem 1.4rem' }}>
+        {/* Lado Esquerdo: Busca */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <button 
+            onClick={onOpenSearch}
+            style={{ 
+              background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', padding: '10px', borderRadius: '14px',
+              color: 'rgba(255,255,255,0.8)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}
+          >
+            <Search size={22} />
+          </button>
+        </div>
 
-        {/* Espaçador flexível para empurrar a logo para a direita */}
-        <div style={{ flex: 1 }} />
+        {/* Centro: Logo */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <h3 className="vellar-neon-logo" style={{ margin: 0 }}>
+            <span className="logo-v">V</span>ELL<span className="logo-r">Λ</span>R
+          </h3>
+        </div>
 
-        <h3 className="vellar-neon-logo" style={{ margin: 0, flexShrink: 0 }}>
-          <span className="logo-v">V</span>ELL<span className="logo-r">Λ</span>R
-        </h3>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: 'auto' }}>
+        {/* Lado Direito: Ações */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => onTabChange('chat')}
             style={{
               background: 'linear-gradient(135deg, #6C2BFF 0%, #a855f7 100%)',
               border: 'none', borderRadius: '50%', width: '38px', height: '38px',
               color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', flexShrink: 0, boxShadow: '0 4px 15px rgba(108,43,255,0.4)',
+              cursor: 'pointer', boxShadow: '0 4px 15px rgba(108,43,255,0.3)',
               animation: 'criaPulse 3s ease-in-out infinite'
             }}
           >
@@ -616,16 +618,17 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           <button 
             onClick={() => onTabChange('notifications')}
             style={{ 
-              background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative', padding: '0.4rem', flexShrink: 0,
-              color: unreadCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.7)'
+              background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', position: 'relative', padding: '10px', borderRadius: '14px',
+              color: unreadCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.8)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}
           >
-            <Bell size={24} strokeWidth={unreadCount > 0 ? 3 : 2} />
+            <Bell size={22} strokeWidth={unreadCount > 0 ? 3 : 2.5} />
             {unreadCount > 0 && (
               <span style={{
-                position: 'absolute', top: 0, right: 0, width: '10px', height: '10px',
+                position: 'absolute', top: '8px', right: '8px', width: '8px', height: '8px',
                 backgroundColor: '#ef4444', borderRadius: '50%',
-                border: '2px solid #000', boxShadow: '0 0 5px rgba(239, 68, 68, 0.4)'
+                border: '1.5px solid #000', boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)'
               }} />
             )}
           </button>
@@ -670,11 +673,11 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
       }}>
         {/* Label feed */}
-        <div style={{ opacity: 0.6, fontSize: '0.82rem', fontStyle: 'italic', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ opacity: 0.7, fontSize: '0.78rem', fontStyle: 'italic', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255,255,255,0.9)' }}>
           {isSocialFeed ? (
-            <><Users size={16} /> OS CRIA TÃO LANÇANDO</>
+            <><Users size={16} color="var(--primary)" /> OS CRIA TÃO LANÇANDO</>
           ) : (
-            <><Compass size={16} /> EM ALTA NO VELLAR</>
+            <><Compass size={16} color="var(--primary)" /> EM ALTA NO VELLAR</>
           )}
         </div>
 
@@ -690,16 +693,18 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           }}
           style={{
             border: 'none',
-            borderRadius: '24px', padding: '9px 18px',
-            color: '#fff', fontWeight: 900, fontSize: '0.8rem',
+            borderRadius: '16px', padding: '10px 18px',
+            color: '#fff', fontWeight: 900, fontSize: '0.75rem',
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
             fontFamily: 'Outfit', letterSpacing: '0.5px',
             whiteSpace: 'nowrap',
-            boxShadow: '0 4px 15px rgba(108,43,255,0.4)',
+            background: 'rgba(168, 85, 247, 0.15)',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            boxShadow: '0 4px 12px rgba(168, 85, 247, 0.15)',
             textTransform: 'uppercase'
           }}
         >
-          <Zap size={16} fill="currentColor" /> PAPO RETO NO VELLAR
+          <Zap size={15} fill="currentColor" /> PAPO RETO
         </button>
       </div>
 
@@ -720,16 +725,18 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                   onClick={() => onViewProfile(post.author?.username)}
                   alt="Avatar"
                 />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <span 
-                      style={{ fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer' }}
+                      style={{ fontWeight: 800, fontSize: '1rem', cursor: 'pointer', color: '#fff' }}
                       onClick={() => onViewProfile(post.author?.username)}
                     >
                       @{post.author?.username}
                     </span>
                     <UserBadges badges={post.author?.badges} donatedAmount={post.author?.total_donated} size={14} />
-                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>• {new Date(post.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
                 <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
@@ -757,24 +764,24 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
               </div>
 
               {/* Ações */}
-              <div style={{ display: 'flex', gap: '1.5rem', paddingTop: '0.75rem', paddingLeft: '1.25rem', paddingRight: '1.25rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '1.8rem', paddingTop: '1.2rem', paddingLeft: '1.25rem', paddingRight: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button 
-                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', color: post.is_liked ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
+                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem', color: post.is_liked ? 'var(--primary)' : 'rgba(255,255,255,0.85)', cursor: 'pointer', fontWeight: 800, fontSize: '0.95rem' }}
                   onClick={() => handleLike(post)}
                 >
-                  <Heart size={18} fill={post.is_liked ? "currentColor" : "none"} /> <span>{post.likes_count || 0}</span>
+                  <Heart size={20} fill={post.is_liked ? "currentColor" : "none"} strokeWidth={2.5} /> <span>{post.likes_count || 0}</span>
                 </button>
                 <button 
-                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem', color: commentingOn === post.id ? 'var(--primary)' : 'rgba(255,255,255,0.7)', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}
+                  style={{ background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '0.6rem', color: commentingOn === post.id ? 'var(--primary)' : 'rgba(255,255,255,0.85)', cursor: 'pointer', fontWeight: 800, fontSize: '0.95rem' }}
                   onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
                 >
-                  <MessageCircle size={18} /> <span>{post.comments_count || 0}</span>
+                  <MessageCircle size={20} strokeWidth={2.5} /> <span>{post.comments_count || 0}</span>
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 700 }}>
-                   <Eye size={16} /> <span>{post.views_count || 0}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem', fontWeight: 700 }}>
+                   <Eye size={18} /> <span>{post.views_count || 0}</span>
                 </div>
-                <button style={{ background: 'transparent', border: 'none', marginLeft: 'auto', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}>
-                  <Share2 size={18} />
+                <button style={{ background: 'transparent', border: 'none', marginLeft: 'auto', color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>
+                  <Share2 size={20} />
                 </button>
               </div>
 
