@@ -872,27 +872,26 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                       border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', 
                       padding: '6px', zIndex: 100, width: '200px', 
                       boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
-                      animation: 'fadeUp 0.2s ease'
-                    }}>
-                  {postMenuId === post.id && (
-                    <div className="post-action-menu-elite" style={{ 
-                      position: 'absolute', top: '100%', right: 0, 
-                      background: 'rgba(15,15,15,0.95)', backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', 
-                      padding: '6px', zIndex: 100, width: '180px', 
-                      boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
                       animation: 'fadeUp 0.1s ease'
                     }}>
+                      <button 
+                        onClick={() => { setBoostingPost(post); setPostMenuId(null); }} 
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'transparent', border: 'none', color: '#a855f7', fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 700, textAlign: 'left' }}
+                      >
+                        <Rocket size={18} /> Impulsionar Post
+                      </button>
+
                       {(post.user_id === session?.user?.id || profile?.is_admin) && (
-                        <button 
-                          onClick={() => handleDeletePost(post)} 
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 700, textAlign: 'left' }}
-                        >
-                          <Trash2 size={18} /> Excluir Post
-                        </button>
+                        <>
+                          <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 8px' }} />
+                          <button 
+                            onClick={() => handleDeletePost(post)} 
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.85rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 700, textAlign: 'left' }}
+                          >
+                            <Trash2 size={18} /> Excluir Post
+                          </button>
+                        </>
                       )}
-                    </div>
-                  )}
                     </div>
                   )}
                 </div>
@@ -935,19 +934,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                    <Eye size={18} /> <span>{post.views_count || 0}</span>
                 </div>
                 
-                <button 
-                  onClick={() => setBoostingPost(post)}
-                  style={{ 
-                    background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.3)', 
-                    borderRadius: '12px', padding: '6px 12px', color: '#a855f7',
-                    display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 800,
-                    cursor: 'pointer', transition: 'all 0.2s', marginLeft: 'auto'
-                  }}
-                >
-                  <Rocket size={14} /> IMPULSIONAR
-                </button>
-
-                <button style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px' }}>
+                <button style={{ background: 'transparent', border: 'none', marginLeft: 'auto', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '4px' }}>
                   <Share2 size={20} />
                 </button>
               </div>
