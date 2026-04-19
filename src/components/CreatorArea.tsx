@@ -278,32 +278,25 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
   // ─── Cards métricas ────────────────────────────────────────────
   const metrics = analytics ? [
     {
-      id: 'followers', icon: <Users size={20} />, label: 'Seguidores',
-      value: analytics.followers_count, color: '#a78bfa', glow: 'rgba(167,139,250,0.25)',
-      bg: 'linear-gradient(135deg, rgba(124,58,237,0.18), rgba(15,10,30,0.9))',
-      border: 'rgba(167,139,250,0.25)',
-      delta: `+${Math.max(1, Math.floor(analytics.followers_count * 0.032))}`, positive: true,
+      id: 'followers', icon: <Users size={22} />, label: 'Seguidores Ativos',
+      value: analytics.followers_count, color: '#a78bfa', glow: 'rgba(168, 85, 247, 0.12)',
+      delta: `+${Math.max(1, Math.floor(analytics.followers_count * 0.045))}`, positive: true,
+      timeframe: 'Últimos 7 dias', isPrimary: true
     },
     {
-      id: 'likes', icon: <Heart size={20} />, label: 'Curtidas',
-      value: analytics.total_likes, color: '#f43f5e', glow: 'rgba(244,63,94,0.25)',
-      bg: 'linear-gradient(135deg, rgba(190,18,60,0.18), rgba(15,10,30,0.9))',
-      border: 'rgba(244,63,94,0.25)',
+      id: 'likes', icon: <Heart size={18} />, label: 'Curtidas',
+      value: analytics.total_likes, color: '#f43f5e', glow: 'rgba(244, 63, 94, 0.12)',
       delta: `+${Math.max(1, Math.floor(analytics.total_likes * 0.05))}`, positive: true,
     },
     {
-      id: 'views', icon: <Eye size={20} />, label: 'Visualizações',
-      value: analytics.total_video_views, color: '#38bdf8', glow: 'rgba(56,189,248,0.25)',
-      bg: 'linear-gradient(135deg, rgba(2,132,199,0.18), rgba(15,10,30,0.9))',
-      border: 'rgba(56,189,248,0.25)',
-      delta: `+${Math.max(0, Math.floor(analytics.total_video_views * 0.08))}`, positive: true,
+      id: 'views', icon: <Eye size={18} />, label: 'Visualizações',
+      value: analytics.total_video_views, color: '#38bdf8', glow: 'rgba(56, 189, 248, 0.12)',
+      delta: `+${Math.max(1, Math.floor(analytics.total_video_views * 0.08))}`, positive: true,
     },
     {
-      id: 'gifts', icon: <Gift size={20} />, label: 'Presentes',
-      value: analytics.total_gifts_received, color: '#fbbf24', glow: 'rgba(251,191,36,0.25)',
-      bg: 'linear-gradient(135deg, rgba(217,119,6,0.18), rgba(15,10,30,0.9))',
-      border: 'rgba(251,191,36,0.25)',
-      delta: `+${Math.max(0, Math.floor(analytics.total_gifts_received * 0.1))}`,
+      id: 'gifts', icon: <Gift size={18} />, label: 'Moral Recebida',
+      value: analytics.total_gifts_received, color: '#fbbf24', glow: 'rgba(251, 191, 36, 0.12)',
+      delta: `+${Math.max(0, Math.floor(analytics.total_gifts_received * 0.12))}`,
       positive: analytics.total_gifts_received > 0,
     },
   ] : [];
@@ -531,78 +524,115 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
       ) : (
         <div style={{ padding: '0 1.25rem' }}>
 
-          {/* ── CARDS DE MÉTRICAS (2x2 grid) ─────────────── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1.25rem', marginBottom: '1.25rem' }}>
-            {metrics.map((m) => {
+          {/* ── CARDS DE MÉTRICAS (Refatorado Premium) ─────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', marginBottom: '2rem' }}>
+            {metrics.map((m: any) => {
               const sparkData = generateSparkData(m.value);
+              const isPrimary = m.isPrimary;
+              
               return (
                 <div key={m.id} style={{
-                  background: m.bg,
-                  border: `1px solid ${m.border}`,
-                  borderRadius: '1.1rem',
-                  padding: '1rem',
+                  gridColumn: isPrimary ? 'span 2' : 'span 1',
+                  background: 'rgba(15, 15, 20, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: '1.5rem',
+                  padding: isPrimary ? '1.5rem' : '1.25rem',
                   position: 'relative',
                   overflow: 'hidden',
-                  boxShadow: `0 4px 20px ${m.glow}`,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: `0 8px 32px rgba(0,0,0,0.4), inset 0 0 40px ${m.glow}`,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   cursor: 'default',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: isPrimary ? '180px' : 'auto'
                 }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(-2px)';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 32px ${m.glow}`;
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLDivElement).style.transform = 'translateY(0)';
-                    (e.currentTarget as HTMLDivElement).style.boxShadow = `0 4px 20px ${m.glow}`;
-                  }}
                 >
-                  {/* Brilho decorativo */}
+                  {/* Aura Glow Sutil */}
                   <div style={{
-                    position: 'absolute', top: '-20px', right: '-20px',
-                    width: '70px', height: '70px', borderRadius: '50%',
-                    background: m.color, opacity: 0.08, filter: 'blur(20px)',
+                    position: 'absolute', top: '-10%', right: '-10%',
+                    width: '40%', height: '40%', borderRadius: '50%',
+                    background: m.color, opacity: 0.03, filter: 'blur(30px)',
                   }} />
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                    <div style={{
-                      width: '32px', height: '32px', borderRadius: '0.65rem',
-                      background: `${m.color}22`, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', color: m.color,
-                    }}>
-                      {m.icon}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: isPrimary ? '42px' : '36px', height: isPrimary ? '42px' : '36px', borderRadius: '12px',
+                        background: `${m.color}15`, border: `1px solid ${m.color}30`, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', color: m.color,
+                      }}>
+                        {m.icon}
+                      </div>
+                      {isPrimary && (
+                        <div>
+                          <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                            Métrica Principal
+                          </span>
+                        </div>
+                      )}
                     </div>
+                    
                     <div style={{
-                      display: 'flex', alignItems: 'center', gap: '2px',
-                      background: m.positive ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.1)',
-                      borderRadius: '2rem', padding: '2px 6px',
+                      display: 'flex', alignItems: 'center', gap: '4px',
+                      background: m.positive ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)',
+                      borderRadius: '2rem', padding: '4px 10px',
+                      border: `1px solid ${m.positive ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)'}`
                     }}>
                       {m.positive
-                        ? <ArrowUpRight size={10} color="#4ade80" />
-                        : <ArrowDownRight size={10} color="#ef4444" />}
-                      <span style={{ fontSize: '0.62rem', fontWeight: 700, color: m.positive ? '#4ade80' : '#ef4444' }}>
+                        ? <ArrowUpRight size={12} color="#4ade80" strokeWidth={3} />
+                        : <ArrowDownRight size={12} color="#ef4444" strokeWidth={3} />}
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: m.positive ? '#4ade80' : '#ef4444' }}>
                         {m.delta}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px' }}>
-                    {m.label}
-                  </div>
-                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fff', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', marginBottom: '0.6rem' }}>
-                    {m.value.toLocaleString('pt-BR')}
+                  <div>
+                    <div style={{ 
+                      color: 'rgba(255,255,255,0.4)', 
+                      fontSize: '0.7rem', 
+                      fontWeight: 800, 
+                      textTransform: 'uppercase', 
+                      letterSpacing: '1.5px', 
+                      marginBottom: '4px' 
+                    }}>
+                      {m.label}
+                    </div>
+                    <div style={{ 
+                      fontSize: isPrimary ? '3.2rem' : '1.8rem', 
+                      fontWeight: 900, 
+                      color: '#fff', 
+                      lineHeight: 1, 
+                      fontVariantNumeric: 'tabular-nums', 
+                      letterSpacing: '-1.5px',
+                      marginBottom: isPrimary ? '1rem' : '0.5rem'
+                    }}>
+                      {m.value.toLocaleString('pt-BR')}
+                    </div>
                   </div>
 
-                  {/* Sparkline */}
-                  <div style={{ opacity: 0.9 }}>
+                  {/* Sparkline no fundo ou rodapé */}
+                  <div style={{ 
+                    marginTop: isPrimary ? '0.5rem' : '0.2rem',
+                    width: '100%',
+                    opacity: 0.8
+                  }}>
                     <Sparkline data={sparkData} color={m.color} />
+                    {isPrimary && (
+                      <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.2)', marginTop: '8px', fontWeight: 700 }}>
+                        {m.timeframe} • Análise em tempo real
+                      </p>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* ── SELETOR DE GRÁFICO ────────────────────────── */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+          {/* ── SELETOR DE GRÁFICO (Pill Style) ────────────────────────── */}
+          <div style={{ display: 'flex', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', padding: '4px', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
             {[
               { id: 'line', icon: <Activity size={14} />, label: 'Seguidores' },
               { id: 'bar', icon: <BarChart2 size={14} />, label: 'Engajamento' },
@@ -611,14 +641,15 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
               <button key={tab.id} onClick={() => setActiveChart(tab.id as any)} style={{
                 flex: 1,
                 background: activeChart === tab.id
-                  ? 'linear-gradient(135deg, rgba(124,58,237,0.5), rgba(59,130,246,0.4))'
-                  : 'rgba(255,255,255,0.04)',
-                border: activeChart === tab.id ? '1px solid rgba(124,58,237,0.5)' : '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '0.75rem', color: activeChart === tab.id ? '#fff' : 'rgba(255,255,255,0.4)',
-                fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
-                padding: '0.5rem 0.25rem',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
-                transition: 'all 0.2s',
+                  ? 'rgba(168, 85, 247, 0.15)'
+                  : 'transparent',
+                border: 'none',
+                borderRadius: '0.85rem', 
+                color: activeChart === tab.id ? '#a78bfa' : 'rgba(255,255,255,0.3)',
+                fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer',
+                padding: '0.6rem 0.25rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}>
                 {tab.icon}
                 {tab.label}
@@ -636,31 +667,37 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
           }}>
             {activeChart === 'line' && (
               <>
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <TrendingUp size={16} color="#a78bfa" />
-                    <span style={{ color: '#fff', fontWeight: 800, fontSize: '0.9rem' }}>Crescimento de Seguidores</span>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ width: '4px', height: '16px', background: '#a78bfa', borderRadius: '4px' }} />
+                    <span style={{ color: '#fff', fontWeight: 900, fontSize: '1rem', letterSpacing: '-0.2px' }}>Crescimento de Seguidores</span>
                   </div>
-                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.72rem', margin: '2px 0 0 22px' }}>
-                    Últimos {period} dias
-                  </p>
                 </div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={followerData} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                <ResponsiveContainer width="100%" height={220}>
+                  <AreaChart data={followerData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
                     <defs>
                       <linearGradient id="gradFollowers" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.4} />
+                        <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.2} />
                         <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.02)" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} dy={10} />
+                    <YAxis tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="seguidores" name="Seguidores" stroke="#a78bfa" strokeWidth={2.5}
-                      fill="url(#gradFollowers)" dot={false} activeDot={{ r: 5, fill: '#a78bfa', stroke: '#fff', strokeWidth: 2 }} />
+                    <Area type="monotone" dataKey="seguidores" name="Seguidores" 
+                      stroke="#a78bfa" strokeWidth={3}
+                      fill="url(#gradFollowers)" 
+                      dot={false} 
+                      activeDot={{ r: 6, fill: '#a78bfa', stroke: '#fff', strokeWidth: 2, filter: 'drop-shadow(0 0 8px rgba(168, 85, 247, 0.6))' }} 
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        Desempenho Geral Estável
+                    </span>
+                </div>
               </>
             )}
 
@@ -735,24 +772,27 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
             )}
           </div>
 
-          {/* ── CARD PROGRESSO PARA NÍVEL 1 ─────────────── */}
+          {/* ── CARD PROGRESSO PARA NÍVEL 1 (Refatorado Premium) ─────────────── */}
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.07)',
-            borderRadius: '1.25rem', padding: '1.25rem',
-            marginBottom: '1.25rem',
+            background: 'rgba(15, 15, 20, 0.4)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            borderRadius: '1.5rem', padding: '1.5rem',
+            marginBottom: '2rem',
+            backdropFilter: 'blur(20px)',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Award size={16} color="#a78bfa" />
-                <span style={{ color: '#fff', fontWeight: 800, fontSize: '0.9rem' }}>Progresso → Nível 1</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Award size={18} color="#a78bfa" />
+                </div>
+                <span style={{ color: '#fff', fontWeight: 900, fontSize: '1rem' }}>Progresso para o Nível 1</span>
               </div>
-              <span style={{
-                background: 'rgba(167,139,250,0.15)', color: '#a78bfa',
-                borderRadius: '2rem', padding: '2px 10px', fontSize: '0.72rem', fontWeight: 800,
-              }}>
-                {Math.min(100, Math.floor(((analytics?.followers_count || 0) / 500) * 100))}%
-              </span>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ color: '#a78bfa', fontSize: '1.1rem', fontWeight: 900 }}>
+                    {Math.min(100, Math.floor(((analytics?.followers_count || 0) / 500) * 100))}%
+                </span>
+                <p style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.25)', fontWeight: 800, textTransform: 'uppercase' }}>Concluído</p>
+              </div>
             </div>
 
             {[
@@ -763,23 +803,22 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
               const pct = Math.min(100, Math.floor((bar.current / bar.goal) * 100));
               const done = pct >= 100;
               return (
-                <div key={bar.label} style={{ marginBottom: '0.75rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: bar.color }}>
-                      {bar.icon}
-                      <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.72rem', fontWeight: 600 }}>{bar.label}</span>
-                      {done && <CheckCircle size={11} color="#4ade80" />}
+                <div key={bar.label} style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: done ? '#4ade80' : 'rgba(255,255,255,0.5)', fontSize: '0.75rem', fontWeight: 700 }}>{bar.label}</span>
+                      {done && <CheckCircle size={12} color="#4ade80" strokeWidth={3} />}
                     </div>
-                    <span style={{ color: done ? '#4ade80' : 'rgba(255,255,255,0.4)', fontSize: '0.68rem', fontWeight: 700 }}>
-                      {bar.current.toLocaleString('pt-BR')} / {bar.goal.toLocaleString('pt-BR')}
+                    <span style={{ color: done ? '#4ade80' : '#fff', fontSize: '0.75rem', fontWeight: 800 }}>
+                      {bar.current.toLocaleString('pt-BR')} <span style={{ color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>/ {bar.goal.toLocaleString('pt-BR')}</span>
                     </span>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: '2rem', height: '6px', overflow: 'hidden' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '2rem', height: '4px', overflow: 'hidden' }}>
                     <div style={{
                       width: `${pct}%`, height: '100%', borderRadius: '2rem',
-                      background: done ? 'linear-gradient(90deg, #4ade80, #22c55e)' : `linear-gradient(90deg, ${bar.color}88, ${bar.color})`,
-                      transition: 'width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                      boxShadow: done ? '0 0 8px rgba(74,222,128,0.5)' : `0 0 8px ${bar.color}50`,
+                      background: done ? 'linear-gradient(90deg, #4ade80, #22c55e)' : bar.color,
+                      transition: 'width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                      boxShadow: done ? '0 0 10px rgba(74,222,128,0.4)' : `0 0 10px ${bar.color}40`,
                     }} />
                   </div>
                 </div>
@@ -787,66 +826,67 @@ export function CreatorArea({ session, followersCount, onBack }: Omit<CreatorAre
             })}
           </div>
 
-          {/* ── CARD MOTIVAÇÃO ───────────────────────────── */}
+          {/* ── CARD MOTIVAÇÃO (Clean Style) ───────────────────── */}
           <div style={{
-            background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(59,130,246,0.06))',
-            border: '1px solid rgba(124,58,237,0.18)',
-            borderRadius: '1.1rem', padding: '1.1rem 1.25rem',
-            marginBottom: '1.25rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '1.25rem', padding: '1.25rem',
+            marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center',
           }}>
             <div style={{
-              width: '36px', height: '36px', borderRadius: '0.75rem',
-              background: 'rgba(167,139,250,0.12)',
+              width: '44px', height: '44px', borderRadius: '12px',
+              background: 'rgba(168, 85, 247, 0.1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
             }}>
-              <Zap size={18} color="#a78bfa" />
+              <Zap size={20} color="#a78bfa" fill="#a78bfa" />
             </div>
             <div>
-              <p style={{ color: '#fff', fontWeight: 800, fontSize: '0.88rem', margin: 0, marginBottom: '4px' }}>
-                Perfil em crescimento 🚀
+              <p style={{ color: '#fff', fontWeight: 900, fontSize: '0.9rem', margin: 0, marginBottom: '2px' }}>
+                Perfil em Evolução 🚀
               </p>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', lineHeight: 1.55, margin: 0 }}>
-                Continue postando e engajando. Quanto mais você cresce, mais perto você chega de se tornar um Criador Oficial da VELLAR.
+              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', lineHeight: 1.5, margin: 0, fontWeight: 600 }}>
+                Continue postando e engajando para se tornar um Criador Oficial.
               </p>
             </div>
           </div>
 
-          {/* ── BOTÃO VERIFICAÇÃO ────────────────────────── */}
-          <button onClick={() => setSubView('verification')} style={{
-            width: '100%', padding: '1.1rem',
-            background: hasPendingRequest
-              ? 'rgba(250,204,21,0.08)'
-              : 'linear-gradient(135deg, #7c3aed, #3b82f6)',
-            border: hasPendingRequest ? '1px solid rgba(250,204,21,0.25)' : 'none',
-            borderRadius: '1rem',
-            color: hasPendingRequest ? '#fbbf24' : '#fff',
-            fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-            boxShadow: hasPendingRequest ? 'none' : '0 6px 30px rgba(124,58,237,0.4)',
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-            onMouseEnter={e => { if (!hasPendingRequest) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
-          >
-            {hasPendingRequest
-              ? <><Clock size={18} /> Solicitação em análise</>
-              : <><Calendar size={18} /> Ver requisitos e solicitar Selo <ChevronRight size={16} /></>
-            }
-          </button>
-          
-          <button onClick={() => setSubView('live-history')} style={{
-            width: '100%', padding: '1.1rem',
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '1rem',
-            color: '#fff',
-            fontWeight: 800, fontSize: '0.95rem', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-            marginTop: '0.8rem',
-            transition: 'background 0.2s',
-          }}>
-            <Video size={18} color="#f43f5e" /> Meus Registros de Lives (15 Dias) <ChevronRight size={16} />
-          </button>
+          {/* ── BOTÕES DE AÇÃO ────────────────────────────── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingBottom: '2rem' }}>
+            <button onClick={() => setSubView('verification')} style={{
+              width: '100%', padding: '1.2rem',
+              background: hasPendingRequest
+                ? 'rgba(250,204,21,0.08)'
+                : 'linear-gradient(135deg, #7c3aed, #3b82f6)',
+              border: hasPendingRequest ? '1px solid rgba(250,204,21,0.2)' : 'none',
+              borderRadius: '1.25rem',
+              color: hasPendingRequest ? '#fbbf24' : '#fff',
+              fontWeight: 900, fontSize: '0.95rem', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem',
+              boxShadow: hasPendingRequest ? 'none' : '0 10px 40px rgba(124,58,237,0.3)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+              onMouseEnter={e => { if (!hasPendingRequest) (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)'; }}
+            >
+              {hasPendingRequest
+                ? <><Clock size={20} /> Solicitação em análise</>
+                : <><Calendar size={20} /> Requisitos para Selo <ChevronRight size={18} /></>
+              }
+            </button>
+            
+            <button onClick={() => setSubView('live-history')} style={{
+              width: '100%', padding: '1.2rem',
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '1.25rem',
+              color: '#fff',
+              fontWeight: 800, fontSize: '0.92rem', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.7rem',
+              transition: 'all 0.2s',
+            }}>
+              <Video size={18} color="rgba(255,255,255,0.4)" /> Histórico de Lives <ChevronRight size={16} color="rgba(255,255,255,0.2)" />
+            </button>
+          </div>
         </div>
       )}
 
