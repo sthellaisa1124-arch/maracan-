@@ -16,7 +16,10 @@ import {
   Bell,
   Zap,
   ShoppingCart,
-  Bot
+  Bot,
+  Pin,
+  ArrowUpCircle,
+  Trash2
 } from 'lucide-react';
 import { StatusRail } from '../components/StatusRail';
 import { StatusViewer } from '../components/StatusViewer';
@@ -39,6 +42,8 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [moralBalance, setMoralBalance] = useState<number>(profile?.moral_balance ?? 0);
   const [noSaldoModal, setNoSaldoModal] = useState(false);
+  const [postMenuId, setPostMenuId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Removido o hack do window pois agora o controle é global via props
@@ -88,46 +93,15 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
     setLoading(true);
     let finalPosts = [];
     
-    if (!session?.user?.id) {
-        const { data } = await supabase
-          .from('user_posts')
-          .select('*, author:profiles(username, first_name, avatar_url, badges, total_donated)')
-          .order('created_at', { ascending: false })
-          .limit(20);
-        finalPosts = data || [];
-        setIsSocialFeed(false);
-    } else {
-        const { data: followingData } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', session.user.id);
-
-        const followingIds = [session.user.id, ...(followingData?.map(f => f.following_id) || [])];
-
-        if (followingIds.length > 0) {
-            const { data: socialPosts } = await supabase
-              .from('user_posts')
-              .select('*, author:profiles(username, first_name, avatar_url, badges, total_donated)')
-              .in('user_id', followingIds)
-              .order('created_at', { ascending: false })
-              .limit(30);
-            
-            if (socialPosts && socialPosts.length > 0) {
-                finalPosts = socialPosts;
-                setIsSocialFeed(true);
-            }
-        }
-
-        if (finalPosts.length === 0) {
-            const { data: globalPosts } = await supabase
-              .from('user_posts')
-              .select('*, author:profiles(username, first_name, avatar_url, badges, total_donated)')
-              .order('created_at', { ascending: false })
-              .limit(20);
-            finalPosts = globalPosts || [];
-            setIsSocialFeed(false);
-        }
-    }
+    const { data: globalPosts } = await supabase
+      .from('user_posts')
+      .select('*, author:profiles(username, first_name, avatar_url, badges, total_donated)')
+      .order('is_pinned', { ascending: false })
+      .order('last_bumped_at', { ascending: false })
+      .limit(30);
+    
+    finalPosts = globalPosts || [];
+    setIsSocialFeed(false); // Sempre falso pois agora o feed é global
 
     const postsWithStats = await Promise.all((finalPosts || []).map(async (post: any) => {
       const { count: likesCount } = await supabase
@@ -343,6 +317,133 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
           post_id: postId
         });
       }
+    }
+  }
+ 
+  async function handleBumpPost(postId: string) {
+    if (!session) return notify("Loga aí pra subir o papo! 🚀", "error");
+    
+    // Validar saldo (5k)
+    await fetchMoralBalance();
+    if (moralBalance < 5000) return openNoSaldo();
+ 
+    if (!confirm("Subir esse post para o topo agora? Custo: 5.000 Moral 🚀")) return;
+ 
+    setActionLoading(postId);
+    try {
+      // 1. Debitar Moral
+      const { data: res, error: debitError } = await supabase.rpc('send_moral', {
+        p_sender_id: session.user.id,
+        p_receiver_id: null,
+        p_amount: 5000,
+        p_reference_id: postId,
+        p_reference_type: 'bump_post',
+        p_description: 'Subir post para o topo 🚀'
+      });
+ 
+      if (debitError) throw debitError;
+      if (res && res.success === false) throw new Error(res.error);
+ 
+      // 2. Atualizar last_bumped_at
+      const { error: updateError } = await supabase
+        .from('user_posts')
+        .update({ last_bumped_at: new Date().toISOString() })
+        .eq('id', postId);
+ 
+      if (updateError) throw updateError;
+ 
+      notify("Post subiu na pista! 🚀🔥");
+      setMoralBalance(prev => prev - 5000);
+      fetchPosts();
+    } catch (err: any) {
+      notify("Erro: " + (err.message || err.error || "Algo deu errado"), "error");
+    } finally {
+      setActionLoading(null);
+      setPostMenuId(null);
+    }
+  }
+ 
+  async function handlePinPost(postId: string) {
+    if (!session) return notify("Loga aí pra fixar o papo! 📌", "error");
+ 
+    // Validar saldo (100k)
+    await fetchMoralBalance();
+    if (moralBalance < 100000) return openNoSaldo();
+ 
+    if (!confirm("Fixar esse post no topo por 24 horas? Custo: 100.000 Moral 📌🔥")) return;
+ 
+    setActionLoading(postId);
+    try {
+      // 1. Debitar Moral
+      const { data: res, error: debitError } = await supabase.rpc('send_moral', {
+        p_sender_id: session.user.id,
+        p_receiver_id: null,
+        p_amount: 100000,
+        p_reference_id: postId,
+        p_reference_type: 'pin_post',
+        p_description: 'Fixar post no topo por 24h 📌'
+      });
+ 
+      if (debitError) throw debitError;
+      if (res && res.success === false) throw new Error(res.error);
+ 
+      // 2. Atualizar is_pinned e pinned_until
+      const pinnedUntil = new Date();
+      pinnedUntil.setHours(pinnedUntil.getHours() + 24);
+ 
+      const { error: updateError } = await supabase
+        .from('user_posts')
+        .update({ 
+          is_pinned: true, 
+          pinned_at: new Date().toISOString(),
+          pinned_until: pinnedUntil.toISOString() 
+        })
+        .eq('id', postId);
+ 
+      if (updateError) throw updateError;
+ 
+      notify("Post fixado no topo da pista por 24h! 📌👑");
+      setMoralBalance(prev => prev - 100000);
+      fetchPosts();
+    } catch (err: any) {
+      notify("Erro: " + (err.message || err.error || "Algo deu errado"), "error");
+    } finally {
+      setActionLoading(null);
+      setPostMenuId(null);
+    }
+  }
+ 
+  async function handleDeletePost(post: any) {
+    if (!session || (post.user_id !== session.user.id && !profile?.is_admin)) return;
+    
+    if (!confirm("Tem certeza que quer apagar esse post? 🗑️\n\nAVISO: O valor da Moral gasto (postagem e impulsionamento) NÃO é reembolsável.")) return;
+ 
+    setActionLoading(post.id);
+    try {
+      // Deletar mídia do storage se houver
+      if (post.image_url) {
+        const path = post.image_url.split('/public/media/')[1];
+        if (path) await supabase.storage.from('media').remove([path]);
+      }
+      if (post.video_url) {
+        const path = post.video_url.split('/public/media/')[1];
+        if (path) await supabase.storage.from('media').remove([path]);
+      }
+ 
+      const { error } = await supabase
+        .from('user_posts')
+        .delete()
+        .eq('id', post.id);
+ 
+      if (error) throw error;
+ 
+      notify("Post removido da pista! 🧹");
+      setPosts(prev => prev.filter(p => p.id !== post.id));
+    } catch (err: any) {
+      notify("Erro ao deletar: " + err.message, "error");
+    } finally {
+      setActionLoading(null);
+      setPostMenuId(null);
     }
   }
 
@@ -734,14 +835,61 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
                       @{post.author?.username}
                     </span>
                     <UserBadges badges={post.author?.badges} donatedAmount={post.author?.total_donated} size={14} />
+                    {post.is_pinned && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(250,204,21,0.1)', padding: '2px 8px', borderRadius: '8px', border: '1px solid rgba(250,204,21,0.3)' }}>
+                        <Pin size={10} color="#facc15" fill="#facc15" />
+                        <span style={{ fontSize: '0.65rem', color: '#facc15', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fixado</span>
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '2px' }}>
                     <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{new Date(post.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
-                <button style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0 }}>
-                  <MoreHorizontal size={18} />
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button 
+                    onClick={() => setPostMenuId(postMenuId === post.id ? null : post.id)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, padding: '8px' }}
+                  >
+                    {actionLoading === post.id ? <Loader2 size={18} className="animate-spin" /> : <MoreHorizontal size={18} />}
+                  </button>
+                  
+                  {postMenuId === post.id && (
+                    <div className="post-action-menu-elite" style={{ 
+                      position: 'absolute', top: '100%', right: 0, 
+                      background: 'rgba(15,15,15,0.95)', backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', 
+                      padding: '6px', zIndex: 100, width: '200px', 
+                      boxShadow: '0 15px 40px rgba(0,0,0,0.6)',
+                      animation: 'fadeUp 0.2s ease'
+                    }}>
+                      <button 
+                        onClick={() => handleBumpPost(post.id)} 
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'transparent', border: 'none', color: '#fff', fontSize: '0.82rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 600, textAlign: 'left' }}
+                        className="menu-item-hover"
+                      >
+                        <ArrowUpCircle size={18} color="#a855f7" /> Subir na Pista (5k)
+                      </button>
+                      <button 
+                        onClick={() => handlePinPost(post.id)} 
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'transparent', border: 'none', color: '#fff', fontSize: '0.82rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 600, textAlign: 'left' }}
+                        className="menu-item-hover"
+                      >
+                        <Pin size={18} color="#facc15" /> Fixar no Topo (100k)
+                      </button>
+                      <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 8px' }} />
+                      {(post.user_id === session?.user?.id || profile?.is_admin) && (
+                        <button 
+                          onClick={() => handleDeletePost(post)} 
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', background: 'transparent', border: 'none', color: '#ef4444', fontSize: '0.82rem', cursor: 'pointer', borderRadius: '10px', fontWeight: 600, textAlign: 'left' }}
+                          className="menu-item-hover"
+                        >
+                          <Trash2 size={18} /> Excluir Papo Reto
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Conteúdo */}
