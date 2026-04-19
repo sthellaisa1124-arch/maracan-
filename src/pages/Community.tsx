@@ -340,31 +340,27 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   async function handleBumpPost(postId: string) {
     if (!session) return notify("Loga aí pra subir o papo! 🚀", "error");
     
-    await fetchMoralBalance();
-    if (moralBalance < 5000) return openNoSaldo();
+    const confirmed = confirm(
+      "Deseja subir esse post para o topo? 🚀\n\n" +
+      "Custo: 5.000 Moral\n\n" +
+      "O post subirá para o topo da pista agora como se tivesse acabado de ser postado. " +
+      "Atenção: Ele NÃO fica fixado, apenas sobe para a primeira posição do feed atual."
+    );
+ 
+    if (!confirmed) return;
  
     setActionLoading(postId);
     try {
-      const { data: res, error: debitError } = await supabase.rpc('send_moral', {
-        p_sender_id: session.user.id,
-        p_receiver_id: null,
-        p_amount: 5000,
-        p_reference_id: postId,
-        p_reference_type: 'bump_post',
-        p_description: 'Subir post para o topo 🚀'
+      const { data: res, error: rpcError } = await supabase.rpc('boost_post', {
+        p_user_id: session.user.id,
+        p_post_id: postId,
+        p_boost_type: 'bump'
       });
  
-      if (debitError) throw debitError;
+      if (rpcError) throw rpcError;
       if (res && res.success === false) throw new Error(res.error);
  
-      const { error: updateError } = await supabase
-        .from('user_posts')
-        .update({ last_bumped_at: new Date().toISOString() })
-        .eq('id', postId);
- 
-      if (updateError) throw updateError;
- 
-      notify("Post subiu na pista! 🚀🔥");
+      notify("Post subiu na pista como novo! 🚀🔥");
       setBoostingPost(null);
       fetchPosts();
       fetchMoralBalance();
@@ -378,40 +374,24 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
   async function handlePinPost(postId: string) {
     if (!session) return notify("Loga aí pra fixar o papo! 📌", "error");
  
-    await fetchMoralBalance();
-    if (moralBalance < 100000) return openNoSaldo();
-
-    if (activePin) {
-        return notify(`Já existe um post fixado no topo por @${activePin.username}.`, "error");
-    }
+    const confirmed = confirm(
+      "Deseja fixar esse post no topo absoluto? 📌👑\n\n" +
+      "Custo: 100.000 Moral\n\n" +
+      "O post ficará fixado no topo da pista para TODOS que entrarem no app pelas próximas 24 horas."
+    );
+ 
+    if (!confirmed) return;
  
     setActionLoading(postId);
     try {
-      const { data: res, error: debitError } = await supabase.rpc('send_moral', {
-        p_sender_id: session.user.id,
-        p_receiver_id: null,
-        p_amount: 100000,
-        p_reference_id: postId,
-        p_reference_type: 'pin_post',
-        p_description: 'Fixar post no topo por 24h 📌'
+      const { data: res, error: rpcError } = await supabase.rpc('boost_post', {
+        p_user_id: session.user.id,
+        p_post_id: postId,
+        p_boost_type: 'pin'
       });
  
-      if (debitError) throw debitError;
+      if (rpcError) throw rpcError;
       if (res && res.success === false) throw new Error(res.error);
- 
-      const pinnedUntil = new Date();
-      pinnedUntil.setHours(pinnedUntil.getHours() + 24);
- 
-      const { error: updateError } = await supabase
-        .from('user_posts')
-        .update({ 
-          is_pinned: true, 
-          pinned_at: new Date().toISOString(),
-          pinned_until: pinnedUntil.toISOString() 
-        })
-        .eq('id', postId);
- 
-      if (updateError) throw updateError;
  
       notify("Post fixado no topo da pista por 24h! 📌👑");
       setBoostingPost(null);
