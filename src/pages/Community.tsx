@@ -238,7 +238,7 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
 
     // 2. REGISTRAR TRANSAÇÃO
     await supabase.from('moral_transactions').insert({
-      user_id: session.user.id,
+      sender_id: session.user.id,
       amount: -POST_COST,
       type: 'post_divulgacao',
       description: 'Divulgação na tela inicial - PAPO RETO NO VELLAR'
