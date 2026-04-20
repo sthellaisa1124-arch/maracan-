@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vellar-v1';
+const CACHE_NAME = 'vellar-v1.1';
 const urlsToCache = [
   '/',
   '/manifest.json',

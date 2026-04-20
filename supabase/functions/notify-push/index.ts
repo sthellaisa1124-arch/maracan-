@@ -54,7 +54,15 @@ serve(async (req) => {
       
       if (profile) {
         senderName = profile.username || 'Cria'
-        senderAvatar = profile.avatar_url || senderAvatar
+        let avatar = profile.avatar_url
+        
+        // Se a URL do avatar for relativa, reconstrói o link completo do Supabase
+        if (avatar && !avatar.startsWith('http')) {
+          const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+          avatar = `${supabaseUrl}/storage/v1/object/public/media/${avatar}`
+        }
+        
+        senderAvatar = avatar || senderAvatar
       }
     }
 
