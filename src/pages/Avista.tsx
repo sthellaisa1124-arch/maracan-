@@ -861,17 +861,17 @@ export function Avista({
             </div>
 
             <div className="avista-actions">
-              <button className={`avista-action-btn ${post.is_liked ? 'liked' : ''}`} onClick={() => toggleLike(post)}>
+              <button className={`avista-action-btn ${post.is_liked ? 'liked' : ''}`} onClick={(e) => { e.stopPropagation(); toggleLike(post); }}>
                 <Heart size={38} fill={post.is_liked ? "var(--primary)" : "none"} strokeWidth={2.5} />
                 <span>{formatCount(post.likes_count || 0)}</span>
               </button>
               
-              <button className="avista-action-btn" onClick={() => { setShowComments(post.id); fetchComments(post.id); }}>
+              <button className="avista-action-btn" onClick={(e) => { e.stopPropagation(); setShowComments(post.id); fetchComments(post.id); }}>
                 <MessageCircle size={38} strokeWidth={2.5} />
                 <span>{formatCount(post.comments_count || 0)}</span>
               </button>
 
-              <button className="avista-action-btn" onClick={() => setShowShareModal(post)}>
+              <button className="avista-action-btn" onClick={(e) => { e.stopPropagation(); setShowShareModal(post); }}>
                 <Send size={38} strokeWidth={2.5} />
                 <span style={{ fontSize: '0.7rem', marginTop: '2px' }}>SHARE</span>
               </button>
@@ -882,7 +882,8 @@ export function Avista({
               {session && (
                 <button
                   className={`avista-gift-btn ${session.user.id === post.user_id ? 'is-owner' : ''}`}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (session.user.id === post.user_id) {
                       // Criador: abre lista de donatários
                       setShowAnalysisTab('ranking');
@@ -900,7 +901,7 @@ export function Avista({
               )}
 
               {session?.user?.id === post.user_id && (
-                <button className="avista-action-btn delete" onClick={() => handleDelete(post)}>
+                <button className="avista-action-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(post); }}>
                   <Trash2 size={32} />
                 </button>
               )}
@@ -1590,7 +1591,7 @@ function ShareModal({ post, friends, onClose, onShareInternal, onShareExternal }
   const [search, setSearch] = useState('');
   
   const filteredFriends = friends.filter(f => 
-    f.username?.toLowerCase().includes(search.toLowerCase())
+    (f.username || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
