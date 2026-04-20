@@ -7,6 +7,7 @@ import { UserBadges } from '../components/Badges';
 import { UserRankProgress } from '../components/UserRankProgress';
 import { CreatorArea } from '../components/CreatorArea';
 import { UsersListModal } from '../components/UsersListModal';
+import { SupportModal } from '../components/SupportModal';
 
 export function Profile({ 
   userProfile, 
@@ -30,7 +31,7 @@ export function Profile({
   const [profile, setProfile] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSettingsMode, setIsSettingsMode] = useState(false);
-  const [settingsTab, setSettingsTab] = useState<'menu' | 'conta' | 'moral' | 'rank' | 'criador'>('menu');
+  const [settingsTab, setSettingsTab] = useState<'menu' | 'conta' | 'moral' | 'rank' | 'criador' | 'suporte'>('menu');
   
   // States para Edição
   const [newUsername, setNewUsername] = useState('');

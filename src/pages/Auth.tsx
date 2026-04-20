@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { HelpCircle } from 'lucide-react';
+import { SupportModal } from '../components/SupportModal';
 
 export function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -15,6 +16,7 @@ export function Auth() {
   const [username, setUsername] = useState('');
 
   const [notification, setNotification] = useState<string | null>(null);
+  const [showSupport, setShowSupport] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +78,13 @@ export function Auth() {
         </div>
       )}
       
-      <div className="auth-card">
+      <div className="auth-card" style={{ position: 'relative' }}>
+        <button 
+          onClick={() => setShowSupport(true)}
+          style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 800 }}
+        >
+          <HelpCircle size={18} /> AJUDA
+        </button>
         <h2 className="velar-logo">VELLAR</h2>
         <p className="subtitle">{isLogin ? 'Bota sua conta aí e entra logo!' : 'Cria seu perfil agora e escolhe seu nome de guerra!'}</p>
 
@@ -150,6 +158,8 @@ export function Auth() {
           </span>
         </p>
       </div>
+
+      {showSupport && <SupportModal isPublic onClose={() => setShowSupport(false)} />}
     </div>
   );
 }

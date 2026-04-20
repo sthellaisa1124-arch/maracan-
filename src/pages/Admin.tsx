@@ -16,10 +16,14 @@ import {
   Wallet,
   ArrowLeft,
   Star,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Headphones,
+  MessageCircle,
+  Archive
 } from 'lucide-react';
 import { UserBadges } from '../components/Badges';
 import { UserDetailsModal } from '../components/admin/UserDetailsModal';
+import { getPixStatus } from '../lib/pushinpay';
 
 interface UserProfile {
   id: string;
@@ -52,12 +56,17 @@ interface AdminLog {
 export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, userProfile: any, session?: any, onBack?: () => void }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
-  const [withdraws, setWithdraws] = useState<any[]>([]); // Novo estado para Saques
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users' | 'logs' | 'settings' | 'saques' | 'criadores'>('overview');
+  const [withdraws, setWithdraws] = useState<any[]>([]); 
+  const [paymentLogs, setPaymentLogs] = useState<any[]>([]); // Novo estado para Depósitos
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users' | 'logs' | 'settings' | 'saques' | 'criadores' | 'depositos' | 'atendimento'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [creatorRequests, setCreatorRequests] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [ticketMessages, setTicketMessages] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState('');
 
   // Estados do Modal de Rejeição de Saques
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -72,19 +81,24 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
   ];
 
   const isCEO = userProfile?.is_admin && userProfile?.account_role === 'ceo';
-  const viewerRole = isCEO ? 'ceo' : 'user';
+  const isStaff = userProfile?.is_admin && (userProfile?.account_role === 'support' || userProfile?.account_role === 'staff');
+  const viewerRole = isCEO ? 'ceo' : isStaff ? 'support' : 'user';
 
   useEffect(() => {
-    if (isAdmin && isCEO) {
+    if (isAdmin && (isCEO || isStaff)) {
       loadAdminData();
     } else {
       setLoading(false);
     }
-  }, [isAdmin, isCEO]);
+  }, [isAdmin, isCEO, isStaff]);
 
   async function loadAdminData() {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchLogs(), fetchWithdraws(), fetchCreatorRequests()]);
+    const promises: Promise<any>[] = [fetchTickets()];
+    if (isCEO) {
+      promises.push(fetchUsers(), fetchLogs(), fetchWithdraws(), fetchCreatorRequests(), fetchPaymentLogs());
+    }
+    await Promise.all(promises);
     setLoading(false);
   }
 
@@ -134,12 +148,12 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
     }
   }
 
-  if (!isAdmin || !isCEO) {
+  if (!isAdmin || (!isCEO && !isStaff)) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-center">
         <ShieldAlert size={64} className="text-red-500 mb-4" />
-        <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito ao CEO</h2>
-        <p className="text-gray-400">Você não tem autorização para acessar o Gabinete Real.</p>
+        <h2 className="text-2xl font-bold text-white mb-2">Acesso Restrito</h2>
+        <p className="text-gray-400">Você não tem autorização para acessar esta área.</p>
       </div>
     );
   }
@@ -162,6 +176,19 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
       .eq('status', 'pending')
       .order('created_at', { ascending: false });
     if (data) setWithdraws(data);
+  }
+
+  async function fetchPaymentLogs() {
+    try {
+      const { data } = await supabase
+        .from('payment_logs')
+        .select('*, profiles(username, avatar_url)')
+        .order('created_at', { ascending: false })
+        .limit(30);
+      if (data) setPaymentLogs(data);
+    } catch (e) {
+      console.warn('Erro ao buscar logs de pagamento:', e);
+    }
   }
 
   async function resolveWithdraw(id: string, action: 'approve' | 'reject', reason?: string) {
@@ -206,6 +233,81 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
       if (data) setLogs(data as any[]);
     } catch (e) {
       console.warn("Erro ao buscar logs (tabela pode ainda não existir).");
+    }
+  }
+
+  async function fetchTickets() {
+    try {
+      const { data } = await supabase
+        .from('support_tickets')
+        .select('*, profiles:user_id(username, avatar_url)')
+        .order('updated_at', { ascending: false });
+      if (data) setTickets(data);
+    } catch (e) {
+      console.warn("Erro ao buscar tickets:", e);
+    }
+  }
+
+  async function fetchTicketMessages(ticketId: string) {
+    try {
+      const { data } = await supabase
+        .from('support_messages')
+        .select('*, profiles:sender_id(username, avatar_url)')
+        .eq('ticket_id', ticketId)
+        .order('created_at', { ascending: true });
+      if (data) setTicketMessages(data);
+    } catch (e) {
+      console.warn("Erro ao buscar mensagens do ticket:", e);
+    }
+  }
+
+  async function sendTicketReply() {
+    if (!selectedTicket || !replyText.trim()) return;
+    
+    try {
+      const { error } = await supabase
+        .from('support_messages')
+        .insert({
+          ticket_id: selectedTicket.id,
+          sender_id: userProfile?.id,
+          message: replyText,
+          is_staff_reply: true
+        });
+
+      if (error) throw error;
+      
+      // Atualizar status do ticket para ongoing se estiver pending
+      if (selectedTicket.status === 'pending') {
+        await supabase
+          .from('support_tickets')
+          .update({ status: 'ongoing' })
+          .eq('id', selectedTicket.id);
+      }
+
+      setReplyText('');
+      fetchTicketMessages(selectedTicket.id);
+      fetchTickets();
+    } catch (e: any) {
+      alert('Erro ao responder: ' + e.message);
+    }
+  }
+
+  async function closeTicket(ticketId: string) {
+    if (!confirm('Deseja realmente finalizar este atendimento?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ status: 'closed', closed_at: new Date().toISOString() })
+        .eq('id', ticketId);
+
+      if (error) throw error;
+      
+      alert('Atendimento finalizado com sucesso! ✅');
+      setSelectedTicket(null);
+      fetchTickets();
+    } catch (e: any) {
+      alert('Erro ao finalizar: ' + e.message);
     }
   }
 
@@ -258,10 +360,12 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
           {[
             { id: 'overview', icon: <LayoutDashboard size={18} />, label: 'Resumo' },
             { id: 'users', icon: <Users size={18} />, label: 'Crias' },
-            { id: 'saques', icon: <Wallet size={18} />, label: 'Saques FIXOS', count: withdraws.length },
-            { id: 'logs', icon: <History size={18} />, label: 'Auditoria' },
-            { id: 'criadores', icon: <Star size={18} />, label: 'Criadores', count: creatorRequests.length },
-          ].map((tab: any) => (
+            { id: 'saques', icon: <Wallet size={18} />, label: 'Saques FIXOS', count: withdraws.length, ceoOnly: true },
+            { id: 'depositos', icon: <CreditCard size={18} />, label: 'Depósitos', ceoOnly: true },
+            { id: 'atendimento', icon: <Headphones size={18} />, label: 'Atendimentos', count: tickets.filter((t: any) => t.status === 'pending').length },
+            { id: 'logs', icon: <History size={18} />, label: 'Auditoria', ceoOnly: true },
+            { id: 'criadores', icon: <Star size={18} />, label: 'Criadores', count: creatorRequests.length, ceoOnly: true },
+          ].filter(tab => !tab.ceoOnly || isCEO).map((tab: any) => (
             <button
               key={tab.id}
               onClick={() => setActiveSubTab(tab.id as any)}
@@ -381,6 +485,162 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {/* --- Aba de Depósitos (Pagamentos Recebidos) --- */}
+        {activeSubTab === 'depositos' && (
+          <div className="admin-requests-grid">
+            <h2 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#fff' }}>
+              <CreditCard color="#0095f6" /> Histórico de Depósitos (Vellar Pay)
+            </h2>
+            {paymentLogs.length === 0 ? (
+              <p style={{ opacity: 0.5 }}>Nenhum depósito registrado ainda.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {paymentLogs.map(log => (
+                  <div key={log.id} style={{ 
+                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', 
+                    borderRadius: '16px', padding: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' 
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <img src={log.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${log.profiles?.username}`} style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#fff' }}>@{log.profiles?.username} comprou {log.moral_amount} M</div>
+                        <div style={{ fontSize: '0.7rem', opacity: 0.4 }}>{new Date(log.created_at).toLocaleString()}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                       <div style={{ fontWeight: 900, color: '#0095f6' }}>R$ {log.amount_reais.toFixed(2)}</div>
+                       <div style={{ 
+                         fontSize: '0.65rem', padding: '2px 8px', borderRadius: '4px', textAlign: 'center', fontWeight: 'bold',
+                         background: log.status === 'paid' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                         color: log.status === 'paid' ? '#22c55e' : '#6b7280'
+                       }}>
+                         {log.status.toUpperCase()}
+                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+      {/* --- Aba de Atendimento --- */}
+        {activeSubTab === 'atendimento' && (
+          <div className="admin-support-view" style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 250px)', minHeight: '500px' }}>
+            
+            {/* Lista de Tickets (Esquerda) */}
+            <div style={{ flex: selectedTicket ? '0 0 350px' : '1', display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+               <h3 style={{ fontSize: '1rem', color: '#fff', padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}><Headphones size={20} /> Chamados na Pista</h3>
+               {tickets.length === 0 ? (
+                 <p style={{ opacity: 0.5, textAlign: 'center', padding: '2rem' }}>Nenhum chamado aberto.</p>
+               ) : (
+                 tickets.map(t => (
+                   <div 
+                      key={t.id} 
+                      onClick={() => { setSelectedTicket(t); fetchTicketMessages(t.id); }}
+                      style={{ 
+                        padding: '1rem', borderRadius: '16px', cursor: 'pointer',
+                        background: selectedTicket?.id === t.id ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255,255,255,0.03)',
+                        border: selectedTicket?.id === t.id ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid transparent',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ 
+                          fontSize: '0.65rem', fontWeight: 900, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '6px',
+                          background: t.status === 'pending' ? 'rgba(239, 68, 68, 0.1)' : t.status === 'ongoing' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255,255,255,0.05)',
+                          color: t.status === 'pending' ? '#ef4444' : t.status === 'ongoing' ? '#3b82f6' : '#6b7280'
+                        }}>
+                          {t.status === 'pending' ? 'Pendente' : t.status === 'ongoing' ? 'Em Cozinho' : 'Finalizado'}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', opacity: 0.4 }}>{new Date(t.updated_at).toLocaleDateString()}</span>
+                      </div>
+                      <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '0.9rem' }}>{t.subject}</div>
+                      <div style={{ fontSize: '0.75rem', opacity: 0.6, marginTop: '4px' }}>@{t.profiles?.username || 'Cria Anônimo'}</div>
+                   </div>
+                 ))
+               )}
+            </div>
+
+            {/* Visualização do Chat (Direita) */}
+            {selectedTicket ? (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                 <header style={{ padding: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                       <img src={selectedTicket.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedTicket.profiles?.username}`} style={{ width: '32px', height: '32px', borderRadius: '50%' }} />
+                       <div>
+                          <h4 style={{ margin: 0, color: '#fff', fontSize: '0.95rem' }}>@{selectedTicket.profiles?.username}</h4>
+                          <span style={{ fontSize: '0.7rem', opacity: 0.5 }}>{selectedTicket.subject}</span>
+                       </div>
+                    </div>
+                    {selectedTicket.status !== 'closed' && (
+                      <button 
+                        onClick={() => closeTicket(selectedTicket.id)}
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        <Archive size={14} style={{ marginRight: '4px' }} /> Finalizar
+                      </button>
+                    )}
+                 </header>
+
+                 {/* Mensagens */}
+                 <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', borderLeft: '3px solid var(--primary)', marginBottom: '1rem' }}>
+                       <span style={{ fontSize: '0.7rem', fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase' }}>Descrição Original:</span>
+                       <p style={{ margin: '8px 0 0', fontSize: '0.9rem', color: '#fff', lineHeight: 1.5 }}>{selectedTicket.description}</p>
+                    </div>
+
+                    {ticketMessages.map((msg, i) => (
+                      <div key={i} style={{ 
+                        alignSelf: msg.is_staff_reply ? 'flex-end' : 'flex-start',
+                        maxWidth: '80%',
+                        background: msg.is_staff_reply ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.05)',
+                        padding: '12px 16px',
+                        borderRadius: msg.is_staff_reply ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                        border: msg.is_staff_reply ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#fff' }}>{msg.message}</p>
+                        <span style={{ fontSize: '0.65rem', opacity: 0.4, display: 'block', marginTop: '4px', textAlign: msg.is_staff_reply ? 'right' : 'left' }}>
+                          {msg.is_staff_reply ? 'Suporte' : `@${selectedTicket.profiles?.username}`} • {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    ))}
+                 </div>
+
+                 {/* Input de Resposta */}
+                 {selectedTicket.status !== 'closed' ? (
+                   <footer style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: '12px', background: 'rgba(0,0,0,0.2)' }}>
+                      <input 
+                        type="text" 
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && sendTicketReply()}
+                        placeholder="Manda a resposta pro cria..."
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '0.8rem 1rem', color: '#fff', outline: 'none' }}
+                      />
+                      <button 
+                        onClick={sendTicketReply}
+                        disabled={!replyText.trim()}
+                        style={{ background: 'var(--primary)', color: '#000', padding: '0.8rem 1.5rem', borderRadius: '12px', fontWeight: 900, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <MessageCircle size={18} /> ENVIAR
+                      </button>
+                   </footer>
+                 ) : (
+                   <div style={{ padding: '1.5rem', textAlign: 'center', color: '#6b7280', fontSize: '0.85rem', fontWeight: 700, background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      ESTE ATENDIMENTO FOI ENCERRADO EM {new Date(selectedTicket.closed_at).toLocaleString()}
+                   </div>
+                 )}
+              </div>
+            ) : (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' }}>
+                 <Headphones size={64} style={{ marginBottom: '1.5rem', opacity: 0.1 }} />
+                 <p style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.75rem' }}>Selecione um chamado pra trocar ideia</p>
+              </div>
             )}
           </div>
         )}
