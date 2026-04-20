@@ -113,16 +113,61 @@ function App() {
     window.addEventListener('openProfile', handleOpenProfile);
 
     const handleNotificationAction = async (e: any) => {
-      // ... (código existente)
+      const notif = e.detail;
+      const t = notif.type;
+      
+      if (t === 'live') {
+        const { data } = await supabase.from('live_sessions')
+          .select('*, host_profile:profiles(username, avatar_url, badges, total_donated)')
+          .eq('host_id', notif.from_user_id)
+          .eq('is_live', true)
+          .is('ended_at', null)
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) setActiveLiveRoom(data);
+        else {
+          setToast({ msg: 'Esta live já encerrou ou não foi encontrada. 🛑', typ: 'error' });
+          setTimeout(() => setToast(null), 3500);
+        }
+      } else if (t && t.includes('avista')) {
+        setAvistaInitialPostId(notif.post_id);
+        setActiveTab('avista');
+      } else if (t === 'like' || t === 'comment' || t === 'post_like' || t === 'post_comment') {
+        setActiveTab('community');
+      } else if (t === 'status_tag') {
+        const { data: statuses } = await supabase.from('status_posts')
+          .select('*, author:user_id(username, avatar_url, badges, total_donated)')
+          .eq('user_id', notif.from_user_id)
+          .gt('created_at', new Date(Date.now() - 24*60*60*1000).toISOString())
+          .order('created_at', {ascending: true});
+        if (statuses && statuses.length > 0) {
+           const group = {
+             user_id: notif.from_user_id,
+             username: statuses[0].author?.username,
+             avatar_url: statuses[0].author?.avatar_url,
+             badges: statuses[0].author?.badges,
+             total_donated: statuses[0].author?.total_donated,
+             status_list: statuses,
+             all_viewed: false
+           };
+           setGlobalStatusInitialId(notif.post_id);
+           setGlobalStatusGroup(group);
+        } else {
+           setToast({ msg: 'Este story não está mais disponível ou expirou. ⏳', typ: 'error' });
+           setTimeout(() => setToast(null), 3500);
+        }
+      }
     };
     window.addEventListener('handleNotificationAction', handleNotificationAction);
 
     // Deep Linking: Checar se a URL pede suporte direto (?support=true)
     const params = new URLSearchParams(window.location.search);
     if (params.get('support') === 'true') {
-      setShowDirectSupport(true);
-      // Limpa a URL para não ficar abrindo toda hora
-      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => {
+        setShowDirectSupport(true);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 500);
     }
 
     return () => {
