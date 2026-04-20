@@ -860,7 +860,7 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
        const { data } = await supabase
          .from('chat_settings')
          .select('is_ephemeral_active')
-         .or(`and(user_a.eq.${userId},user_b.eq.${entityId}),and(user_a.eq.${entityId},user_b.eq.${userId})`)
+         .or(`user_a.eq.${userId},user_b.eq.${userId}`)
          .single();
        if (data) setIsEphemeralMode(data.is_ephemeral_active);
        else setIsEphemeralMode(false);
