@@ -500,11 +500,15 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
          );
          setOtherUserTyping(typing);
        })
-       .subscribe(async (status) => {
-         if (status === 'SUBSCRIBED') {
-           await channel.track({ user_id: userId, is_typing: false });
-         }
-       });
+        .subscribe(async (status) => {
+          console.log(`📡 [REALTIME] Canal de chat: ${status}`);
+          if (status === 'SUBSCRIBED') {
+            await channel.track({ user_id: userId, is_typing: false });
+          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') {
+            console.warn('⚠️ [REALTIME] Conexão perdida. Tentando reconectar...');
+            setTimeout(() => fetchMessages(selectedUser.id), 2000);
+          }
+        });
 
      return () => {
        supabase.removeChannel(channel);
@@ -1071,7 +1075,9 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
         await supabase.from('notifications').insert({
           user_id: selectedUser.id,
           from_user_id: userId,
-          type: 'message'
+          type: 'message',
+          title: `Nova mídia de @${session.user?.user_metadata?.username || 'Cria'}`,
+          message: type === 'image' ? '📸 Enviou uma foto' : '🎤 Enviou um áudio'
         });
       }
     } catch (err) {
@@ -1115,7 +1121,9 @@ export function DirectChat({ session, initialRecipient, onBack }: { session: any
         await supabase.from('notifications').insert({
           user_id: selectedUser.id,
           from_user_id: userId,
-          type: 'message'
+          type: 'message',
+          title: `Mensagem de @${session.user?.user_metadata?.username || 'Cria'}`,
+          message: msgData.content || 'Mandou algo novo na pista!'
         });
       }
     } catch (err) {
