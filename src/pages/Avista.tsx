@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { Heart, MessageCircle, Eye, Loader2, Trash2, Send, X, MoreVertical, Trophy, ArrowLeft, Radio, Video, BarChart2, UserPlus, Search, Users } from 'lucide-react';
 import { GiftPanel, type Gift } from '../components/GiftPanel';
@@ -952,48 +953,7 @@ export function Avista({
               </div>
             )}
 
-            {/* GAVETA DE COMENTÁRIOS (ESTILO REELS) */}
-            {showComments === post.id && (
-              <div className="avista-comments-drawer">
-                <div className="drawer-handle" onClick={() => setShowComments(null)} />
-                <header>
-                  <h3>Comentários ({post.comments_count})</h3>
-                  <button onClick={() => setShowComments(null)}><X size={20} opacity={0.5} /></button>
-                </header>
-                
-                <div className="comments-list">
-                  {comments.length === 0 ? (
-                    <p className="no-comments">Ninguém mandou o papo ainda... 🎤</p>
-                  ) : (
-                    comments.map(c => (
-                      <div key={c.id} className="comment-item">
-                        <img src={c.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + c.user_id} />
-                        <div className="comment-body">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <strong>@{c.profiles?.username}</strong>
-                            <UserBadges badges={c.profiles?.badges} donatedAmount={c.profiles?.total_donated} size={14} />
-                          </div>
-                          <p>{c.content}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
 
-                <div className="comment-footer">
-                  <input 
-                    type="text" 
-                    placeholder="Manda seu papo..." 
-                    value={newComment}
-                    onChange={e => setNewComment(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSendComment()}
-                  />
-                  <button onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
-                    {sendingComment ? <Loader2 className="animate-spin" size={18} /> : <Send size={20} />}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {renderNavigationTabsHUD(post)}
 
@@ -1005,11 +965,12 @@ export function Avista({
       </div>
 
       {/* DRAWER DE RANKING — BOTTOM SHEET COM GESTOS */}
-      {showRanking && (
+      {showRanking && createPortal(
         <RankingBottomSheet
           onClose={() => setShowRanking(false)}
           onViewProfile={(username) => { setShowRanking(false); onViewProfile(username); }}
-        />
+        />,
+        document.body
       )}
 
       <style>{`
@@ -1087,21 +1048,23 @@ export function Avista({
       `}</style>
 
       {/* Painel de Análise do Criador */}
-      {showAnalysis && (
+      {showAnalysis && createPortal(
         <VideoAnalysisModal 
           post={showAnalysis}
           initialTab={showAnalysisTab}
           onClose={() => { setShowAnalysis(null); }}
           onViewProfile={onViewProfile}
           session={session}
-        />
+        />,
+        document.body
       )}
 
-      {showStats && (
+      {showStats && createPortal(
         <VideoStatsModal
           post={showStats}
           onClose={() => setShowStats(null)}
-        />
+        />,
+        document.body
       )}
 
       {giftTarget && session?.user?.id && (
@@ -1152,15 +1115,60 @@ export function Avista({
         />
       )}
 
-      {/* MODAL DE COMPARTILHAMENTO (AMIGOS E EXTERNO) */}
-      {showShareModal && (
+      {/* MODAL DE COMPARTILHAMENTO (AMIGOS E EXTERNO) - USANDO PORTAL PARA GARANTIR VISIBILIDADE */}
+      {showShareModal && createPortal(
         <ShareModal 
           post={showShareModal}
           friends={followingList}
           onClose={() => setShowShareModal(null)}
           onShareInternal={(uId) => shareInternally(uId, showShareModal)}
           onShareExternal={() => handleExternalShare(showShareModal)}
-        />
+        />,
+        document.body
+      )}
+
+      {/* GAVETA DE COMENTÁRIOS (PORTAL) */}
+      {showComments && createPortal(
+        <div className="avista-comments-drawer">
+          <div className="drawer-handle" onClick={() => setShowComments(null)} />
+          <header>
+            <h3>Comentários ({posts.find(p => p.id === showComments)?.comments_count || 0})</h3>
+            <button onClick={() => setShowComments(null)}><X size={20} opacity={0.5} /></button>
+          </header>
+          
+          <div className="comments-list">
+            {comments.length === 0 ? (
+              <p className="no-comments">Ninguém mandou o papo ainda... 🎤</p>
+            ) : (
+              comments.map(c => (
+                <div key={c.id} className="comment-item">
+                  <img src={c.profiles?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + c.user_id} />
+                  <div className="comment-body">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <strong>@{c.profiles?.username}</strong>
+                      <UserBadges badges={c.profiles?.badges} donatedAmount={c.profiles?.total_donated} size={14} />
+                    </div>
+                    <p>{c.content}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="comment-footer">
+            <input 
+              type="text" 
+              placeholder="Manda seu papo..." 
+              value={newComment}
+              onChange={e => setNewComment(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSendComment()}
+            />
+            <button onClick={handleSendComment} disabled={sendingComment || !newComment.trim()}>
+              {sendingComment ? <Loader2 className="animate-spin" size={18} /> : <Send size={20} />}
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
     </>
   );
