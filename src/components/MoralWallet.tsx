@@ -125,8 +125,9 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       });
 
       if (error || !data?.url) {
-        const errorMsg = data?.details || error?.message || 'Erro ao gerar link de pagamento.';
-        throw new Error(errorMsg);
+        // Tenta pegar o erro detalhado vindo do servidor
+        const serverError = error?.context?.json?.details || error?.message || 'Erro ao gerar link de pagamento.';
+        throw new Error(serverError);
       }
 
       // REDIRECIONAR PARA A STRIPE
