@@ -94,37 +94,34 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
 
   async function handleBuy(amount: number, reais: number, label: string) {
     if (buying || !amount || amount <= 0 || isNaN(amount)) return;
+    
     setSelectedPkg({ moral: amount, reais: reais, label: label });
     setBuying(true);
     setBuyStep('processing');
 
-    // BUSCAR API TOKEN (Idealmente viria de um .env ou config do banco)
-    // Para teste, usaremos o Token de Sandbox ou o que o usuário configurar
-    const PUSHINPAY_TOKEN = 'COLOQUE_SEU_TOKEN_AQUI'; // <--- O usuário deve substituir aqui
+    try {
+      // Chamando a nossa Edge Function do Supabase
+      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+        body: {
+          amount: reais,
+          moralAmount: amount,
+          userId: session.user.id,
+          userName: profile.username || 'Usuario Vellar'
+        }
+      });
 
-    if (PUSHINPAY_TOKEN === 'COLOQUE_SEU_TOKEN_AQUI') {
-        // Se não houver token, voltamos ao modo Simulado para não quebrar
-        await new Promise(r => setTimeout(r, 1500));
-        setQrCodeData('vellar-pay-demo-code');
-        setBuyStep('pix');
-        return;
-    }
+      if (error || !data?.url) {
+        throw new Error(error?.message || 'Erro ao gerar link de pagamento.');
+      }
 
-    const res = await createPixPayment(PUSHINPAY_TOKEN, {
-      amount: reais,
-      userId: session.user.id,
-      userName: profile.username,
-      userCpf: '' // Não obrigatório se o gateway permitir ocultar
-    });
+      // REDIRECIONAR PARA A STRIPE
+      window.location.href = data.url;
 
-    if (res && res.pix_code) {
-      setQrCodeData(res.pix_code);
-      setPixQrImageUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(res.pix_code)}`);
-      setBuyStep('pix');
-    } else {
+    } catch (err: any) {
+      console.error("Erro no checkout Stripe:", err);
       setBuying(false);
       setBuyStep('idle');
-      alert('Erro ao conectar com o Gateway de Pagamentos. Verifique se seu Token está correto!');
+      alert(`Erro: ${err.message || 'Não foi possível iniciar o pagamento. Tente novamente.'}`);
     }
   }
 
@@ -403,10 +400,10 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
               </div>
            )}
 
-           <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
+            <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
               <div style={{ color: 'var(--primary)' }}><ShieldCheck size={20} /></div>
-              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong>Vellar Gateway (Vellar Pay)</strong>. O recibo aparecerá em nome da plataforma parceira no seu banco.</p>
-           </div>
+              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong>Stripe (Vellar Pay)</strong> com ambiente seguro e criptografado.</p>
+            </div>
         </div>
       )}
 
