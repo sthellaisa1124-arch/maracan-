@@ -21,6 +21,7 @@ import {
   MessageCircle, Plus, Eye, Video, Home, Star, Shield, X, Users, Radio, Camera
 } from 'lucide-react';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 type TabType = 'chat' | 'profile' | 'admin' | 'notifications' | 'community' | 'messages' | 'avista';
 
@@ -44,6 +45,9 @@ function App() {
   const [globalStatusGroup, setGlobalStatusGroup] = useState<any>(null);
   const [globalStatusInitialId, setGlobalStatusInitialId] = useState<string | null>(null);
   const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
+
+  // Inicializar Notificações Push
+  usePushNotifications(session?.user?.id);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
