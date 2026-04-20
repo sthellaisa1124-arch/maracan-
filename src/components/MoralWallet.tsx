@@ -125,7 +125,8 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       });
 
       if (error || !data?.url) {
-        throw new Error(error?.message || 'Erro ao gerar link de pagamento.');
+        const errorMsg = data?.details || error?.message || 'Erro ao gerar link de pagamento.';
+        throw new Error(errorMsg);
       }
 
       // REDIRECIONAR PARA A STRIPE
@@ -479,8 +480,8 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
               {buyStep === 'processing' && (
                 <div style={{ padding: '2rem 0' }}>
                    <Loader2 size={48} className="animate-spin" color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
-                   <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem' }}>Gerando seu PIX...</h3>
-                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>Só um segundo, cria!</p>
+                   <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem' }}>Preparando Pagamento...</h3>
+                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>Você será redirecionado para o ambiente seguro da Stripe.</p>
                 </div>
               )}
 

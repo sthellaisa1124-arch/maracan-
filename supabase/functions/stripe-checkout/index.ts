@@ -13,7 +13,12 @@ serve(async (req) => {
   }
 
   try {
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
+    const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!stripeKey) {
+      throw new Error('A chave STRIPE_SECRET_KEY não foi configurada nos Secrets do Supabase! 😱');
+    }
+
+    const stripe = new Stripe(stripeKey, {
       apiVersion: '2022-11-15',
       httpClient: Stripe.createFetchHttpClient(),
     })
@@ -23,13 +28,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    const { amount, moralAmount, userId, userName } = await req.json()
+    const body = await req.json()
+    const { amount, moralAmount, userId, userName } = body
+
+    console.log("DADOS RECEBIDOS NO CHECKOUT:", { amount, moralAmount, userId, userName });
 
     if (!amount || !userId) {
-      throw new Error('Aonde tu vai sem o valor ou o ID do usuário, cria? 🤨')
+      throw new Error(`Dados incompletos! Amount: ${amount}, User: ${userId}`);
     }
 
-    console.log(`Iniciando Checkout Stripe para: ${userName} - R$ ${amount}`)
+    const origin = req.headers.get('origin') || 'https://vellar-teal.vercel.app';
 
     // Criar a Sessão de Checkout na Stripe
     const session = await stripe.checkout.sessions.create({
@@ -41,7 +49,6 @@ serve(async (req) => {
             product_data: {
               name: `${moralAmount} Morais - Vellar App`,
               description: `Crédito de moedas virtuais para a plataforma Vellar`,
-              // images: ['https://vellar.app/logo.png'], // Opcional
             },
             unit_amount: Math.round(amount * 100), // Stripe usa centavos
           },
@@ -49,8 +56,8 @@ serve(async (req) => {
         },
       ],
       mode: 'payment',
-      success_url: `${req.headers.get('origin')}/?payment=success`,
-      cancel_url: `${req.headers.get('origin')}/?payment=cancel`,
+      success_url: `${origin}/?payment=success`,
+      cancel_url: `${origin}/?payment=cancel`,
       metadata: {
         userId: userId,
         moralAmount: moralAmount.toString(),
@@ -83,13 +90,17 @@ serve(async (req) => {
       }
     )
 
-  } catch (error: any) {
-    console.error("Erro no Checkout:", error.message)
+  } catch (err: any) {
+    console.error("ERRO NO CHECKOUT STRIPE:", err.message);
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: err.message,
+        details: err.raw?.message || "Erro desconhecido na API da Stripe."
+      }),
       { 
-        status: 400, 
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } 
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, 
+        status: 400 
       }
     )
   }
