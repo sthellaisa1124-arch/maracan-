@@ -20,8 +20,7 @@ CREATE POLICY "Usuários atualizam apenas nome e foto" ON profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (
     is_admin() OR (
-      is_admin = (SELECT is_admin FROM profiles WHERE id = auth.uid()) AND
-      plan_type = (SELECT plan_type FROM profiles WHERE id = auth.uid())
+      is_admin = (SELECT is_admin FROM profiles WHERE id = auth.uid())
     )
   );
 
@@ -43,8 +42,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.handle_new_user() 
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, first_name, last_name, username, plan_type)
-  VALUES (new.id, new.raw_user_meta_data->>'first_name', new.raw_user_meta_data->>'last_name', new.raw_user_meta_data->>'username', 'comunitário');
+  INSERT INTO public.profiles (id, first_name, last_name, username, moral_balance)
+  VALUES (new.id, new.raw_user_meta_data->>'first_name', new.raw_user_meta_data->>'last_name', new.raw_user_meta_data->>'username', 40);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

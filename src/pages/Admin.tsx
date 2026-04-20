@@ -29,24 +29,14 @@ interface UserProfile {
   created_at: string;
   is_admin: boolean;
   avatar_url?: string;
-  plan_type: string;
+
   daily_msg_count: number;
   account_role?: string;
   badges?: string[];
   moral_balance?: number;
 }
 
-interface PlanRequest {
-  id: string;
-  user_id: string;
-  plan_type: string;
-  status: string;
-  created_at: string;
-  user?: {
-    username: string;
-    avatar_url: string;
-  };
-}
+
 
 interface AdminLog {
   id: string;
@@ -61,10 +51,9 @@ interface AdminLog {
 
 export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, userProfile: any, session?: any, onBack?: () => void }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
-  const [requests, setRequests] = useState<PlanRequest[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [withdraws, setWithdraws] = useState<any[]>([]); // Novo estado para Saques
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users' | 'requests' | 'logs' | 'settings' | 'saques' | 'criadores'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users' | 'logs' | 'settings' | 'saques' | 'criadores'>('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -95,7 +84,7 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
 
   async function loadAdminData() {
     setLoading(true);
-    await Promise.all([fetchUsers(), fetchRequests(), fetchLogs(), fetchWithdraws(), fetchCreatorRequests()]);
+    await Promise.all([fetchUsers(), fetchLogs(), fetchWithdraws(), fetchCreatorRequests()]);
     setLoading(false);
   }
 
@@ -164,18 +153,7 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
     if (data) setUsers(data as UserProfile[]);
   }
 
-  async function fetchRequests() {
-    const { data } = await supabase
-      .from('plan_requests')
-      .select(`
-        *,
-        user:profiles(username, avatar_url)
-      `)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
-    
-    if (data) setRequests(data as any[]);
-  }
+
 
   async function fetchWithdraws() {
     const { data } = await supabase
@@ -231,47 +209,7 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
     }
   }
 
-  async function approveRequest(requestId: string, userId: string, planType: string) {
-    setLoading(true);
-    try {
-      const { error: profileError } = await supabase.from('profiles').update({ plan_type: planType }).eq('id', userId);
-      if (profileError) throw profileError;
 
-      const { error: reqError } = await supabase.from('plan_requests').update({ status: 'approved' }).eq('id', requestId);
-      if (reqError) throw reqError;
-
-      await supabase.from('notifications').insert({
-        user_id: userId,
-        title: '💎 Plano Liberado!',
-        message: `Papo reto, seu plano ${planType.toUpperCase()} foi aprovado! Explore as novidades agora. 🚀`
-      });
-
-      alert('Plano liberado com sucesso! O cria já é elite. 🚀');
-      loadAdminData();
-    } catch (err: any) {
-      alert('Erro ao aprovar: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function rejectRequest(requestId: string) {
-    if (!confirm('Deseja mesmo recusar esse pedido?')) return;
-    setLoading(true);
-    const { data: requestData } = await supabase.from('plan_requests').select('user_id').eq('id', requestId).single();
-    
-    await supabase.from('plan_requests').update({ status: 'rejected' }).eq('id', requestId);
-    
-    if (requestData) {
-      await supabase.from('notifications').insert({
-        user_id: requestData.user_id,
-        title: '⚠️ Pedido de Plano',
-        message: 'Seu pedido não foi aprovado dessa vez. Confira os dados do Pix e tente novamente, relíquia!'
-      });
-    }
-    
-    loadAdminData();
-  }
 
   if (loading) return <div className="loading-container" style={{height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center'}}><Loader2 className="animate-spin text-primary" style={{ animation: 'spin 2s linear infinite' }} size={48} /></div>;
 
@@ -320,7 +258,6 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
           {[
             { id: 'overview', icon: <LayoutDashboard size={18} />, label: 'Resumo' },
             { id: 'users', icon: <Users size={18} />, label: 'Crias' },
-            { id: 'requests', icon: <CreditCard size={18} />, label: 'Planos', count: requests.length },
             { id: 'saques', icon: <Wallet size={18} />, label: 'Saques FIXOS', count: withdraws.length },
             { id: 'logs', icon: <History size={18} />, label: 'Auditoria' },
             { id: 'criadores', icon: <Star size={18} />, label: 'Criadores', count: creatorRequests.length },
@@ -386,34 +323,7 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
         )}
 
         {/* --- Aba de Requests --- */}
-        {activeSubTab === 'requests' && (
-          <div className="admin-requests-grid">
-            <h2 style={{marginBottom: '1.5rem'}}>🚨 Pedidos de Upgrade (Pix)</h2>
-            {requests.length === 0 ? (
-              <p style={{opacity: 0.5}}>Nenhum pedido pendente, relíquia.</p>
-            ) : (
-              requests.map(req => (
-                <div key={req.id} className="request-card">
-                  <div className="req-user">
-                    <img src={req.user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.user?.username}`} className="mini-avatar" />
-                    <div>
-                      <p><strong>@{req.user?.username}</strong> quer ser <strong>{req.plan_type.toUpperCase()}</strong></p>
-                      <span style={{fontSize: '0.75rem', opacity: 0.5}}>Pedido em: {new Date(req.created_at).toLocaleString()}</span>
-                    </div>
-                  </div>
-                  <div className="req-actions">
-                    <button className="btn-approve" onClick={() => approveRequest(req.id, req.user_id, req.plan_type)}>
-                      <Check size={18} /> Aprovar
-                    </button>
-                    <button className="btn-reject" onClick={() => rejectRequest(req.id)}>
-                      <X size={18} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
+
 
         {/* --- Aba de Saques PIX --- */}
         {activeSubTab === 'saques' && (
@@ -506,7 +416,7 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                       <span className={`badge ${u.account_role === 'ceo' ? 'ceo-badge' : u.account_role === 'admin' ? 'admin-badge' : 'comunitário'}`} style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}>
+                       <span className={`badge ${u.account_role === 'ceo' ? 'ceo-badge' : u.account_role === 'admin' ? 'admin-badge' : 'user'}`} style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '8px' }}>
                           {(u.account_role || 'user').toUpperCase()}
                        </span>
                        {u.badges && u.badges.length > 0 && (

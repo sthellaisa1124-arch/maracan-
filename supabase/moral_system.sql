@@ -213,13 +213,13 @@ BEGIN
     new.raw_user_meta_data->>'first_name',
     new.raw_user_meta_data->>'last_name',
     new.raw_user_meta_data->>'username',
-    100   -- Bônus inicial
+    40   -- Bônus inicial reduzido para 40 conforme pedido
   )
   ON CONFLICT (id) DO NOTHING;
 
   -- Registrar bônus inicial
   INSERT INTO public.moral_transactions (sender_id, receiver_id, amount, type, description)
-  VALUES (NULL, new.id, 100, 'bonus', 'Bônus de boas-vindas — 100 Moral 🎉');
+  VALUES (NULL, new.id, 40, 'bonus', 'Bônus de boas-vindas — 40 Moral 🎉');
 
   RETURN NEW;
 END;
@@ -241,7 +241,7 @@ BEGIN
   LOOP
     UPDATE public.profiles SET moral_balance = 100 WHERE id = rec.id;
     INSERT INTO public.moral_transactions (sender_id, receiver_id, amount, type, description)
-    VALUES (NULL, rec.id, 100, 'bonus', 'Bônus retroativo de boas-vindas — 100 Moral 🎉');
+    VALUES (NULL, rec.id, 40, 'bonus', 'Bônus retroativo de boas-vindas — 40 Moral 🎉');
   END LOOP;
 END;
 $$;

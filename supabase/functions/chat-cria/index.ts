@@ -23,14 +23,6 @@ serve(async (req) => {
     const { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', userId).single()
     if (!profile) throw new Error('Perfil não encontrado no banco!')
 
-    const planLower = (profile.plan_type || 'comunitario').toLowerCase()
-    const limits: Record<string, number> = { comunitario: 10, cria: 70, barra: 200 }
-    const userLimit = limits[planLower] || 10
-    
-    if (profile.daily_msg_count >= userLimit) {
-      return new Response(JSON.stringify({ error: `🚨 LIMITE! Plano ${planLower.toUpperCase()} permite ${userLimit} msgs.` }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    }
-
     const apiKey = Deno.env.get('GROQ_API_KEY')
     
     // SISTEMA DE PERSONALIDADE REFINADO - COMPLEXO DA PENHA
@@ -109,9 +101,7 @@ Objetivo: Resposta autêntica, com suspense, espaçada e certeira.`;
 
     // IMAGENS DESATIVADAS A PEDIDO DO USUÁRIO
 
-    await supabaseClient.from('profiles').update({ daily_msg_count: (profile.daily_msg_count || 0) + 1 }).eq('id', userId)
-
-    const nearLimit = (userLimit - profile.daily_msg_count) <= 4;
+    const nearLimit = false; // Sistema de limite diário removido em favor do MORAL
 
     return new Response(JSON.stringify({ content: aiMessage, nearLimit }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (error: any) {
