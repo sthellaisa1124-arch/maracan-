@@ -96,83 +96,33 @@ export function Community({ profile, session, unreadCount = 0, onViewProfile, on
 
   async function fetchPosts() {
     setLoading(true);
-    let finalPosts = [];
-    
-    const { data: globalPosts } = await supabase
-      .from('user_posts')
-      .select('*, author:profiles(username, avatar_url, badges, total_donated)')
-      .order('is_pinned', { ascending: false })
-      .order('last_bumped_at', { ascending: false })
-      .limit(30);
-    
-    finalPosts = globalPosts || [];
-    setIsSocialFeed(false);
-
-    // Verificar se existe um pin ativo para o estado global
-    const now = new Date().toISOString();
-    const currentPin = finalPosts.find(p => p.is_pinned && p.pinned_until > now);
-    if (currentPin) {
-      setActivePin({
-        id: currentPin.id,
-        username: currentPin.author?.username || 'cria',
-        expires_at: currentPin.pinned_until
+    try {
+      const { data, error } = await supabase.rpc('get_community_feed', { 
+        p_user_id: session?.user?.id || null 
       });
-    } else {
-      setActivePin(null);
-    }
 
-    const postsWithStats = await Promise.all((finalPosts || []).map(async (post: any) => {
-      const { count: likesCount } = await supabase
-        .from('user_post_likes')
-        .select('id', { count: 'exact' })
-        .eq('post_id', post.id);
+      if (error) throw error;
 
-      const { count: commsCount } = await supabase
-        .from('user_post_comments')
-        .select('id', { count: 'exact' })
-        .eq('post_id', post.id);
-
-      const { count: viewsCount } = await supabase
-        .from('user_post_views')
-        .select('id', { count: 'exact' })
-        .eq('post_id', post.id);
-
-      let isLiked = false;
-      if (session?.user?.id) {
-        const { data: myLike } = await supabase
-          .from('user_post_likes')
-          .select('id')
-          .eq('post_id', post.id)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-        isLiked = !!myLike;
-
-        if (post.user_id !== session.user.id) {
-          await supabase.from('user_post_views').insert({ 
-            post_id: post.id, 
-            user_id: session.user.id 
-          });
-        }
+      // Sincronizar Pin Ativo
+      const now = new Date().toISOString();
+      const currentPin = data?.find((p: any) => p.is_pinned && p.pinned_until > now);
+      if (currentPin) {
+        setActivePin({
+          id: currentPin.id,
+          username: currentPin.author?.username || 'cria',
+          expires_at: currentPin.pinned_until
+        });
+      } else {
+        setActivePin(null);
       }
 
-      const { data: commentsList } = await supabase
-        .from('user_post_comments')
-        .select('*, author:profiles(username, avatar_url, badges, total_donated)')
-        .eq('post_id', post.id)
-        .order('created_at', { ascending: true });
-
-      return { 
-        ...post, 
-        likes_count: likesCount || 0, 
-        comments_count: commsCount || 0,
-        views_count: (viewsCount || 0) + (post.user_id !== session?.user?.id ? 1 : 0),
-        is_liked: isLiked,
-        comments_list: commentsList || []
-      };
-    }));
-
-    setPosts(postsWithStats);
-    setLoading(false);
+      setPosts(data || []);
+    } catch (err: any) {
+      console.error("Erro ao buscar feed:", err);
+      notify("Erro ao carregar a pista. 🛑", "error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const notify = (msg: string, typ = 'success') => {

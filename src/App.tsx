@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { PushPermissionModal } from './components/PushPermissionModal';
 
 type TabType = 'chat' | 'profile' | 'admin' | 'notifications' | 'community' | 'messages' | 'avista';
 
@@ -45,20 +46,43 @@ function App() {
   const [globalStatusGroup, setGlobalStatusGroup] = useState<any>(null);
   const [globalStatusInitialId, setGlobalStatusInitialId] = useState<string | null>(null);
   const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
+  const [showPushModal, setShowPushModal] = useState(false);
 
-  // Inicializar Notificações Push
-  usePushNotifications(session?.user?.id);
+  // Sistema de Notificações Push
+  const { subscribeUser } = usePushNotifications(session?.user?.id);
+
+  // Checar se deve mostrar o modal de push
+  useEffect(() => {
+    if (session && Notification.permission === 'default') {
+      const lastPrompt = localStorage.getItem('VELAR_PUSH_PROMPT_DATE');
+      const now = Date.now();
+      
+      // Só mostra se nunca mostrou ou se passou 3 dias desde a última vez
+      if (!lastPrompt || (now - parseInt(lastPrompt)) > 3 * 24 * 60 * 60 * 1000) {
+        const timer = setTimeout(() => setShowPushModal(true), 5000); // Mostra após 5 segundos de uso
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [session]);
+
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+    async function initApp() {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
       setSession(initialSession);
+      
       if (initialSession) {
-        fetchUserProfile(initialSession.user.id);
-        fetchUnreadCount(initialSession.user.id);
-        checkActiveLive(initialSession.user.id);
+        // Carrega tudo em paralelo para máxima velocidade 🚀
+        await Promise.all([
+          fetchUserProfile(initialSession.user.id),
+          fetchUnreadCount(initialSession.user.id),
+          checkActiveLive(initialSession.user.id)
+        ]);
       }
       setLoading(false);
-    });
+    }
+
+    initApp();
 
     const { data: { subscription: authSubs } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
@@ -541,6 +565,25 @@ function App() {
           onRefresh={() => {}}
           onViewProfile={onViewProfile}
           initialStatusId={globalStatusInitialId}
+        />
+      )}
+
+      {/* ── MODAL DE PERMISSÃO PUSH ── */}
+      {showPushModal && (
+        <PushPermissionModal 
+          onAccept={async () => {
+            setShowPushModal(false);
+            localStorage.setItem('VELAR_PUSH_PROMPT_DATE', Date.now().toString());
+            const success = await subscribeUser();
+            if (success) {
+              setToast({ msg: 'Notificações ativas! 🚀🏙️', typ: 'success' });
+              setTimeout(() => setToast(null), 3000);
+            }
+          }}
+          onDecline={() => {
+            setShowPushModal(false);
+            localStorage.setItem('VELAR_PUSH_PROMPT_DATE', Date.now().toString());
+          }}
         />
       )}
 

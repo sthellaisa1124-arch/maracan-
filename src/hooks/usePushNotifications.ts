@@ -4,53 +4,49 @@ import { supabase } from '../lib/supabase';
 const VAPID_PUBLIC_KEY = 'BAqQ9OZxN_HPNxvhNv8XWjkrg6hW9PCIOgZPnQvZ4wp12eEYg2efnkR0TX5d5MnSn6LcYTOtoia866rznJr2edA';
 
 export function usePushNotifications(userId: string | undefined) {
-  useEffect(() => {
+  async function subscribeUser() {
     if (!userId) return;
 
-    async function setupPush() {
-      try {
-        // 1. Verificar suporte
-        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-          console.warn('Push não suportado neste navegador.');
-          return;
-        }
-
-        // 2. Registrar Service Worker se não estiver
-        const registration = await navigator.serviceWorker.ready;
-
-        // 3. Verificar permissão
-        let permission = Notification.permission;
-        if (permission === 'default') {
-          permission = await Notification.requestPermission();
-        }
-
-        if (permission !== 'granted') return;
-
-        // 4. Se inscrever no serviço de Push do navegador
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-        });
-
-        // 5. Salvar no Supabase
-        const p256dh = btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')!) as any));
-        const auth = btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')!) as any));
-
-        await supabase.from('push_subscriptions').upsert({
-          user_id: userId,
-          endpoint: subscription.endpoint,
-          p256dh,
-          auth
-        }, { onConflict: 'user_id,endpoint' });
-
-        console.log('Push registrado com sucesso! 🚀');
-      } catch (err) {
-        console.error('Erro ao configurar Push:', err);
+    try {
+      // 1. Verificar suporte
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push não suportado neste navegador.');
+        return false;
       }
-    }
 
-    setupPush();
-  }, [userId]);
+      // 2. Registrar/Pegar Service Worker
+      const registration = await navigator.serviceWorker.ready;
+
+      // 3. Solicitar permissão (Aqui abre o prompt nativo)
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return false;
+
+      // 4. Se inscrever no serviço de Push do navegador
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+
+      // 5. Salvar no Supabase
+      const p256dh = btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh')!) as any));
+      const auth = btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth')!) as any));
+
+      await supabase.from('push_subscriptions').upsert({
+        user_id: userId,
+        endpoint: subscription.endpoint,
+        p256dh,
+        auth
+      }, { onConflict: 'user_id,endpoint' });
+
+      console.log('Push registrado com sucesso! 🚀');
+      return true;
+    } catch (err) {
+      console.error('Erro ao configurar Push:', err);
+      return false;
+    }
+  }
+
+  return { subscribeUser };
 }
 
 // Auxiliar para converter a chave VAPID
