@@ -24,6 +24,8 @@ import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { PushPermissionModal } from './components/PushPermissionModal';
 import { SupportModal } from './components/SupportModal';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
 
 type TabType = 'chat' | 'profile' | 'admin' | 'notifications' | 'community' | 'messages' | 'avista';
 
@@ -49,6 +51,8 @@ function App() {
   const [toast, setToast] = useState<{msg: string; typ: string} | null>(null);
   const [showPushModal, setShowPushModal] = useState(false);
   const [showDirectSupport, setShowDirectSupport] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
 
   // Sistema de Notificações Push
   const { subscribeUser } = usePushNotifications(session?.user?.id);
@@ -290,17 +294,21 @@ function App() {
             VELAR ESTÁ CHEGANDO...
           </p>
         </div>
-      ) : !session ? (
+      ) : (!session && !showTerms && !showPrivacy) ? (
         <>
-          <Auth />
+          <Auth onShowTerms={() => setShowTerms(true)} onShowPrivacy={() => setShowPrivacy(true)} />
           {showDirectSupport && (
             <SupportModal isPublic onClose={() => setShowDirectSupport(false)} />
           )}
         </>
       ) : (
         <>
-          {/* ── LAYOUT PRINCIPAL ── */}
-          <div className={`dashboard-layout ${(activeTab as string) === 'avista' ? 'is-avista' : ''} ${(activeTab as string) === 'chat' ? 'is-chat' : ''}`} style={{ paddingBottom: activeTab === 'chat' ? 0 : undefined }}>
+          {showTerms && <Terms onBack={() => setShowTerms(false)} />}
+          {showPrivacy && <Privacy onBack={() => setShowPrivacy(false)} />}
+
+          {/* ── LAYOUT PRINCIPAL (SÓ APARECE SE LOGADO E NÃO VENDO TERMOS) ── */}
+          {session && !showTerms && !showPrivacy && (
+            <div className={`dashboard-layout ${(activeTab as string) === 'avista' ? 'is-avista' : ''} ${(activeTab as string) === 'chat' ? 'is-chat' : ''}`} style={{ paddingBottom: activeTab === 'chat' ? 0 : undefined }}>
 
             {/* Sidebar Desktop (oculta no mobile via CSS) */}
             {(activeTab as string) !== 'avista' && (
@@ -422,6 +430,28 @@ function App() {
                     <Admin isAdmin={isAdmin} userProfile={userProfile} session={session} onBack={() => handleTabChange('profile')} />
                   )}
                 </div>
+
+                {/* ── FOOTER LEGAL (OBRIGATÓRIO PARA GATEWAYS) ── */}
+                {activeTab !== 'avista' && activeTab !== 'chat' && (
+                  <footer style={{ padding: '3rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                    <div style={{ maxWidth: '600px', mx: 'auto' }}>
+                      <span className="vellar-neon-logo" style={{ fontSize: '1.2rem', marginBottom: '1rem', display: 'block' }}>
+                        VELL<span className="logo-r">Λ</span>R
+                      </span>
+                      <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                        A primeira plataforma de entretenimento e conexões reais do cria. Feito para quem vive a rua e domina a rede.
+                      </p>
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                        <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>Termos</button>
+                        <button onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>Privacidade</button>
+                        <button onClick={() => setShowDirectSupport(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', textTransform: 'uppercase' }}>Suporte</button>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.2)', fontWeight: 600 }}>
+                        © 2026 VELLAR • APOIO AO CRIA: vellarcria.01@gmail.com
+                      </div>
+                    </div>
+                  </footer>
+                )}
               </div>
             </main>
 
@@ -458,6 +488,7 @@ function App() {
               />
             )}
           </div>
+        )}
 
           {/* ── MOBILE NAV — fora do dashboard para position:fixed funcionar ── */}
           {(activeTab !== 'avista' && activeTab !== 'chat' && activeTab !== 'messages' && !activeLiveRoom) && (

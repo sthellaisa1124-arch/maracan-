@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { HelpCircle } from 'lucide-react';
 import { SupportModal } from '../components/SupportModal';
 
-export function Auth() {
+export function Auth({ onShowTerms, onShowPrivacy }: { onShowTerms: () => void, onShowPrivacy: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +158,15 @@ export function Auth() {
             {isLogin ? ' Cadastra logo essa porr*' : ' Faz o login aí!'}
           </span>
         </p>
+
+        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+          <p style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', lineHeight: '1.5', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Ao continuar, você concorda com nossos <br/>
+            <button type="button" onClick={onShowTerms} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 'inherit', fontWeight: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Termos de Uso</button>
+            {' '} e {' '}
+            <button type="button" onClick={onShowPrivacy} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 'inherit', fontWeight: 'inherit', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Política de Privacidade</button>
+          </p>
+        </div>
       </div>
 
       {showSupport && <SupportModal isPublic onClose={() => setShowSupport(false)} />}
