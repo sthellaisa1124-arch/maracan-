@@ -41,11 +41,31 @@ serve(async (req) => {
       throw new Error('Chaves VAPID não configuradas nos Secrets (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)')
     }
 
-    // 3. Preparar o conteúdo da notificação
+    // 3. Buscar dados do remetente para enriquecer a notificação
+    let senderName = 'Vellar'
+    let senderAvatar = 'https://dculnqqyxqtdynmcvqxk.supabase.co/storage/v1/object/public/system/vellar-icon-192.png'
+    
+    if (record.from_user_id) {
+      const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('id', record.from_user_id)
+        .single()
+      
+      if (profile) {
+        senderName = profile.username || 'Cria'
+        senderAvatar = profile.avatar_url || senderAvatar
+      }
+    }
+
+    // 4. Preparar o conteúdo da notificação (Padrão Elite)
     const payload = JSON.stringify({
-      title: record.title || 'Vellar',
-      message: record.message || 'Novidade na área, relíquia!',
-      url: `/`, // Pode ser customizado dependendo do tipo (ex: /notifications)
+      title: senderName,
+      message: record.message || 'Mandou algo novo na pista!',
+      avatar_url: senderAvatar,
+      from_user_id: record.from_user_id,
+      url: record.post_id ? `/post/${record.post_id}` : '/direct',
+      tag: record.from_user_id ? `msg-${record.from_user_id}` : 'system'
     })
 
     // 4. Enviar para todos os dispositivos inscritos

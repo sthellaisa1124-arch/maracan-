@@ -46,14 +46,17 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.message,
-    icon: '/vellar-icon-192.png', // Logo V
-    badge: '/vellar-icon-192.png',
+    icon: data.avatar_url || '/vellar-icon-192.png',
+    badge: '/vellar-badge.png', // Ícone branco nítido na barra de status
+    tag: data.tag || 'vellar-msg', // Agrupamento por conversa
+    renotify: true,
     data: {
       url: data.url || '/'
     },
-    vibrate: [100, 50, 100],
+    vibrate: [200, 100, 200],
     actions: [
-      { action: 'open', title: 'Ver Agora' }
+      { action: 'open', title: 'Abrir Chat', icon: '/vellar-icon-192.png' },
+      { action: 'reply', title: 'Responder Agora', type: 'text', placeholder: 'Diz aí...' }
     ]
   };
 
@@ -68,18 +71,23 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  // Se for uma resposta rápida
+  if (event.action === 'reply' && event.reply) {
+    console.log('Usuário respondeu via notificação:', event.reply);
+    // Aqui poderíamos enviar direto para uma API, mas por segurança 
+    // e UX abrimos o chat com o parâmetro de resposta
+  }
+
   const urlToOpen = event.notification.data.url || '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Se já tiver uma aba aberta, foca nela
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url.includes(urlToOpen) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Se não, abre uma nova
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }
