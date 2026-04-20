@@ -205,6 +205,7 @@ export function Avista({
     } catch (e) { console.error('Erro fetching lives:', e); }
   }
 
+  async function fetchFollowingList() {
     const { data } = await supabase
       .from('follows')
       .select('following_id, profiles!following_id(id, username, avatar_url, badges)')
@@ -1569,6 +1570,15 @@ function RankingBottomSheet({ onClose, onViewProfile }: { onClose: () => void; o
           </span>
         </div>
 
+        {/* Conteúdo rolável */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem 2rem', overscrollBehavior: 'contain' }}>
+          <MoralRanking onViewProfile={onViewProfile} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── COMPONENTE: ShareModal ──────────────────────────────────────
 function ShareModal({ post, friends, onClose, onShareInternal, onShareExternal }: { 
   post: any, 
@@ -1665,15 +1675,6 @@ function ShareModal({ post, friends, onClose, onShareInternal, onShareExternal }
         </button>
       </div>
     </div>
-  );
-}
-
-        {/* Conteúdo rolável */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem 2rem', overscrollBehavior: 'contain' }}>
-          <MoralRanking onViewProfile={onViewProfile} />
-        </div>
-      </div>
-    </>
   );
 }
 
