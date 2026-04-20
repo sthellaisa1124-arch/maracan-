@@ -70,6 +70,20 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
 
   useEffect(() => {
     loadData();
+
+    // Detecção de Sucesso no Pagamento (Vindo da Stripe)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success') {
+      // Pequeno delay para a RPC terminar de processar o webhook
+      setTimeout(() => {
+        loadData();
+        setBuyStep('done');
+        setBuying(true); // Abre o modal no passo "done"
+      }, 1000);
+      
+      // Limpar a URL para não ficar aparecendo success toda hora
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, [session?.user?.id]);
 
   async function loadData() {
