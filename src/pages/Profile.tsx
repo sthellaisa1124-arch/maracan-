@@ -354,9 +354,16 @@ export function Profile({
 
                  <button 
                    onClick={() => setSettingsTab('criador')}
-                   style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--separator)', color: '#fff', padding: '1.2rem 1rem', borderRadius: '0.5rem', textAlign: 'left', fontWeight: 600, cursor: 'pointer', marginBottom: '0.75rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '1.2rem 1rem', borderRadius: '0.5rem', textAlign: 'left', fontWeight: 600, cursor: 'pointer', marginBottom: '0.75rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
                  >
                    🎬 Área do Criador
+                 </button>
+
+                 <button 
+                   onClick={() => setSettingsTab('suporte')}
+                   style={{ background: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168, 85, 247, 0.4)', color: '#fff', padding: '1.2rem 1rem', borderRadius: '0.5rem', textAlign: 'left', fontWeight: 900, cursor: 'pointer', marginBottom: '0.75rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}
+                 >
+                   🎧 Ajuda & Suporte
                  </button>
               </div>
             )}
@@ -381,7 +388,7 @@ export function Profile({
                        <ArrowLeft size={24} />
                     </button>
                     <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', margin: 0 }}>
-                       {settingsTab === 'conta' ? 'Central de Contas' : settingsTab === 'moral' ? 'Minha Moral' : 'Ranks & Evolução'}
+                       {settingsTab === 'conta' ? 'Central de Contas' : settingsTab === 'moral' ? 'Minha Moral' : settingsTab === 'rank' ? 'Ranks & Evolução' : 'Suporte'}
                     </h2>
                  </div>
 
@@ -446,6 +453,10 @@ export function Profile({
                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '2rem' }}>Acompanhe seu progresso e suba na hierarquia da VELAR.</p>
                  <UserRankProgress userProfile={profile} />
                </>
+               )}
+
+               {settingsTab === 'suporte' && (
+                 <SupportModal userId={session.user.id} onClose={() => setSettingsTab('menu')} />
                )}
                </>
                )}
