@@ -51,6 +51,11 @@ export function Avista({
   const viewTimers = useRef<Map<string, any>>(new Map());
   const lastViewCall = useRef<Map<string, number>>(new Map());
   const [topDonorsMap, setTopDonorsMap] = useState<Map<string, any[]>>(new Map());
+  const [showShareModal, setShowShareModal] = useState<any | null>(null);
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [shareSearch, setShareSearch] = useState('');
+  const [showLikeBurst, setShowLikeBurst] = useState<string | null>(null);
+  const lastClickRef = useRef<number>(0);
 
   useEffect(() => {
     fetchAvistaPosts();
@@ -200,13 +205,80 @@ export function Avista({
     } catch (e) { console.error('Erro fetching lives:', e); }
   }
 
-  async function fetchFollowingList() {
     const { data } = await supabase
       .from('follows')
-      .select('following_id')
+      .select('following_id, profiles!following_id(id, username, avatar_url, badges)')
       .eq('follower_id', session.user.id);
-    if (data) setFollowingMap(new Set(data.map((f: any) => f.following_id)));
+    if (data) {
+      setFollowingMap(new Set(data.map((f: any) => f.following_id)));
+      setFollowingList(data.map((f: any) => f.profiles));
+    }
   }
+
+  async function handleVideoClick(post: any) {
+    const now = Date.now();
+    const video = videoRefs.current.get(post.id);
+    
+    // Detecção de Clique Duplo (Double Click to Like)
+    if (now - lastClickRef.current < 300) {
+      if (!post.is_liked) {
+        toggleLike(post);
+      }
+      setShowLikeBurst(post.id);
+      setTimeout(() => setShowLikeBurst(null), 800);
+      lastClickRef.current = 0; // Reset para evitar triplo clique
+      return;
+    }
+
+    lastClickRef.current = now;
+
+    // Clique Simples: Play/Pause (com delay para não conflitar com double click)
+    setTimeout(() => {
+      if (Date.now() - lastClickRef.current >= 300 && lastClickRef.current !== 0) {
+        if (video) {
+          video.paused ? video.play() : video.pause();
+        }
+      }
+    }, 300);
+  }
+
+  async function shareInternally(targetUserId: string, post: any) {
+    if (!session) return;
+    
+    const shareMsg = `🔥 Se liga nesse conteúdo que achei no AVISTA! \n\nhttps://vellar-teal.vercel.app/?id=${post.id}`;
+    
+    const { error } = await supabase.from('direct_messages').insert({
+      sender_id: session.user.id,
+      receiver_id: targetUserId,
+      content: shareMsg,
+      is_forwarded: true
+    });
+
+    if (!error) {
+      alert("Enviado com sucesso! 🚀");
+    } else {
+      console.error("Erro ao compartilhar:", error);
+    }
+  }
+
+  const handleExternalShare = async (post: any) => {
+    const shareData = {
+      title: 'Vellar Elite',
+      text: `Se liga nesse conteúdo no Vellar! A única plataforma de elite 🏙️🔥`,
+      url: `https://vellar-teal.vercel.app/?id=${post.id}`
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        alert('Link copiado! Chame os crias pro Vellar! 🔥');
+      }
+    } catch (err) {
+      console.error('Erro ao compartilhar:', err);
+    }
+  };
 
   async function toggleFollow(targetUserId: string) {
     if (!session) return;
@@ -684,11 +756,15 @@ export function Avista({
                 playsInline
                 preload={activeVideoId === post.id || isNext ? "auto" : "none"}
                 onPlay={(e) => (e.target as HTMLVideoElement).parentElement?.classList.add('loaded')}
-                onClick={(e) => {
-                  const v = e.target as HTMLVideoElement;
-                  v.paused ? v.play() : v.pause();
-                }}
+                onClick={() => handleVideoClick(post)}
               />
+
+              {/* ANIMAÇÃO DE LIKE (CORAÇÃO PULSANTE) */}
+              {showLikeBurst === post.id && (
+                <div className="avista-like-animation">
+                  <Heart size={120} fill="#fff" stroke="none" />
+                </div>
+              )}
 
               {/* TOP APOIADORES IN-VIDEO FOI MOVIDO PARA AVISTA-ACTIONS */}
 
@@ -792,6 +868,11 @@ export function Avista({
               <button className="avista-action-btn" onClick={() => { setShowComments(post.id); fetchComments(post.id); }}>
                 <MessageCircle size={38} strokeWidth={2.5} />
                 <span>{formatCount(post.comments_count || 0)}</span>
+              </button>
+
+              <button className="avista-action-btn" onClick={() => setShowShareModal(post)}>
+                <Send size={38} strokeWidth={2.5} />
+                <span style={{ fontSize: '0.7rem', marginTop: '2px' }}>SHARE</span>
               </button>
 
 
@@ -1066,6 +1147,17 @@ export function Avista({
             setHostLive(null);
             fetchActiveLives(true);
           }}
+        />
+      )}
+
+      {/* MODAL DE COMPARTILHAMENTO (AMIGOS E EXTERNO) */}
+      {showShareModal && (
+        <ShareModal 
+          post={showShareModal}
+          friends={followingList}
+          onClose={() => setShowShareModal(null)}
+          onShareInternal={(uId) => shareInternally(uId, showShareModal)}
+          onShareExternal={() => handleExternalShare(showShareModal)}
         />
       )}
     </>
@@ -1476,6 +1568,105 @@ function RankingBottomSheet({ onClose, onViewProfile }: { onClose: () => void; o
             {isFull ? '↓ encolher' : '↑ expandir'}
           </span>
         </div>
+
+// ── COMPONENTE: ShareModal ──────────────────────────────────────
+function ShareModal({ post, friends, onClose, onShareInternal, onShareExternal }: { 
+  post: any, 
+  friends: any[], 
+  onClose: () => void, 
+  onShareInternal: (uid: string) => void,
+  onShareExternal: () => void
+}) {
+  const [search, setSearch] = useState('');
+  
+  const filteredFriends = friends.filter(f => 
+    f.username?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div 
+      className="avista-share-modal-overlay" 
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 300000,
+        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
+      }}
+    >
+      <div 
+        className="avista-share-modal"
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: '480px', background: '#111118',
+          borderRadius: '24px 24px 0 0', border: '1px solid rgba(255,255,255,0.1)',
+          padding: '1.5rem', maxHeight: '80vh', display: 'flex', flexDirection: 'column'
+        }}
+      >
+        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, margin: '0 auto 1.5rem' }} />
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 900 }}>Compartilhar</h3>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', borderRadius: '50%', width: 32, height: 32 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+          <Search size={18} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+          <input 
+            type="text" 
+            placeholder="Pesquisar amigos..." 
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '12px', padding: '10px 15px 10px 40px', color: '#fff', fontSize: '0.9rem'
+            }}
+          />
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', minHeight: '200px' }}>
+          <p style={{ fontSize: '0.75rem', fontWeight: 800, color: 'rgba(255,255,255,0.4)', marginBottom: '1rem', textTransform: 'uppercase' }}>
+            Amigos que você saca
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {filteredFriends.length === 0 ? (
+              <p style={{ textAlign: 'center', opacity: 0.5, fontSize: '0.9rem', padding: '1rem' }}>Ninguém encontrado 😕</p>
+            ) : (
+              filteredFriends.map(friend => (
+                <div key={friend.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={friend.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.id}`} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
+                    <span style={{ fontWeight: 700 }}>@{friend.username}</span>
+                  </div>
+                  <button 
+                    onClick={() => onShareInternal(friend.id)}
+                    style={{ background: 'var(--primary)', border: 'none', color: '#fff', padding: '6px 15px', borderRadius: '20px', fontWeight: 800, fontSize: '0.75rem' }}
+                  >
+                    ENVIAR
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <button 
+          onClick={onShareExternal}
+          style={{
+            width: '100%', background: '#fff', color: '#000', border: 'none',
+            borderRadius: '12px', padding: '12px', fontWeight: 900, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: '8px'
+          }}
+        >
+          <Send size={18} />
+          OUTROS / COPIAR LINK
+        </button>
+      </div>
+    </div>
+  );
+}
 
         {/* Conteúdo rolável */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 1rem 2rem', overscrollBehavior: 'contain' }}>

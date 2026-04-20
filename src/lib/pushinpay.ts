@@ -20,12 +20,15 @@ export interface PixTransactionResponse {
   status: string;
 }
 
+import { supabase } from './supabase';
+
 /**
  * Gera uma nova cobrança PIX na PushinPay
  */
 export async function createPixPayment(
   token: string, 
-  data: PixTransactionRequest
+  data: PixTransactionRequest,
+  moraisAmount: number
 ): Promise<PixTransactionResponse | null> {
   try {
     const response = await fetch(`${PUSHINPAY_API_URL}/pix/cashin`, {
@@ -36,9 +39,8 @@ export async function createPixPayment(
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        value: data.amount, // Valor em Reais
-        external_id: `${data.userId}_${Date.now()}`,
-        callback_url: `${window.location.origin}/api/webhook/pushinpay`, // URL de Webhook (A configurar)
+        value: data.amount, // Valor em Reais (ex: 10.00)
+        external_id: `vellar_${data.userId}_${Date.now()}`,
       })
     });
 
@@ -48,7 +50,24 @@ export async function createPixPayment(
       return null;
     }
 
-    return await response.json();
+    const payData: PixTransactionResponse = await response.json();
+
+    // REGISTRO NO BANCO (Log para o Webhook)
+    // Isso é o que garante que o saldo caia na conta do usuário automaticamente
+    const { error: logError } = await supabase.rpc('log_moral_purchase_attempt', {
+      p_amount: moraisAmount,
+      p_reais: data.amount,
+      p_external_id: payData.id, // O ID real da transação na PushinPay
+      p_pix_code: payData.pix_code
+    });
+
+    if (logError) {
+      console.error('Erro ao registrar log de compra:', logError);
+      // Mesmo com erro no log, retornamos os dados pro usuário poder pagar, 
+      // mas o automático pode falhar.
+    }
+
+    return payData;
   } catch (error) {
     console.error('PushinPay Integration Error:', error);
     return null;

@@ -161,13 +161,22 @@ function App() {
     };
     window.addEventListener('handleNotificationAction', handleNotificationAction);
 
-    // Deep Linking: Checar se a URL pede suporte direto (?support=true)
+    // Deep Linking: Checar se a URL pede suporte direto (?support=true) ou um post do AVISTA (?id=XXX)
     const params = new URLSearchParams(window.location.search);
-    if (params.get('support') === 'true') {
+    const supportParam = params.get('support');
+    const avistaPostId = params.get('id');
+
+    if (supportParam === 'true') {
       setTimeout(() => {
         setShowDirectSupport(true);
         window.history.replaceState({}, document.title, window.location.pathname);
       }, 500);
+    } else if (avistaPostId) {
+      setTimeout(() => {
+        setAvistaInitialPostId(avistaPostId);
+        setActiveTab('avista');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }, 300);
     }
 
     return () => {
