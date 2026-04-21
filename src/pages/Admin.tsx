@@ -440,8 +440,11 @@ export function Admin({ isAdmin, userProfile, onBack }: { isAdmin: boolean, user
             ) : (
               withdraws.map(w => (
                 <div key={w.id} className="request-card" style={{ borderLeft: '4px solid #ef4444', display: 'flex', flexDirection: 'column' }}>
-                  <div className="req-user" style={{ marginBottom: '1rem' }}>
-                    <img src={w.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${w.profiles?.username}`} className="mini-avatar" />
+                  <div className="req-user" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <img 
+                      src={w.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${w.profiles?.username}`} 
+                      style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(239, 68, 68, 0.2)' }} 
+                    />
                     <div>
                       <p><strong>@{w.profiles?.username}</strong> solicitou saque.</p>
                       <span style={{fontSize: '0.75rem', opacity: 0.5}}>Data do Pedido: {new Date(w.created_at).toLocaleString()}</span>
