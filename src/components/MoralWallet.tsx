@@ -23,6 +23,7 @@ import {
 import { createPixPayment } from '../lib/pushinpay';
 
 const PACKAGES = [
+  { reais: 1,  moral: 100,  label: 'R$ 1,00', popular: false },
   { reais: 5,  moral: 500,  label: 'R$ 5,00', popular: false },
   { reais: 10, moral: 1000, label: 'R$ 10,00', popular: true },
   { reais: 20, moral: 2000, label: 'R$ 20,00', popular: false },
