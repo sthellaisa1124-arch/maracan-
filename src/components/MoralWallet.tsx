@@ -91,10 +91,11 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
   async function verifyPaymentManually() {
     setVerifying(true);
     try {
-      if (returnedPaymentId) {
-        // Envia o ID real do pagamento que veio pela URL de retorno
+      const idToVerify = returnedPaymentId || pixPaymentId;
+      if (idToVerify) {
+        // Envia o ID real do pagamento que veio pela URL de retorno ou do gerador PIX
         await supabase.functions.invoke('mercadopago-webhook', {
-          body: { type: 'payment', data: { id: returnedPaymentId } }
+          body: { type: 'payment', data: { id: idToVerify } }
         });
         await new Promise(r => setTimeout(r, 2000));
       } else {
@@ -196,6 +197,14 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
 
       // Inicia pooling verificando o pagamento a cada 5s
       const pollObj = setInterval(async () => {
+         // Tenta acionar a verificação manual na edge function para contornar atrasos do Mercado Pago
+         try {
+           await supabase.functions.invoke('mercadopago-webhook', {
+             body: { type: 'payment', data: { id: data.payment_id } }
+           });
+         } catch(e) {}
+
+         // Verifica se o webhook processou
          const { data: logs } = await supabase.from('payment_logs').select('status').eq('user_id', session.user.id).eq('external_id', String(data.payment_id)).single();
          if (logs && logs.status === 'paid') {
            clearInterval(pollObj);
