@@ -584,7 +584,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
             </p>
             {pixQrBase64 && (
                <div style={{ background: '#fff', padding: '1rem', borderRadius: '1rem', display: 'inline-block', marginBottom: '1.5rem' }}>
-                 <img src={pixQrBase64} alt="QR Code PIX" style={{ width: '150px', height: '150px' }} />
+                 <img src={pixQrBase64.startsWith('data:') ? pixQrBase64 : `data:image/png;base64,${pixQrBase64}`} alt="QR Code PIX" style={{ width: '150px', height: '150px' }} />
                </div>
             )}
             <div style={{ marginBottom: '1.5rem' }}>
