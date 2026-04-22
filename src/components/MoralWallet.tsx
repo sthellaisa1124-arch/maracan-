@@ -19,9 +19,8 @@ import {
 } from 'lucide-react';
 
 const PACKAGES = [
-  { reais: 0.5, moral: 50,   label: 'R$ 0,50', popular: true },
-  { reais: 1,  moral: 100,  label: 'R$ 1,00', popular: false },
-  { reais: 5,  moral: 500,  label: 'R$ 5,00', popular: false },
+  { reais: 1,  moral: 100,  label: 'R$ 1,00',  popular: true  },
+  { reais: 5,  moral: 500,  label: 'R$ 5,00',  popular: false },
   { reais: 10, moral: 1000, label: 'R$ 10,00', popular: false },
   { reais: 20, moral: 2000, label: 'R$ 20,00', popular: false },
   { reais: 50, moral: 5000, label: 'R$ 50,00', popular: false },
@@ -300,14 +299,25 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                  <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>DIGITE A QUANTIDADE</span>
-                    <input type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="0" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', outline: 'none', margin: '0.5rem 0' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>DIGITE A QUANTIDADE DE MORAIS</span>
+                    <input type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="0" min="100" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', outline: 'none', margin: '0.5rem 0' }} />
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Você paga:</span>
                        <span style={{ color: '#4ade80', fontSize: '1.1rem', fontWeight: 900 }}>{customLabel}</span>
                     </div>
+                    {customReais > 0 && customReais < 1 && (
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 700 }}>
+                        ⚠️ Valor mínimo: R$ 1,00 (100 Morais)
+                      </p>
+                    )}
                  </div>
-                 <button onClick={() => handleBuy(Number(customAmount), customReais, customLabel)} style={{ width: '100%', padding: '1.2rem', background: 'var(--primary)', border: 'none', borderRadius: '1.25rem', color: '#000', fontSize: '1rem', fontWeight: 900, cursor: 'pointer' }}>PAGAR COM PIX / CARTÃO</button>
+                 <button
+                   onClick={() => handleBuy(Number(customAmount), customReais, customLabel)}
+                   disabled={!customAmount || customReais < 1}
+                   style={{ width: '100%', padding: '1.2rem', background: 'var(--primary)', border: 'none', borderRadius: '1.25rem', color: '#000', fontSize: '1rem', fontWeight: 900, cursor: (!customAmount || customReais < 1) ? 'not-allowed' : 'pointer', opacity: (!customAmount || customReais < 1) ? 0.4 : 1 }}
+                 >
+                   PAGAR COM PIX / CARTÃO
+                 </button>
               </div>
            )}
 
