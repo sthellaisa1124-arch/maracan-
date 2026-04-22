@@ -15,7 +15,9 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Info
+  Info,
+  X,
+  Copy
 } from 'lucide-react';
 
 const PACKAGES = [
@@ -190,6 +192,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       setPixQrBase64(data.pix_qr_base64 || null);
       setPixPaymentId(data.payment_id);
       setBuyStep('idle'); // Muda para idle pra poder exibir o modal do PIX Inline
+      setBuying(false); // Fecha o modal de "Abrindo Checkout Pro" para dar lugar ao PIX nativo
 
       // Inicia pooling verificando o pagamento a cada 5s
       const pollObj = setInterval(async () => {
@@ -473,13 +476,13 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(0,158,227,0.1)', border: '2px solid rgba(0,158,227,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
                   <Loader2 size={36} className="animate-spin" style={{ color: '#009ee3' }} />
                 </div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Abrindo Mercado Pago...</h3>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Iniciando Transação...</h3>
                 <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
-                  Você será redirecionado para o ambiente seguro do Mercado Pago para escolher entre <strong style={{ color: '#fff' }}>PIX, Cartão ou Débito</strong>.
+                  Aguarde enquanto preparamos seu pagamento de forma segura.
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(0,158,227,0.08)', borderRadius: '0.75rem', border: '1px solid rgba(0,158,227,0.2)' }}>
                   <ShieldCheck size={16} color="#009ee3" />
-                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Pagamento seguro processado pelo Mercado Pago</span>
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Ambiente protegido Vellar Pay</span>
                 </div>
               </div>
             )}
