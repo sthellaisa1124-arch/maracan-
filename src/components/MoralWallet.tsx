@@ -94,16 +94,22 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       const idToVerify = returnedPaymentId || pixPaymentId;
       if (idToVerify) {
         // Envia o ID real do pagamento que veio pela URL de retorno ou do gerador PIX
-        await supabase.functions.invoke('mercadopago-webhook', {
+        const { data: resData } = await supabase.functions.invoke('mercadopago-webhook', {
           body: { type: 'payment', data: { id: idToVerify } }
         });
+        
         await new Promise(r => setTimeout(r, 2000));
+
+        // Se o mercado pago retornou o status real da consulta
+        if (resData && resData.status && resData.status !== 'approved') {
+           alert('O Mercado Pago informou que o status atual do seu pagamento é: ' + resData.status.toUpperCase() + '. Se você já pagou, aguarde uns minutos pois eles estão processando.');
+        }
+
       } else {
         // Se não houver ID do pagamento, tenta buscar o log pendente 
         const { data: logs } = await supabase.from('payment_logs').select('*').eq('user_id', session.user.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
         if (logs && logs.length > 0) {
-          alert('Por favor, certifique-se de que o pagamento de ' + logs[0].moral_amount + ' morais foi concluído no Mercado Pago.');
-          // Como não temos o payment_id aqui, o webhook automático do MP tem que operar
+          alert('Por favor, certifique-se de que o pagamento de ' + logs[0].moral_amount + ' morais foi concluído. Caso o Mercado Pago esteja demorando a autorizar o PIX, ele cairá automaticamente assim que for liquidado pelo banco central.');
         }
       }
     } catch(e) {}
