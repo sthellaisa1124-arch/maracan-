@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { 
   Loader2, 
-  ShoppingCart, 
   History, 
   Zap, 
   Sparkles, 
@@ -12,15 +11,12 @@ import {
   ArrowDownLeft, 
   TrendingUp, 
   ShieldCheck,
-  ChevronRight,
   Wallet,
   Clock,
   CheckCircle2,
   XCircle,
-  Copy,
   Info
 } from 'lucide-react';
-import { createPixPayment } from '../lib/pushinpay';
 
 const PACKAGES = [
   { reais: 0.5, moral: 50,   label: 'R$ 0,50', popular: true },
@@ -53,17 +49,13 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<any>(null);
-  const [buyStep, setBuyStep] = useState<'idle' | 'processing' | 'pix' | 'done'>('idle');
+  const [buyStep, setBuyStep] = useState<'idle' | 'processing' | 'done'>('idle');
   const [animatedMoral, setAnimatedMoral] = useState(0);
 
-  // Estados para Abas
   const [mainTab, setMainTab] = useState<'overview' | 'buy' | 'withdraw'>('overview');
-
-  // Estados para recarga personalizada
   const [buyMode, setBuyMode] = useState<'packages' | 'custom'>('packages');
   const [customAmount, setCustomAmount] = useState<string>('');
 
-  // Estados para Saque (Withdraw)
   const [withdrawAmount, setWithdrawAmount] = useState<string>('');
   const [withdrawPixKey, setWithdrawPixKey] = useState('');
   const [withdrawPixType, setWithdrawPixType] = useState('cpf');
@@ -73,18 +65,16 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
   useEffect(() => {
     loadData();
 
-    // Detecção de Sucesso no Pagamento (Vindo da Stripe)
+    // Detecção de Sucesso no Pagamento (voltando do Mercado Pago)
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
-      // Pequeno delay para a RPC terminar de processar o webhook
+      window.history.replaceState({}, '', window.location.pathname);
+      // Aguarda até 5s para o webhook processar e creditar as moedas
       setTimeout(() => {
         loadData();
+        setBuying(true);
         setBuyStep('done');
-        setBuying(true); // Abre o modal no passo "done"
-      }, 1000);
-      
-      // Limpar a URL para não ficar aparecendo success toda hora
-      window.history.replaceState({}, '', window.location.pathname);
+      }, 4000);
     }
   }, [session?.user?.id]);
 
@@ -108,14 +98,9 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
     setLoading(false);
   }
 
-  const [pixPaymentId, setPixPaymentId] = useState<string | null>(null);
-  const [qrCodeData, setQrCodeData] = useState('');
-  const [pixQrImageUrl, setPixQrImageUrl] = useState('');
-  const [pixPollingRef, setPixPollingRef] = useState<any>(null);
-
   async function handleBuy(amount: number, reais: number, label: string) {
     if (buying || !amount || amount <= 0 || isNaN(amount)) return;
-    
+
     setSelectedPkg({ moral: amount, reais: reais, label: label });
     setBuying(true);
     setBuyStep('processing');
@@ -131,85 +116,18 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
         }
       });
 
-      if (error) throw new Error(error.message || 'Erro ao gerar PIX.');
-      if (!data?.pix_code) throw new Error(data?.error || 'PIX não foi gerado. Tente novamente.');
+      if (error) throw new Error(error.message || 'Erro ao gerar pagamento.');
+      if (!data?.url) throw new Error(data?.error || 'Link de pagamento não gerado. Tente novamente.');
 
-      // Salvar dados do PIX e mostrar QR Code dentro do app
-      setPixPaymentId(String(data.payment_id));
-      setQrCodeData(data.pix_code);
-      setPixQrImageUrl(data.pix_qr_base64 ? `data:image/png;base64,${data.pix_qr_base64}` : '');
-      setBuyStep('pix');
-
-      // Iniciar polling para verificar pagamento a cada 5 segundos
-      startPixPolling(String(data.payment_id), amount);
+      // Redireciona para a tela oficial do Mercado Pago (PIX + Cartão + Débito)
+      window.location.href = data.url;
 
     } catch (err: any) {
-      console.error("Erro ao gerar PIX:", err);
+      console.error('Erro no checkout:', err);
       setBuying(false);
       setBuyStep('idle');
-      alert(`Erro: ${err.message || 'Não foi possível gerar o PIX. Tente novamente.'}`);
+      alert(`Erro: ${err.message || 'Não foi possível iniciar o pagamento.'}`);
     }
-  }
-
-  function startPixPolling(paymentId: string, moralAmount: number) {
-    // Cancelar polling anterior se existir
-    if (pixPollingRef) clearInterval(pixPollingRef);
-
-    const interval = setInterval(async () => {
-      try {
-        // Verificar no banco se o pagamento já foi processado
-        const { data } = await supabase
-          .from('payment_logs')
-          .select('status, moral_amount')
-          .eq('external_id', paymentId)
-          .single();
-
-        if (data?.status === 'paid') {
-          clearInterval(interval);
-          setPixPollingRef(null);
-          handlePaymentSuccess(moralAmount);
-        }
-      } catch(e) {}
-    }, 5000);
-
-    setPixPollingRef(interval);
-
-    // Parar polling após 15 minutos (tempo de expiração do PIX)
-    setTimeout(() => clearInterval(interval), 15 * 60 * 1000);
-  }
-
-  function handlePaymentSuccess(moralAmount: number) {
-    setBuyStep('done');
-    let current = 0;
-    const countInterval = setInterval(() => {
-      current += Math.ceil(moralAmount / 30);
-      if (current >= moralAmount) {
-        current = moralAmount;
-        clearInterval(countInterval);
-      }
-      setAnimatedMoral(current);
-    }, 30);
-
-    setTimeout(() => {
-      loadData();
-      setBuying(false);
-      setBuyStep('idle');
-      setSelectedPkg(null);
-      setAnimatedMoral(0);
-      setQrCodeData('');
-      setPixQrImageUrl('');
-      setPixPaymentId(null);
-    }, 3500);
-  }
-
-  function cancelPixPayment() {
-    if (pixPollingRef) clearInterval(pixPollingRef);
-    setPixPollingRef(null);
-    setBuying(false);
-    setBuyStep('idle');
-    setQrCodeData('');
-    setPixQrImageUrl('');
-    setPixPaymentId(null);
   }
 
   const MORAL_TO_REAL = 0.01;
@@ -265,15 +183,12 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
 
   return (
     <div style={{ color: '#fff', maxWidth: '500px', margin: '0 auto' }}>
-      
-      {/* --- BANCO VELLAR (Card Hero) --- */}
+
+      {/* --- CARD SALDO --- */}
       <div style={{
         background: 'linear-gradient(135deg, #1e0b3d 0%, #0d041a 100%)',
-        borderRadius: '24px',
-        padding: '1.75rem',
-        border: '1px solid rgba(167, 139, 250, 0.2)',
-        position: 'relative',
-        overflow: 'hidden',
+        borderRadius: '24px', padding: '1.75rem',
+        border: '1px solid rgba(167, 139, 250, 0.2)', position: 'relative', overflow: 'hidden',
         boxShadow: '0 20px 40px rgba(0,0,0,0.6), inset 0 0 40px rgba(167, 139, 250, 0.05)',
         marginBottom: '1.5rem'
       }}>
@@ -295,64 +210,34 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
            </span>
            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)' }}>Moral</span>
         </div>
-        
+
         <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ background: 'rgba(74, 222, 128, 0.1)', color: '#4ade80', padding: '2px 8px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 800 }}>+6.2% HOJE</div>
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.8rem', margin: 0 }}>≈ R$ {(balance * MORAL_TO_REAL).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
         </div>
       </div>
 
       {/* --- QUICK ACTIONS --- */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '2.5rem' }}>
-         <button 
-           onClick={() => setMainTab('buy')}
-           style={{ 
-             background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', 
-             borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
-             cursor: 'pointer', transition: 'all 0.2s',
-             color: mainTab === 'buy' ? 'var(--primary)' : '#fff'
-           }}>
-            <div style={{ width: '40px', height: '40px', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <ArrowDownLeft size={20} />
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>DEPOSITAR</span>
+         <button onClick={() => setMainTab('buy')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', color: mainTab === 'buy' ? 'var(--primary)' : '#fff' }}>
+           <div style={{ width: '40px', height: '40px', background: 'rgba(167, 139, 250, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowDownLeft size={20} /></div>
+           <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>DEPOSITAR</span>
          </button>
-         <button 
-           onClick={() => setMainTab('withdraw')}
-           style={{ 
-             background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', 
-             borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
-             cursor: 'pointer', transition: 'all 0.2s',
-             color: mainTab === 'withdraw' ? '#ef4444' : '#fff'
-           }}>
-            <div style={{ width: '40px', height: '40px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <ArrowUpRight size={20} />
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>SACAR</span>
+         <button onClick={() => setMainTab('withdraw')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', color: mainTab === 'withdraw' ? '#ef4444' : '#fff' }}>
+           <div style={{ width: '40px', height: '40px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ArrowUpRight size={20} /></div>
+           <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>SACAR</span>
          </button>
-         <button 
-           onClick={() => setMainTab('overview')}
-           style={{ 
-             background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', 
-             borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem',
-             cursor: 'pointer', transition: 'all 0.2s',
-             color: mainTab === 'overview' ? '#38bdf8' : '#fff'
-           }}>
-            <div style={{ width: '40px', height: '40px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <History size={20} />
-            </div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>EXTRATO</span>
+         <button onClick={() => setMainTab('overview')} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1.5rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', color: mainTab === 'overview' ? '#38bdf8' : '#fff' }}>
+           <div style={{ width: '40px', height: '40px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><History size={20} /></div>
+           <span style={{ fontSize: '0.75rem', fontWeight: 800 }}>EXTRATO</span>
          </button>
       </div>
 
-      {/* --- CONTENT TABS --- */}
+      {/* --- ABA: EXTRATO --- */}
       {mainTab === 'overview' && (
         <div style={{ animation: 'fadeIn 0.4s ease' }}>
            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'rgba(255,255,255,0.6)' }}>Últimas Movimentações</h3>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>VER TUDO</button>
            </div>
-           
            {transactions.length === 0 ? (
              <div style={{ textAlign: 'center', padding: '4rem 1rem', opacity: 0.3 }}>
                <Clock size={48} style={{ margin: '0 auto 1rem' }} />
@@ -363,24 +248,10 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                 {transactions.map(tx => {
                   const info = TRANSACTION_LABELS[tx.type] || { icon: <Info />, color: '#fff', bg: 'rgba(255,255,255,0.05)', label: tx.type };
                   const isCredit = tx.receiver_id === session?.user?.id;
-                  
                   return (
-                    <div key={tx.id} style={{
-                      background: 'rgba(255,255,255,0.02)',
-                      border: '1px solid rgba(255,255,255,0.05)',
-                      borderRadius: '1.25rem',
-                      padding: '1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      transition: 'transform 0.2s'
-                    }}>
+                    <div key={tx.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.25rem', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                          <div style={{ 
-                            width: '42px', height: '42px', borderRadius: '12px', 
-                            background: info.bg, color: info.color, 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center' 
-                          }}>
+                          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: info.bg, color: info.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                              {info.icon}
                           </div>
                           <div>
@@ -404,6 +275,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
         </div>
       )}
 
+      {/* --- ABA: COMPRAR --- */}
       {mainTab === 'buy' && (
         <div style={{ animation: 'slideUp 0.3s ease' }}>
            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
@@ -417,11 +289,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
            {buyMode === 'packages' ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                  {PACKAGES.map(pkg => (
-                    <button key={pkg.reais} onClick={() => handleBuy(pkg.moral, pkg.reais, pkg.label)} style={{
-                      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
-                      borderRadius: '1.25rem', padding: '1.25rem', cursor: 'pointer', textAlign: 'center',
-                      position: 'relative', transition: 'all 0.2s', overflow: 'hidden'
-                    }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
+                    <button key={pkg.reais} onClick={() => handleBuy(pkg.moral, pkg.reais, pkg.label)} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.25rem', padding: '1.25rem', cursor: 'pointer', textAlign: 'center', position: 'relative', transition: 'all 0.2s', overflow: 'hidden' }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--primary)'} onMouseOut={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'}>
                        {pkg.popular && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, background: 'var(--primary)', color: '#000', fontSize: '0.55rem', fontWeight: 900, padding: '2px 0' }}>POPULAR</div>}
                        <div style={{ fontSize: '1.5rem', fontWeight: 950, color: 'var(--primary)', marginBottom: '0.2rem' }}>{pkg.moral.toLocaleString('pt-BR')}</div>
                        <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '0.75rem' }}>Moral</div>
@@ -433,11 +301,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                  <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem', padding: '1.25rem', textAlign: 'center' }}>
                     <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>DIGITE A QUANTIDADE</span>
-                    <input 
-                      type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)}
-                      placeholder="0"
-                      style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', outline: 'none', margin: '0.5rem 0' }}
-                    />
+                    <input type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)} placeholder="0" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', outline: 'none', margin: '0.5rem 0' }} />
                     <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'center', gap: '1rem', alignItems: 'center' }}>
                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.8rem' }}>Você paga:</span>
                        <span style={{ color: '#4ade80', fontSize: '1.1rem', fontWeight: 900 }}>{customLabel}</span>
@@ -447,33 +311,26 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
               </div>
            )}
 
-            <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
-              <div style={{ color: 'var(--primary)' }}><ShieldCheck size={20} /></div>
-              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong>Mercado Pago (Vellar Pay)</strong> com ambiente seguro e criptografado.</p>
+            <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', background: 'rgba(0,158,227,0.05)', padding: '1rem', borderRadius: '1rem', border: '1px solid rgba(0,158,227,0.15)' }}>
+              <div style={{ color: '#009ee3' }}><ShieldCheck size={20} /></div>
+              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong style={{ color: '#fff' }}>Mercado Pago</strong>. Aceita PIX, Cartão de Crédito e Débito com total segurança.</p>
             </div>
         </div>
       )}
 
+      {/* --- ABA: SACAR --- */}
       {mainTab === 'withdraw' && (
         <div style={{ animation: 'slideUp 0.3s ease' }}>
            <h3 style={{ fontSize: '1.1rem', fontWeight: 900, marginBottom: '1.5rem' }}>Solicitar Cashout</h3>
-           
            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                  <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: '0.5rem' }}>QUANTIDADE DE MORAL (MÍN: 10.000)</label>
-                 <input 
-                   type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)}
-                   style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', fontWeight: 800, outline: 'none' }}
-                   placeholder="Mín: 10000"
-                 />
+                 <input type="number" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', fontWeight: 800, outline: 'none' }} placeholder="Mín: 10000" />
               </div>
-
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <div style={{ flex: '0 0 100px' }}>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: '0.5rem' }}>TIPO</label>
-                  <select 
-                    value={withdrawPixType} onChange={e => setWithdrawPixType(e.target.value)}
-                    style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', outline: 'none', appearance: 'none' }}>
+                  <select value={withdrawPixType} onChange={e => setWithdrawPixType(e.target.value)} style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', outline: 'none', appearance: 'none' }}>
                     <option value="cpf">CPF</option>
                     <option value="phone">Tel</option>
                     <option value="email">Email</option>
@@ -482,14 +339,9 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: '0.5rem' }}>CHAVE PIX DESTINO</label>
-                  <input 
-                    type="text" value={withdrawPixKey} onChange={e => setWithdrawPixKey(e.target.value)}
-                    style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', fontWeight: 700, outline: 'none' }}
-                    placeholder="Sua chave aqui"
-                  />
+                  <input type="text" value={withdrawPixKey} onChange={e => setWithdrawPixKey(e.target.value)} style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: '#fff', fontWeight: 700, outline: 'none' }} placeholder="Sua chave aqui" />
                 </div>
               </div>
-
               <div style={{ background: '#111', padding: '1.25rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                     <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>Valor do Saque (Liquido)</span>
@@ -497,79 +349,52 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                   </div>
                   <p style={{ margin: 0, fontSize: '0.6rem', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '1px' }}>Taxa de administração (35%) já aplicada</p>
               </div>
-
               <button onClick={initiateWithdraw} disabled={!withdrawAmount || Number(withdrawAmount) < 10000} style={{ width: '100%', padding: '1.2rem', background: '#ef4444', border: 'none', borderRadius: '1.25rem', color: '#fff', fontSize: '1rem', fontWeight: 900, cursor: 'pointer', opacity: (!withdrawAmount || Number(withdrawAmount) < 10000) ? 0.3 : 1 }}>SOLICITAR SAQUE</button>
            </div>
         </div>
       )}
 
-      {/* --- OVERLAY MODAIS DE COMPRA --- */}
+      {/* --- MODAL DE COMPRA (Checkout Pro) --- */}
       {buying && createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-           <div style={{ background: 'linear-gradient(145deg, #0d0d1a, #0a0a0a)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: '2.5rem', width: '100%', maxWidth: '400px', padding: '2rem', textAlign: 'center', position: 'relative' }}>
+          <div style={{ background: 'linear-gradient(145deg, #0d0d1a, #0a0a0a)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: '2.5rem', width: '100%', maxWidth: '380px', padding: '2.5rem 2rem', textAlign: 'center', position: 'relative' }}>
 
-              {/* Só mostra o X se não estiver processando */}
-              {buyStep !== 'processing' && (
-                <button onClick={cancelPixPayment} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255,255,255,0.07)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✕</button>
-              )}
-
-              {/* STEP: GERANDO PIX */}
-              {buyStep === 'processing' && (
-                <div style={{ padding: '2rem 0' }}>
-                   <Loader2 size={48} className="animate-spin" color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
-                   <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '0.5rem' }}>Gerando seu PIX...</h3>
-                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Aguarde, estamos preparando o código de pagamento.</p>
+            {/* STEP: REDIRECIONANDO */}
+            {buyStep === 'processing' && (
+              <div style={{ padding: '1rem 0' }}>
+                <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(0,158,227,0.1)', border: '2px solid rgba(0,158,227,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                  <Loader2 size={36} className="animate-spin" style={{ color: '#009ee3' }} />
                 </div>
-              )}
-
-              {/* STEP: QR CODE PIX */}
-              {buyStep === 'pix' && (
-                <div>
-                   {/* Header */}
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                     <span style={{ fontSize: '1.5rem' }}>💚</span>
-                     <h3 style={{ fontSize: '1.2rem', fontWeight: 950, margin: 0 }}>Pagar com PIX</h3>
-                   </div>
-                   <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1rem', marginBottom: '1.25rem' }}>{selectedPkg?.label} → {selectedPkg?.moral} Morais</p>
-
-                   {/* QR Code */}
-                   <div style={{ background: '#fff', padding: '1rem', borderRadius: '1.5rem', marginBottom: '1rem', display: 'inline-block' }}>
-                     <img
-                       src={pixQrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrCodeData)}`}
-                       alt="QR Code PIX"
-                       style={{ width: '180px', height: '180px', display: 'block' }}
-                     />
-                   </div>
-
-                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginBottom: '1rem' }}>Escaneie o QR Code pelo app do seu banco ou copie o código abaixo</p>
-
-                   {/* Botão Copiar */}
-                   <button
-                     onClick={() => { navigator.clipboard.writeText(qrCodeData); }}
-                     style={{ width: '100%', padding: '1rem', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '1rem', color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}
-                   >
-                     <Copy size={16} /> COPIAR CÓDIGO PIX
-                   </button>
-
-                   {/* Status */}
-                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '0.75rem' }}>
-                     <Loader2 size={14} className="animate-spin" color="rgba(255,255,255,0.3)" />
-                     <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Aguardando pagamento... confirmarei automaticamente</span>
-                   </div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '0.5rem', color: '#fff' }}>Abrindo Mercado Pago...</h3>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Você será redirecionado para o ambiente seguro do Mercado Pago para escolher entre <strong style={{ color: '#fff' }}>PIX, Cartão ou Débito</strong>.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: 'rgba(0,158,227,0.08)', borderRadius: '0.75rem', border: '1px solid rgba(0,158,227,0.2)' }}>
+                  <ShieldCheck size={16} color="#009ee3" />
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>Pagamento seguro processado pelo Mercado Pago</span>
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* STEP: SUCESSO */}
-              {buyStep === 'done' && (
-                <div style={{ padding: '2rem 0' }}>
-                   <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-                   <h3 style={{ fontSize: '2rem', fontWeight: 950, color: 'var(--primary)', marginBottom: '0.5rem' }}>+{animatedMoral.toLocaleString('pt-BR')} M</h3>
-                   <p style={{ color: '#fff', fontWeight: 700 }}>PAGAMENTO CONFIRMADO!</p>
-                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '1rem' }}>Sua Moral já está na conta. Aproveite!</p>
-                </div>
-              )}
+            {/* STEP: SUCESSO */}
+            {buyStep === 'done' && (
+              <div style={{ padding: '1rem 0' }}>
+                <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
+                <h3 style={{ fontSize: '2rem', fontWeight: 950, color: 'var(--primary)', marginBottom: '0.5rem' }}>
+                  Pagamento Recebido!
+                </h3>
+                <p style={{ color: '#fff', fontWeight: 700 }}>MOEDAS CREDITADAS!</p>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '1rem' }}>Sua Moral já está na conta. Aproveite!</p>
+                <button
+                  onClick={() => { setBuying(false); setBuyStep('idle'); loadData(); }}
+                  style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: 'var(--primary)', border: 'none', borderRadius: '1rem', color: '#000', fontWeight: 900, cursor: 'pointer' }}
+                >
+                  VER MEU SALDO 💰
+                </button>
+              </div>
+            )}
 
-           </div>
+          </div>
         </div>,
         document.body
       )}
@@ -578,7 +403,6 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       {withdrawStep !== 'idle' && createPortal(
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
            <div style={{ background: '#0a0a0a', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '2rem', width: '100%', maxWidth: '400px', padding: '2rem', textAlign: 'center' }}>
-             
              {withdrawStep === 'confirm' && (
                <div>
                   <div style={{ width: '64px', height: '64px', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}><ArrowUpRight size={32} color="#ef4444" /></div>
@@ -596,7 +420,6 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                   </div>
                </div>
              )}
-
              {withdrawStep === 'processing' && (
                 <div style={{ padding: '2rem 0' }}>
                    <Loader2 size={48} className="animate-spin" color="#ef4444" style={{ margin: '0 auto 1.5rem' }} />
@@ -604,7 +427,6 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                    <p style={{ color: 'rgba(255,255,255,0.4)' }}>Sincronizando com o Vellar Pay.</p>
                 </div>
              )}
-
              {withdrawStep === 'done' && (
                 <div style={{ padding: '2rem 0' }}>
                    <CheckCircle2 size={64} color="#4ade80" style={{ margin: '0 auto 1.5rem' }} />
@@ -613,7 +435,6 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '1rem' }}>Em instantes seu dinheiro cairá no PIX.</p>
                 </div>
              )}
-
              {withdrawStep === 'error' && (
                 <div style={{ padding: '2rem 0' }}>
                    <XCircle size={64} color="#ef4444" style={{ margin: '0 auto 1.5rem' }} />
@@ -622,7 +443,6 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                    <button onClick={() => setWithdrawStep('idle')} style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '1rem', color: '#fff', fontWeight: 700 }}>Tentar Novamente</button>
                 </div>
              )}
-
            </div>
         </div>,
         document.body
