@@ -8,47 +8,62 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    let body: any = {};
+    try { body = await req.json(); } catch(e) {}
+    
     const url = new URL(req.url);
-    // O Mercado Pago envia o ID via query params ou body
-    const id = url.searchParams.get('data.id') || url.searchParams.get('id');
-    const type = url.searchParams.get('type') || 'payment';
+    const paymentId = body?.data?.id || url.searchParams.get('data.id') || url.searchParams.get('id');
+    const type = body?.type || url.searchParams.get('type') || 'payment';
 
-    console.log(`WEBHOOK RECEBIDO: Type=${type}, ID=${id}`);
+    console.log(`WEBHOOK RECEBIDO - Tipo: ${type}, Payment ID: ${paymentId}`);
 
-    if (type === 'payment' && id) {
+    if (type === 'payment' && paymentId) {
       const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
       
-      // Consultar o status real do pagamento no Mercado Pago
-      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${mpAccessToken}`
-        }
+      // Consultar status real no Mercado Pago
+      const mpResponse = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+        headers: { 'Authorization': `Bearer ${mpAccessToken}` }
       });
 
-      const paymentData = await mpResponse.json();
+      const payment = await mpResponse.json();
+      console.log(`STATUS: ${payment.status} | ID: ${paymentId}`);
 
-      if (paymentData.status === 'approved') {
-        const externalId = paymentData.order?.id || paymentData.preference_id;
-        
-        console.log("PAGAMENTO APROVADO! Processando...", {
-          paymentId: id,
-          externalId,
-          status: paymentData.status
-        });
+      if (payment.status === 'approved') {
+        // Buscar o log de pagamento pelo ID do pagamento (external_id = payment.id)
+        const { data: logData, error: logError } = await supabase
+          .from('payment_logs')
+          .select('*')
+          .eq('external_id', String(paymentId))
+          .eq('status', 'pending')
+          .single();
 
-        // Chamar a RPC confirm_payment que já existe no seu banco de dados
-        // Ela lida com: atualizar log, creditar saldo e gerar transação
-        const { data, error } = await supabase.rpc('confirm_payment', {
-          p_external_id: externalId,
-          p_provider: 'mercadopago'
-        });
-
-        if (error) {
-          console.error("Erro ao confirmar pagamento no banco:", error);
-          throw error;
+        if (logError || !logData) {
+          console.error('Log de pagamento não encontrado para ID:', paymentId);
+          // Retornamos 200 para o MP não ficar reenviando
+          return new Response(JSON.stringify({ success: false, reason: 'log_not_found' }), { status: 200 });
         }
 
-        console.log("RESULTADO RPC:", data);
+        console.log('LOG ENCONTRADO:', logData);
+
+        // Atualizar o log para 'paid'
+        await supabase
+          .from('payment_logs')
+          .update({ status: 'paid' })
+          .eq('id', logData.id);
+
+        // Creditar o saldo usando a RPC existente
+        const { data: rpcData, error: rpcError } = await supabase.rpc('purchase_moral', {
+          p_user_id: logData.user_id,
+          p_amount: logData.moral_amount,
+          p_reais: logData.amount_reais
+        });
+
+        if (rpcError) {
+          console.error('ERRO NA RPC purchase_moral:', rpcError);
+          throw rpcError;
+        }
+
+        console.log('MOEDAS CREDITADAS COM SUCESSO!', rpcData);
       }
     }
 
@@ -56,6 +71,6 @@ serve(async (req) => {
 
   } catch (err: any) {
     console.error("ERRO NO WEBHOOK:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: 200 });
   }
 })

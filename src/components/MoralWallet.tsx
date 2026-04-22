@@ -108,6 +108,11 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
     setLoading(false);
   }
 
+  const [pixPaymentId, setPixPaymentId] = useState<string | null>(null);
+  const [qrCodeData, setQrCodeData] = useState('');
+  const [pixQrImageUrl, setPixQrImageUrl] = useState('');
+  const [pixPollingRef, setPixPollingRef] = useState<any>(null);
+
   async function handleBuy(amount: number, reais: number, label: string) {
     if (buying || !amount || amount <= 0 || isNaN(amount)) return;
     
@@ -116,70 +121,95 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
     setBuyStep('processing');
 
     try {
-      // Chamando a nossa Edge Function do Supabase para o Mercado Pago
       const { data, error } = await supabase.functions.invoke('mercadopago-checkout', {
         body: {
           amount: reais,
           moralAmount: amount,
           userId: session.user.id,
-          userName: profile.username || 'Usuario Vellar'
+          userName: profile.username || 'Usuario Vellar',
+          userEmail: session.user.email || null
         }
       });
 
-      if (error || !data?.url) {
-        const serverError = error?.context?.json?.details || error?.message || 'Erro ao gerar link de pagamento.';
-        throw new Error(serverError);
-      }
+      if (error) throw new Error(error.message || 'Erro ao gerar PIX.');
+      if (!data?.pix_code) throw new Error(data?.error || 'PIX não foi gerado. Tente novamente.');
 
-      // REDIRECIONAR PARA O MERCADO PAGO (PIX / CARTÃO)
-      window.location.href = data.url;
+      // Salvar dados do PIX e mostrar QR Code dentro do app
+      setPixPaymentId(String(data.payment_id));
+      setQrCodeData(data.pix_code);
+      setPixQrImageUrl(data.pix_qr_base64 ? `data:image/png;base64,${data.pix_qr_base64}` : '');
+      setBuyStep('pix');
+
+      // Iniciar polling para verificar pagamento a cada 5 segundos
+      startPixPolling(String(data.payment_id), amount);
 
     } catch (err: any) {
-      console.error("Erro no checkout Mercado Pago:", err);
+      console.error("Erro ao gerar PIX:", err);
       setBuying(false);
       setBuyStep('idle');
-      alert(`Erro: ${err.message || 'Não foi possível iniciar o pagamento. Tente novamente.'}`);
+      alert(`Erro: ${err.message || 'Não foi possível gerar o PIX. Tente novamente.'}`);
     }
   }
 
-  const [qrCodeData, setQrCodeData] = useState('');
-  const [pixQrImageUrl, setPixQrImageUrl] = useState('');
+  function startPixPolling(paymentId: string, moralAmount: number) {
+    // Cancelar polling anterior se existir
+    if (pixPollingRef) clearInterval(pixPollingRef);
 
-  async function simulatePaymentConfirmation() {
-    setBuyStep('processing');
-    const { data, error } = await supabase.rpc('purchase_moral', {
-        p_user_id: session.user.id,
-        p_amount: selectedPkg.moral,
-        p_reais: selectedPkg.reais,
-    });
+    const interval = setInterval(async () => {
+      try {
+        // Verificar no banco se o pagamento já foi processado
+        const { data } = await supabase
+          .from('payment_logs')
+          .select('status, moral_amount')
+          .eq('external_id', paymentId)
+          .single();
 
-    if (error || !data?.success) {
-      setBuying(false);
-      setBuyStep('idle');
-      alert('Erro ao processar. Tente novamente!');
-      return;
-    }
+        if (data?.status === 'paid') {
+          clearInterval(interval);
+          setPixPollingRef(null);
+          handlePaymentSuccess(moralAmount);
+        }
+      } catch(e) {}
+    }, 5000);
 
+    setPixPollingRef(interval);
+
+    // Parar polling após 15 minutos (tempo de expiração do PIX)
+    setTimeout(() => clearInterval(interval), 15 * 60 * 1000);
+  }
+
+  function handlePaymentSuccess(moralAmount: number) {
     setBuyStep('done');
     let current = 0;
-    const interval = setInterval(() => {
-      current += Math.ceil(selectedPkg.moral / 30);
-      if (current >= selectedPkg.moral) {
-        current = selectedPkg.moral;
-        clearInterval(interval);
+    const countInterval = setInterval(() => {
+      current += Math.ceil(moralAmount / 30);
+      if (current >= moralAmount) {
+        current = moralAmount;
+        clearInterval(countInterval);
       }
       setAnimatedMoral(current);
     }, 30);
 
     setTimeout(() => {
-      setBalance(data.new_balance);
-      onBalanceUpdate?.(data.new_balance);
       loadData();
       setBuying(false);
       setBuyStep('idle');
       setSelectedPkg(null);
       setAnimatedMoral(0);
-    }, 3000);
+      setQrCodeData('');
+      setPixQrImageUrl('');
+      setPixPaymentId(null);
+    }, 3500);
+  }
+
+  function cancelPixPayment() {
+    if (pixPollingRef) clearInterval(pixPollingRef);
+    setPixPollingRef(null);
+    setBuying(false);
+    setBuyStep('idle');
+    setQrCodeData('');
+    setPixQrImageUrl('');
+    setPixPaymentId(null);
   }
 
   const MORAL_TO_REAL = 0.01;
@@ -473,40 +503,63 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
         </div>
       )}
 
-      {/* --- OVERLAY MODALS --- */}
+      {/* --- OVERLAY MODAIS DE COMPRA --- */}
       {buying && createPortal(
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-           <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '2.5rem', width: '100%', maxWidth: '400px', padding: '2rem', textAlign: 'center', position: 'relative' }}>
-              <button onClick={() => setBuying(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255,255,255,0.05)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer' }}>X</button>
-              
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+           <div style={{ background: 'linear-gradient(145deg, #0d0d1a, #0a0a0a)', border: '1px solid rgba(167,139,250,0.15)', borderRadius: '2.5rem', width: '100%', maxWidth: '400px', padding: '2rem', textAlign: 'center', position: 'relative' }}>
+
+              {/* Só mostra o X se não estiver processando */}
+              {buyStep !== 'processing' && (
+                <button onClick={cancelPixPayment} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255,255,255,0.07)', border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✕</button>
+              )}
+
+              {/* STEP: GERANDO PIX */}
               {buyStep === 'processing' && (
                 <div style={{ padding: '2rem 0' }}>
                    <Loader2 size={48} className="animate-spin" color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
-                   <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem' }}>Preparando Pagamento...</h3>
-                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>Você será redirecionado para o ambiente seguro do Mercado Pago.</p>
+                   <h3 style={{ fontSize: '1.3rem', fontWeight: 900, marginBottom: '0.5rem' }}>Gerando seu PIX...</h3>
+                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>Aguarde, estamos preparando o código de pagamento.</p>
                 </div>
               )}
 
+              {/* STEP: QR CODE PIX */}
               {buyStep === 'pix' && (
                 <div>
-                   <h3 style={{ fontSize: '1.4rem', fontWeight: 950, marginBottom: '0.5rem' }}>Pagamento PIX</h3>
-                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>Copie o código abaixo e pague no seu banco.</p>
-                   
-                   <div style={{ background: '#fff', padding: '2rem', borderRadius: '1.5rem', marginBottom: '1.5rem', border: '1px dashed var(--primary)' }}>
-                      <div style={{ width: '200px', height: '200px', background: '#fff', margin: '0 auto 1rem', padding: '10px', borderRadius: '12px' }}>
-                         <img src={pixQrImageUrl || "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=vellar-pay-demo"} style={{ width: '100%' }} />
-                      </div>
-                      <p style={{ fontSize: '0.9rem', fontWeight: 800, color: '#000' }}>{selectedPkg?.label}</p>
+                   {/* Header */}
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                     <span style={{ fontSize: '1.5rem' }}>💚</span>
+                     <h3 style={{ fontSize: '1.2rem', fontWeight: 950, margin: 0 }}>Pagar com PIX</h3>
+                   </div>
+                   <p style={{ color: 'var(--primary)', fontWeight: 800, fontSize: '1rem', marginBottom: '1.25rem' }}>{selectedPkg?.label} → {selectedPkg?.moral} Morais</p>
+
+                   {/* QR Code */}
+                   <div style={{ background: '#fff', padding: '1rem', borderRadius: '1.5rem', marginBottom: '1rem', display: 'inline-block' }}>
+                     <img
+                       src={pixQrImageUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrCodeData)}`}
+                       alt="QR Code PIX"
+                       style={{ width: '180px', height: '180px', display: 'block' }}
+                     />
                    </div>
 
-                   <button onClick={() => { navigator.clipboard.writeText(qrCodeData); alert('Código PIX Copiado!'); }} style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '1rem' }}>
-                      <Copy size={18} /> COPIAR CÓDIGO PIX
+                   <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginBottom: '1rem' }}>Escaneie o QR Code pelo app do seu banco ou copie o código abaixo</p>
+
+                   {/* Botão Copiar */}
+                   <button
+                     onClick={() => { navigator.clipboard.writeText(qrCodeData); }}
+                     style={{ width: '100%', padding: '1rem', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: '1rem', color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '0.75rem', cursor: 'pointer', fontSize: '0.9rem' }}
+                   >
+                     <Copy size={16} /> COPIAR CÓDIGO PIX
                    </button>
 
-                   <button onClick={simulatePaymentConfirmation} style={{ width: '100%', padding: '1.2rem', background: 'var(--primary)', border: 'none', borderRadius: '1rem', color: '#000', fontWeight: 900 }}>JÁ PAGUEI ✅</button>
+                   {/* Status */}
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', background: 'rgba(0,0,0,0.3)', borderRadius: '0.75rem' }}>
+                     <Loader2 size={14} className="animate-spin" color="rgba(255,255,255,0.3)" />
+                     <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Aguardando pagamento... confirmarei automaticamente</span>
+                   </div>
                 </div>
               )}
 
+              {/* STEP: SUCESSO */}
               {buyStep === 'done' && (
                 <div style={{ padding: '2rem 0' }}>
                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
@@ -515,6 +568,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '1rem' }}>Sua Moral já está na conta. Aproveite!</p>
                 </div>
               )}
+
            </div>
         </div>,
         document.body

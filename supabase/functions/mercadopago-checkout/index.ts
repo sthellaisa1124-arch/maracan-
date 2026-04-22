@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     if (!mpAccessToken) {
-      throw new Error('A chave MERCADOPAGO_ACCESS_TOKEN não foi configurada nos Secrets! 😱');
+      throw new Error('MERCADOPAGO_ACCESS_TOKEN não configurado!');
     }
 
     const supabase = createClient(
@@ -23,101 +23,77 @@ serve(async (req) => {
     )
 
     const body = await req.json()
-    const { amount, moralAmount, userId, userName } = body
-
-    console.log("DADOS RECEBIDOS MERCADO PAGO:", { amount, moralAmount, userId, userName });
+    const { amount, moralAmount, userId, userName, userEmail } = body
 
     if (!amount || !userId) {
-      throw new Error(`Dados incompletos! Amount: ${amount}, User: ${userId}`);
+      throw new Error(`Dados incompletos!`);
     }
 
-    const origin = req.headers.get('origin') || 'https://vellar-teal.vercel.app';
-
-    // 1. Criar Preferência no Mercado Pago
-    const mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    // Gerar pagamento PIX diretamente via API (sem redirecionar para fora)
+    const mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${mpAccessToken}`,
         'Content-Type': 'application/json',
+        'X-Idempotency-Key': `vellar-${userId}-${Date.now()}` // Evita pagamentos duplicados
       },
       body: JSON.stringify({
-        items: [
-          {
-            title: `${moralAmount} Morais - Vellar App`,
-            description: `Crédito de moedas virtuais para a plataforma Vellar`,
-            quantity: 1,
-            unit_price: Number(amount),
-            currency_id: 'BRL'
-          }
-        ],
+        transaction_amount: Number(amount),
+        description: `${moralAmount} Morais - Vellar App`,
+        payment_method_id: 'pix',
         payer: {
-          name: userName || 'Usuário Vellar',
-          email: `${userId}@vellar.app` // Email fictício se não tivermos o real
+          email: userEmail || `user.${userId.substring(0, 8)}@vellar.app`,
+          first_name: (userName || 'Usuario').split(' ')[0],
+          last_name: (userName || 'Vellar').split(' ').slice(1).join(' ') || 'Vellar',
+          identification: {
+            type: 'CPF',
+            number: '00000000000' // Placeholder — o Mercado Pago aceita para PIX
+          }
         },
-        back_urls: {
-          success: `${origin}/?payment=success`,
-          failure: `${origin}/?payment=cancel`,
-          pending: `${origin}/?payment=pending`
-        },
-        auto_return: 'approved',
-        notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`,
-        metadata: {
-          user_id: userId,
-          moral_amount: moralAmount,
-          reais_amount: amount
-        },
-        payment_methods: {
-          excluded_payment_types: [
-            { id: 'ticket' } // Remove boleto se quiser apenas PIX/Cartão
-          ],
-          installments: 12
-        }
+        notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`
       })
     });
 
-    const preference = await mpResponse.json();
+    const payment = await mpResponse.json();
 
     if (!mpResponse.ok) {
-      console.error("ERRO API MERCADO PAGO:", preference);
-      throw new Error(preference.message || 'Erro ao criar preferência no Mercado Pago');
+      console.error("ERRO MP:", payment);
+      throw new Error(payment.message || payment.cause?.[0]?.description || 'Erro ao gerar PIX no Mercado Pago');
     }
 
-    // 2. Registrar no banco de dados (payment_logs)
-    const { error: dbError } = await supabase
-      .from('payment_logs')
-      .insert({
-        user_id: userId,
-        amount_reais: amount,
-        moral_amount: moralAmount,
-        external_id: preference.id, // ID da preferência
-        status: 'pending',
-        payload: preference
-      })
+    const pixData = payment.point_of_interaction?.transaction_data;
 
-    if (dbError) {
-      console.error("Erro ao gravar log de pagamento:", dbError)
+    if (!pixData?.qr_code) {
+      throw new Error('PIX não foi gerado corretamente. Verifique a conta do Mercado Pago.');
     }
+
+    // Registrar no banco
+    await supabase.from('payment_logs').insert({
+      user_id: userId,
+      amount_reais: amount,
+      moral_amount: moralAmount,
+      external_id: String(payment.id), // ID do PAGAMENTO (não da preferência)
+      status: 'pending',
+      pix_code: pixData.qr_code,
+      pix_qr_url: pixData.qr_code_base64 ? `data:image/png;base64,${pixData.qr_code_base64}` : null
+    });
 
     return new Response(
-      JSON.stringify({ url: preference.init_point, id: preference.id }),
-      { 
-        status: 200, 
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({
+        payment_id: payment.id,
+        pix_code: pixData.qr_code,
+        pix_qr_base64: pixData.qr_code_base64,
+        status: payment.status,
+        expires_at: payment.date_of_expiration
+      }),
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     )
 
   } catch (err: any) {
-    console.error("ERRO NO CHECKOUT MERCADO PAGO:", err.message);
-    
+    console.error("ERRO NO CHECKOUT PIX:", err.message);
     return new Response(
-      JSON.stringify({ 
-        error: err.message,
-        details: "Erro na integração com Mercado Pago."
-      }),
-      { 
-        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, 
-        status: 400 
-      }
+      JSON.stringify({ error: err.message }),
+      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }, status: 400 }
     )
   }
 })
