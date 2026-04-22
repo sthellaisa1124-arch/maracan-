@@ -62,49 +62,49 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   const [verifying, setVerifying] = useState(false);
+  const [returnedPaymentId, setReturnedPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
 
     // Detecção de retorno do Mercado Pago
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'success') {
+    if (params.get('payment') === 'success' || params.get('collection_id') || params.get('payment_id')) {
+      const pid = params.get('payment_id') || params.get('collection_id');
+      if (pid) setReturnedPaymentId(pid);
+      
       window.history.replaceState({}, '', window.location.pathname);
       setBuying(true);
       setBuyStep('done');
-      // Tenta atualizar o saldo várias vezes para pegar o crédito do webhook
-      const checks = [3000, 6000, 10000, 15000];
-      checks.forEach(delay => {
-        setTimeout(() => loadData(), delay);
-      });
+      // Tenta atualizar o saldo várias vezes
+      const checks = [3000, 6000, 10000];
+      checks.forEach(delay => setTimeout(() => loadData(), delay));
     }
   }, [session?.user?.id]);
 
   async function verifyPaymentManually() {
     setVerifying(true);
-    // Busca o último log pendente do usuário e tenta confirmar
-    const { data: logs } = await supabase
-      .from('payment_logs')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (logs && logs.length > 0) {
-      const log = logs[0];
-      // Chama o webhook manualmente para tentar reprocessar
-      try {
+    try {
+      if (returnedPaymentId) {
+        // Envia o ID real do pagamento que veio pela URL de retorno
         await supabase.functions.invoke('mercadopago-webhook', {
-          body: { type: 'payment', data: { id: log.external_id } }
+          body: { type: 'payment', data: { id: returnedPaymentId } }
         });
         await new Promise(r => setTimeout(r, 2000));
-      } catch(e) {}
-    }
+      } else {
+        // Se não houver ID do pagamento, tenta buscar o log pendente 
+        const { data: logs } = await supabase.from('payment_logs').select('*').eq('user_id', session.user.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1);
+        if (logs && logs.length > 0) {
+          alert('Por favor, certifique-se de que o pagamento de ' + logs[0].moral_amount + ' morais foi concluído no Mercado Pago.');
+          // Como não temos o payment_id aqui, o webhook automático do MP tem que operar
+        }
+      }
+    } catch(e) {}
 
     await loadData();
     setVerifying(false);
   }
+
 
   async function loadData() {
     setLoading(true);

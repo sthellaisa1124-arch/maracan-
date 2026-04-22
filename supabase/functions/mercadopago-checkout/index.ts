@@ -61,9 +61,13 @@ serve(async (req) => {
           user_id: userId,
           moral_amount: String(moralAmount),
           reais_amount: String(amount)
+        },
+        payment_methods: {
+          default_payment_method_id: 'pix',
+          installments: 1
         }
-        // SEM filtro de payment_methods — deixa TUDO aparecer (PIX + Cartão)
       })
+
     });
 
     const preference = await mpResponse.json();
