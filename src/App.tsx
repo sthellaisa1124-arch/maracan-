@@ -474,7 +474,10 @@ function App() {
               <AvistaCreator
                 session={session}
                 onClose={() => setIsAvistaModalOpen(false)}
-                onRefresh={() => window.location.reload()}
+                onRefresh={() => {
+                  setIsAvistaModalOpen(false);
+                  if (session?.user?.id) fetchUserProfile(session.user.id);
+                }}
               />
             )}
             {isSetupLiveOpen && (
@@ -604,10 +607,11 @@ function App() {
           session={session} 
           onClose={() => setIsCreatingStatus(false)}
           onRefresh={() => {
-            // Recarrega a página ou dispara um evento de refresh se necessário
-            // Por enquanto, o refresh vai depender do componente Community montar novamente ou ser notificado
+            // Recarrega os dados necessários sem recarregar a página inteira
             setIsCreatingStatus(false);
-            window.location.reload(); // Forma bruta, mas garante o refresh dos stories em todas as abas
+            if (session?.user?.id) {
+              fetchUserProfile(session.user.id);
+            }
           }}
         />
       )}

@@ -3,25 +3,19 @@
 :root {
   --bg-color: #000000;
   --text-color: #fafaf9;
-  --primary-color: #a855f7; /* ROXO NEON ELITE */
-  --primary-hover: #9333ea;
-  --accent-color: #22c55e;
-  --card-bg: rgba(15, 15, 15, 0.7);
-  --border-color: rgba(255, 255, 255, 0.05);
-  --input-bg: rgba(30, 30, 30, 0.5);
-  --sidebar-width: 280px;
-  --font-family: 'Outfit', 'Inter', sans-serif;
-  --glass-bg: rgba(10, 10, 15, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.05);
-  
-  /* ELITE VARIABLES */
   --primary: #a855f7; /* ROXO NEON ELITE */
+  --primary-hover: #9333ea;
   --secondary: #6366f1;
+  --accent: #22c55e;
   --bg-dark: #000000;
   --glass: rgba(255, 255, 255, 0.03);
+  --glass-bg: rgba(10, 10, 15, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.05);
   --separator: rgba(255, 255, 255, 0.05);
   --text-muted: rgba(255, 255, 255, 0.4);
   --primary-glow: rgba(168, 85, 247, 0.5); /* BRILHO ROXO */
+  --font-family: 'Outfit', 'Inter', sans-serif;
+  --sidebar-width: 280px;
 }
 
 /* --- RESET & BASIC --- */

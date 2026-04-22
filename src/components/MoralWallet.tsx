@@ -23,9 +23,10 @@ import {
 import { createPixPayment } from '../lib/pushinpay';
 
 const PACKAGES = [
+  { reais: 0.5, moral: 50,   label: 'R$ 0,50', popular: true },
   { reais: 1,  moral: 100,  label: 'R$ 1,00', popular: false },
   { reais: 5,  moral: 500,  label: 'R$ 5,00', popular: false },
-  { reais: 10, moral: 1000, label: 'R$ 10,00', popular: true },
+  { reais: 10, moral: 1000, label: 'R$ 10,00', popular: false },
   { reais: 20, moral: 2000, label: 'R$ 20,00', popular: false },
   { reais: 50, moral: 5000, label: 'R$ 50,00', popular: false },
 ];
@@ -115,8 +116,8 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
     setBuyStep('processing');
 
     try {
-      // Chamando a nossa Edge Function do Supabase
-      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+      // Chamando a nossa Edge Function do Supabase para o Mercado Pago
+      const { data, error } = await supabase.functions.invoke('mercadopago-checkout', {
         body: {
           amount: reais,
           moralAmount: amount,
@@ -126,16 +127,15 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       });
 
       if (error || !data?.url) {
-        // Tenta pegar o erro detalhado vindo do servidor
         const serverError = error?.context?.json?.details || error?.message || 'Erro ao gerar link de pagamento.';
         throw new Error(serverError);
       }
 
-      // REDIRECIONAR PARA A STRIPE
+      // REDIRECIONAR PARA O MERCADO PAGO (PIX / CARTÃO)
       window.location.href = data.url;
 
     } catch (err: any) {
-      console.error("Erro no checkout Stripe:", err);
+      console.error("Erro no checkout Mercado Pago:", err);
       setBuying(false);
       setBuyStep('idle');
       alert(`Erro: ${err.message || 'Não foi possível iniciar o pagamento. Tente novamente.'}`);
@@ -413,13 +413,13 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                        <span style={{ color: '#4ade80', fontSize: '1.1rem', fontWeight: 900 }}>{customLabel}</span>
                     </div>
                  </div>
-                 <button onClick={() => handleBuy(Number(customAmount), customReais, customLabel)} style={{ width: '100%', padding: '1.2rem', background: 'var(--primary)', border: 'none', borderRadius: '1.25rem', color: '#000', fontSize: '1rem', fontWeight: 900, cursor: 'pointer' }}>GERAR PIX</button>
+                 <button onClick={() => handleBuy(Number(customAmount), customReais, customLabel)} style={{ width: '100%', padding: '1.2rem', background: 'var(--primary)', border: 'none', borderRadius: '1.25rem', color: '#000', fontSize: '1rem', fontWeight: 900, cursor: 'pointer' }}>PAGAR COM PIX / CARTÃO</button>
               </div>
            )}
 
             <div style={{ marginTop: '2rem', display: 'flex', gap: '0.75rem', background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '1rem' }}>
               <div style={{ color: 'var(--primary)' }}><ShieldCheck size={20} /></div>
-              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong>Stripe (Vellar Pay)</strong> com ambiente seguro e criptografado.</p>
+              <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)', lineHeight: 1.4 }}>Pagamento processado via <strong>Mercado Pago (Vellar Pay)</strong> com ambiente seguro e criptografado.</p>
             </div>
         </div>
       )}
@@ -483,7 +483,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
                 <div style={{ padding: '2rem 0' }}>
                    <Loader2 size={48} className="animate-spin" color="var(--primary)" style={{ margin: '0 auto 1.5rem' }} />
                    <h3 style={{ fontSize: '1.4rem', fontWeight: 900, marginBottom: '0.5rem' }}>Preparando Pagamento...</h3>
-                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>Você será redirecionado para o ambiente seguro da Stripe.</p>
+                   <p style={{ color: 'rgba(255,255,255,0.4)' }}>Você será redirecionado para o ambiente seguro do Mercado Pago.</p>
                 </div>
               )}
 
