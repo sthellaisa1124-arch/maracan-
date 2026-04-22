@@ -61,21 +61,50 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
   const [withdrawStep, setWithdrawStep] = useState<'idle' | 'confirm' | 'processing' | 'done' | 'error'>('idle');
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
+  const [verifying, setVerifying] = useState(false);
+
   useEffect(() => {
     loadData();
 
-    // Detecção de Sucesso no Pagamento (voltando do Mercado Pago)
+    // Detecção de retorno do Mercado Pago
     const params = new URLSearchParams(window.location.search);
     if (params.get('payment') === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
-      // Aguarda até 5s para o webhook processar e creditar as moedas
-      setTimeout(() => {
-        loadData();
-        setBuying(true);
-        setBuyStep('done');
-      }, 4000);
+      setBuying(true);
+      setBuyStep('done');
+      // Tenta atualizar o saldo várias vezes para pegar o crédito do webhook
+      const checks = [3000, 6000, 10000, 15000];
+      checks.forEach(delay => {
+        setTimeout(() => loadData(), delay);
+      });
     }
   }, [session?.user?.id]);
+
+  async function verifyPaymentManually() {
+    setVerifying(true);
+    // Busca o último log pendente do usuário e tenta confirmar
+    const { data: logs } = await supabase
+      .from('payment_logs')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (logs && logs.length > 0) {
+      const log = logs[0];
+      // Chama o webhook manualmente para tentar reprocessar
+      try {
+        await supabase.functions.invoke('mercadopago-webhook', {
+          body: { type: 'payment', data: { id: log.external_id } }
+        });
+        await new Promise(r => setTimeout(r, 2000));
+      } catch(e) {}
+    }
+
+    await loadData();
+    setVerifying(false);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -386,21 +415,32 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
               </div>
             )}
 
-            {/* STEP: SUCESSO */}
+            {/* STEP: SUCESSO (ou Retorno) */}
             {buyStep === 'done' && (
               <div style={{ padding: '1rem 0' }}>
                 <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-                <h3 style={{ fontSize: '2rem', fontWeight: 950, color: 'var(--primary)', marginBottom: '0.5rem' }}>
-                  Pagamento Recebido!
+                <h3 style={{ fontSize: '1.8rem', fontWeight: 950, color: 'var(--primary)', marginBottom: '0.5rem' }}>
+                  Aguardando Confirmação
                 </h3>
-                <p style={{ color: '#fff', fontWeight: 700 }}>MOEDAS CREDITADAS!</p>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginTop: '1rem' }}>Sua Moral já está na conta. Aproveite!</p>
-                <button
-                  onClick={() => { setBuying(false); setBuyStep('idle'); loadData(); }}
-                  style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: 'var(--primary)', border: 'none', borderRadius: '1rem', color: '#000', fontWeight: 900, cursor: 'pointer' }}
-                >
-                  VER MEU SALDO 💰
-                </button>
+                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Se você já efetuou o pagamento, seus Morais cairão em instantes.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <button
+                    onClick={verifyPaymentManually}
+                    disabled={verifying}
+                    style={{ width: '100%', padding: '1rem', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '1rem', color: '#fff', fontWeight: 800, cursor: verifying ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                  >
+                    {verifying ? <Loader2 size={18} className="animate-spin" /> : <Clock size={18} />}
+                    {verifying ? 'VERIFICANDO...' : 'JÁ PAGUEI / VERIFICAR'}
+                  </button>
+                  <button
+                    onClick={() => { setBuying(false); setBuyStep('idle'); loadData(); }}
+                    style={{ width: '100%', padding: '1rem', background: 'var(--primary)', border: 'none', borderRadius: '1rem', color: '#000', fontWeight: 900, cursor: 'pointer' }}
+                  >
+                    VOLTAR PARA A CARTEIRA
+                  </button>
+                </div>
               </div>
             )}
 
