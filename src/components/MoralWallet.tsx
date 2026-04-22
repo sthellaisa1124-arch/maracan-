@@ -78,7 +78,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       setBuyStep('done');
       // Tenta atualizar o saldo várias vezes
       const checks = [3000, 6000, 10000];
-      checks.forEach(delay => setTimeout(() => loadData(), delay));
+      checks.forEach(delay => setTimeout(() => loadData(false), delay));
     }
   }, [session?.user?.id]);
 
@@ -101,15 +101,15 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
       }
     } catch(e) {}
 
-    await loadData();
+    await loadData(false);
     setVerifying(false);
   }
 
 
-  async function loadData() {
-    setLoading(true);
+  async function loadData(showSpinner = true) {
+    if (showSpinner && transactions.length === 0) setLoading(true);
     const userId = session?.user?.id;
-    if (!userId) { setLoading(false); return; }
+    if (!userId) { if (showSpinner) setLoading(false); return; }
 
     const [{ data: prof }, { data: txs }] = await Promise.all([
       supabase.from('profiles').select('moral_balance').eq('id', userId).single(),
@@ -123,7 +123,7 @@ export function MoralWallet({ session, profile, onBalanceUpdate }: MoralWalletPr
 
     if (prof) { setBalance(prof.moral_balance); onBalanceUpdate?.(prof.moral_balance); }
     if (txs) setTransactions(txs);
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   }
 
   async function handleBuy(amount: number, reais: number, label: string) {
