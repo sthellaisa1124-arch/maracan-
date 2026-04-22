@@ -35,16 +35,16 @@ serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, status: payment.status }), { status: 200 });
     }
 
-    // 2. Usar o preference_id para encontrar o log e creditar via RPC confirm_payment
-    const preferenceId = payment.preference_id;
-    if (!preferenceId) {
-      console.error('preference_id ausente no pagamento!');
-      return new Response(JSON.stringify({ ok: false, error: 'no_preference_id' }), { status: 200 });
+    // 2. Usar o preference_id ou o próprio payment.id (para PIX Inline)
+    const reconciliationId = payment.preference_id || String(payment.id);
+    if (!reconciliationId) {
+      console.error('ID de Reconciliação ausente no pagamento!');
+      return new Response(JSON.stringify({ ok: false, error: 'no_reconciliation_id' }), { status: 200 });
     }
 
     // 3. Chamar a RPC confirm_payment que faz tudo: atualiza o log E credita o saldo
     const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_payment', {
-      p_external_id: preferenceId,
+      p_external_id: reconciliationId,
       p_provider: 'mercadopago'
     });
 
