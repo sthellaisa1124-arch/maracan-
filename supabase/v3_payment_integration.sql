@@ -71,8 +71,13 @@ BEGIN
     -- 4. Atualizar a transação gerada com o external_id
     UPDATE public.moral_transactions 
     SET external_id = p_external_id, external_provider = p_provider
-    WHERE receiver_id = v_user_id AND type = 'compra' AND external_id IS NULL
-    ORDER BY created_at DESC LIMIT 1;
+    WHERE id = (
+        SELECT id 
+        FROM public.moral_transactions 
+        WHERE receiver_id = v_user_id AND type = 'compra' AND external_id IS NULL
+        ORDER BY created_at DESC 
+        LIMIT 1
+    );
 
     RETURN jsonb_build_object('success', true, 'message', 'Pagamento confirmado e Moral creditada!');
 
